@@ -1,12 +1,14 @@
 import { dealDamage, executeEffect, type Combat } from './effectExecutor';
 import { CELL_COUNT, resolveTargets } from './grid';
-import { type BattleEvent, type Catalog, type Random, type Slots, type Timing, initialRuneState } from './types';
+import type { EncounterId } from './expedition';
+import { type BattleEvent, type Catalog, type Random, type RelicId, type Slots, type Timing, initialRuneState } from './types';
 
 export const MAX_CELL_TRIGGERS = 8;
 export const MAX_DEPTH = 24;
 export const MAX_EVENTS = 300;
 
-export function createEventBus(board: Readonly<Slots>, catalog: Catalog, hp: number, gold: number, poison: number, rng: Random, tutorial: boolean) {
+export function createEventBus(board: Readonly<Slots>, catalog: Catalog, hp: number, gold: number, poison: number, rng: Random,
+  tutorial: boolean, encounter: EncounterId, relics: readonly RelicId[]) {
   const events: BattleEvent[] = [];
   const fighters = Array.from({ length: CELL_COUNT }, (_, index) => {
     const rune = board[index];
@@ -15,7 +17,7 @@ export function createEventBus(board: Readonly<Slots>, catalog: Catalog, hp: num
   let limit = MAX_EVENTS - 3;
   let tutorialPending = tutorial && fighters[0]?.rune.configId === 'spark_orb' && fighters[1]?.rune.configId === 'prism_right';
   const combat: Combat = {
-    fighters, hp, gold, poison, rng, damage: 0, combo: 0,
+    fighters, hp, gold, poison, rng, encounter, relics, priorHits: 0, damage: 0, combo: 0,
     emit(event) {
       if (!combat.room()) return false;
       events.push(event);

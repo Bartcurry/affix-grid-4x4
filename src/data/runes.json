@@ -52,7 +52,7 @@
   {
     "id": "catalyst_flask", "name": "催化烧瓶", "rarity": "rare", "archetype": "poison",
     "tags": ["poison", "amplify"], "cost": 6, "color": "#10B981", "symbol": "⚗",
-    "desc": "使Boss当前的剧毒层数立即乘以1.6倍（向上取整）。",
+    "desc": "催化最多 1,500 层剧毒至 1.6 倍（向上取整），其余毒层保留。二星上限 2,500 层、倍率 2；三星上限 4,000 层、倍率 2.6。",
     "triggers": [
       { "event": "ON_ACTIVATE", "effect": "MULTIPLY_POISON", "target": "BOSS", "value": { "base": 1.6, "scaleBy": "NONE" } }
     ]
@@ -132,6 +132,40 @@
     "desc": "造成本回合全盘已发生的总触发次数×12点伤害（适合放右下角收尾）。",
     "triggers": [
       { "event": "ON_ACTIVATE", "effect": "DEAL_DAMAGE", "target": "BOSS", "value": { "base": 12, "scaleBy": "TOTAL_TRIGGERS_THIS_TURN" } }
+    ]
+  },
+  {
+    "id": "falling_bell", "name": "落铃", "rarity": "common", "archetype": "chain",
+    "tags": ["chain", "trigger"], "cost": 4, "color": "#80cbb7", "symbol": "♢",
+    "desc": "先打 5 点，再触发正下方的符文。",
+    "triggers": [
+      { "event": "ON_ACTIVATE", "effect": "DEAL_DAMAGE", "target": "BOSS", "value": { "base": 5 } },
+      { "event": "ON_ACTIVATE", "effect": "RETRIGGER_TARGET", "target": "DOWN", "value": { "base": 1, "repeatCount": 1 } }
+    ]
+  },
+  {
+    "id": "moss_brick", "name": "苔砖", "rarity": "rare", "archetype": "poison",
+    "tags": ["poison"], "cost": 5, "color": "#a0c76a", "symbol": "▧",
+    "desc": "上下左右每触发一枚符文，就给敌人叠 4 层剧毒。",
+    "triggers": [
+      { "event": "ON_NEIGHBOR_ACTIVATE", "effect": "ADD_POISON", "target": "BOSS", "value": { "base": 4 } }
+    ]
+  },
+  {
+    "id": "coin_mold", "name": "钱模", "rarity": "common", "archetype": "gold",
+    "tags": ["gold"], "cost": 3, "color": "#d3a459", "symbol": "⊞",
+    "desc": "每次触发赚 1 金；如果这次是连锁触发，改为赚 3 金。",
+    "triggers": [
+      { "event": "ON_ACTIVATE", "effect": "GAIN_GOLD", "target": "SELF", "value": { "base": 1, "scaleBy": "CHAIN_BONUS", "chainMult": 3 } }
+    ]
+  },
+  {
+    "id": "red_seal", "name": "火漆印", "rarity": "rare", "archetype": "amplify",
+    "tags": ["amplify", "crit"], "cost": 5, "color": "#df8d94", "symbol": "✲",
+    "desc": "正下方那枚符文在本轮提高 30 个百分点的暴击率，伤害倍率加 0.4。",
+    "triggers": [
+      { "event": "ON_ACTIVATE", "effect": "ADD_TEMP_CRIT", "target": "DOWN", "value": { "base": 0.3 } },
+      { "event": "ON_ACTIVATE", "effect": "ADD_TEMP_MULT", "target": "DOWN", "value": { "base": 0.4 } }
     ]
   }
 ]

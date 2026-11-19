@@ -1,37 +1,42 @@
 import { CELL_COUNT } from './grid';
-import type { Catalog, Offer, Random, Rarity, Run, Rune, Slot, Star, TurnResult } from './types';
+import { relicChoices } from './expedition';
+import { openings } from './openings';
+import type { Archetype, Catalog, Offer, OpeningId, Random, Rarity, RelicId, Run, Rune, Slot, Star, TurnResult } from './types';
 
 export const BENCH_SIZE = 4;
 export const SHOP_SIZE = 3;
 export const REFRESH_COST = 2;
-export const canArrange = (run: Run) => run.status === 'active' && !run.pendingLoss;
+export const canArrange = (run: Run) => run.status === 'active' && !run.pendingLoss && !run.pendingRelics.length;
 
 export function rarityOdds(wave: number): Record<Rarity, number> {
   return wave <= 4 ? { common: 0.75, rare: 0.22, epic: 0.03 }
     : wave <= 10 ? { common: 0.50, rare: 0.38, epic: 0.12 } : { common: 0.30, rare: 0.45, epic: 0.25 };
 }
 
-function rollShop(run: Run, catalog: Catalog, rng: Random) {
+function rollShop(run: Run, catalog: Catalog, rng: Random, options: { focus?: Archetype; supply?: string } = {}) {
   const odds = rarityOdds(run.wave);
   const configs = Object.values(catalog);
+  const guided = Array.from({ length: SHOP_SIZE }, (_, index) => index).find(index => !run.shop[index]?.locked);
   run.shop = Array.from({ length: SHOP_SIZE }, (_, index): Offer | null => {
     if (run.shop[index]?.locked) return run.shop[index];
+    if (index === guided && options.supply && catalog[options.supply]) return { configId: options.supply, locked: false };
     const roll = rng();
     const rarity = roll < odds.common ? 'common' : roll < odds.common + odds.rare ? 'rare' : 'epic';
     const tier = configs.filter(config => config.rarity === rarity);
-    const pool = tier.length ? tier : configs;
+    const focused = index === guided && options.focus ? tier.filter(config => config.archetype === options.focus) : [];
+    const pool = focused.length ? focused : tier.length ? tier : configs;
     return pool.length ? { configId: pool[Math.floor(rng() * pool.length)].id, locked: false } : null;
   });
 }
 
-export function newRun(catalog: Catalog, rng: Random): Run {
+export function newRun(catalog: Catalog, rng: Random, opening: OpeningId = 'chain'): Run {
+  const setup = openings[opening];
   const run: Run = {
-    wave: 1, gold: 10, shield: 3, board: Array<Rune | null>(CELL_COUNT).fill(null),
+    opening, shopFocus: opening, wave: 1, gold: setup.gold, shield: 3, board: Array<Rune | null>(CELL_COUNT).fill(null),
     bench: Array<Rune | null>(BENCH_SIZE).fill(null), shop: [], freeRefreshes: 1, attempts: 0,
-    endless: false, status: 'active', lastDamage: 0, lastPoison: 0, bestCombo: 0, pendingLoss: false,
+    endless: false, status: 'active', lastDamage: 0, lastPoison: 0, bestCombo: 0, pendingLoss: false, relics: [], pendingRelics: [],
   };
-  run.board[0] = { configId: 'spark_orb', star: 1 };
-  run.board[1] = { configId: 'prism_right', star: 1 };
+  for (const [index, configId] of setup.pieces) run.board[index] = { configId, star: 1 };
   rollShop(run, catalog, rng);
   return run;
 }
@@ -40,7 +45,7 @@ export function refreshShop(run: Run, catalog: Catalog, rng: Random): boolean {
   if (!canArrange(run) || run.shop.every(offer => offer?.locked) || (!run.freeRefreshes && run.gold < REFRESH_COST)) return false;
   if (run.freeRefreshes) run.freeRefreshes--;
   else run.gold -= REFRESH_COST;
-  rollShop(run, catalog, rng);
+  rollShop(run, catalog, rng, { focus: run.shopFocus === 'any' ? undefined : run.shopFocus });
   return true;
 }
 
@@ -92,12 +97,19 @@ export function mergeRunes(run: Run): Merge[] {
   }
 }
 
-export function buyRune(run: Run, index: number, catalog: Catalog): Merge[] | null {
+export function purchaseInfo(run: Run, index: number, catalog: Catalog) {
   const offer = run.shop[index];
   const config = offer && catalog[offer.configId];
-  if (!canArrange(run) || !config || run.gold < config.cost) return null;
+  const copies = config ? [...run.board, ...run.bench].filter(rune => rune?.configId === config.id && rune.star === 1).length : 0;
+  const willMerge = copies >= 2;
+  return { copies, willMerge, blocked: !config || !canArrange(run) ? 'unavailable' :
+    run.gold < config.cost ? 'gold' : !willMerge && !run.bench.includes(null) ? 'bench' : null };
+}
+
+export function buyRune(run: Run, index: number, catalog: Catalog): Merge[] | null {
+  if (purchaseInfo(run, index, catalog).blocked) return null;
+  const config = catalog[run.shop[index]!.configId];
   const freeSlot = run.bench.indexOf(null);
-  if (freeSlot < 0 && [...run.board, ...run.bench].filter(rune => rune?.configId === config.id && rune.star === 1).length < 2) return null;
   run.gold -= config.cost;
   run.shop[index] = null;
   run.bench[freeSlot < 0 ? BENCH_SIZE : freeSlot] = { configId: config.id, star: 1 };
@@ -125,16 +137,34 @@ export function settleTurn(run: Run, result: TurnResult, catalog: Catalog, rng: 
   run.bestCombo = Math.max(run.bestCombo, result.combo);
   run.attempts++;
   if (!result.win) { run.pendingLoss = true; return; }
-  run.gold += 8 + Math.min(5, Math.floor(run.gold / 10));
+  run.gold += victoryPayout(run, result.gold).total;
   if (run.wave === 20 && !run.endless) run.status = 'victory';
-  else advanceWave(run, catalog, rng);
+  else {
+    const choices = relicChoices(run.wave, run.relics);
+    advanceWave(run, catalog, rng);
+    run.pendingRelics = choices;
+  }
+}
+
+export function victoryPayout(run: Pick<Run, 'relics'>, goldAfterBattle: number) {
+  const base = 8;
+  const interest = Math.min(5, Math.floor(goldAfterBattle / 10));
+  const relic = run.relics.includes('gate_tithe') ? 4 : 0;
+  return { base, interest, relic, total: base + interest + relic };
+}
+
+export function chooseRelic(run: Run, choice: RelicId): boolean {
+  if (run.status !== 'active' || run.pendingLoss || run.relics.includes(choice) || !run.pendingRelics.includes(choice)) return false;
+  run.relics.push(choice);
+  run.pendingRelics = [];
+  return true;
 }
 
 function advanceWave(run: Run, catalog: Catalog, rng: Random) {
   run.wave++;
   run.attempts = 0;
   run.freeRefreshes = 1;
-  rollShop(run, catalog, rng);
+  rollShop(run, catalog, rng, { supply: run.wave === 2 ? openings[run.opening].supply : undefined });
 }
 
 export function resolveLoss(run: Run, protectedRetry: boolean) {

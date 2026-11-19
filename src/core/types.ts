@@ -1,7 +1,9 @@
 export type Star = 1 | 2 | 3;
 export type Rarity = 'common' | 'rare' | 'epic';
 export type Archetype = 'chain' | 'poison' | 'gold' | 'amplify';
-export type Scope = 'SELF' | 'RIGHT' | 'LEFT' | 'ADJACENT_4' | 'SAME_ROW' | 'SAME_COL' | 'ROW_COL' | 'ALL';
+export type RelicId = 'whetstone' | 'chain_ring' | 'moss_bowl' | 'red_lens' | 'copper_ledger' | 'gate_tithe';
+export type OpeningId = 'chain' | 'poison' | 'gold' | 'amplify';
+export type Scope = 'SELF' | 'RIGHT' | 'LEFT' | 'DOWN' | 'ADJACENT_4' | 'SAME_ROW' | 'SAME_COL' | 'ROW_COL' | 'ALL';
 export type Timing = 'ON_ACTIVATE' | 'ON_NEIGHBOR_ACTIVATE' | 'ON_ROW_COL_ACTIVATE' | 'ON_ANY_CRIT' | 'ON_TURN_END';
 export type Scale = 'NONE' | 'CHAIN_BONUS' | 'PLAYER_GOLD' | 'TOTAL_TRIGGERS_THIS_TURN' | 'ADJACENT_TAG_COUNT' | 'BOSS_POISON';
 export type EffectName = 'DEAL_DAMAGE' | 'ADD_POISON' | 'MULTIPLY_POISON' | 'DETONATE_POISON' |
@@ -43,6 +45,8 @@ export interface RuneState { triggersThisTurn: number; tempMult: number; tempCri
 export interface Slot { zone: 'board' | 'bench'; index: number }
 export interface Offer { configId: string; locked: boolean }
 export interface Run {
+  opening: OpeningId;
+  shopFocus: Archetype | 'any';
   wave: number;
   gold: number;
   shield: number;
@@ -57,12 +61,14 @@ export interface Run {
   lastPoison: number;
   bestCombo: number;
   pendingLoss: boolean;
+  relics: RelicId[];
+  pendingRelics: RelicId[];
 }
 
 export type BattleEvent =
   | { type: 'CELL_ACTIVATE'; index: number; isChain: boolean; depth: number; combo: number }
   | { type: 'CHAIN_LINK'; from: number; to: number; tutorial?: boolean }
-  | { type: 'DAMAGE'; source: number | null; amount: number; hp: number; crit: boolean; kind: 'rune' | 'poison' | 'tutorial' }
+  | { type: 'DAMAGE'; source: number | null; amount: number; hp: number; crit: boolean; kind: 'rune' | 'poison' | 'tutorial'; enemyDelta?: number }
   | { type: 'POISON'; source: number | null; poison: number }
   | { type: 'GOLD'; source: number; gold: number; delta: number }
   | { type: 'RUNE_STATE'; index: number; state: RuneState }

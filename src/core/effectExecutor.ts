@@ -1,5 +1,6 @@
 import { resolveTargets } from './grid';
-import { STAR_MULT, type BattleEvent, type Effect, type Random, type Rune, type RuneConfig, type RuneState } from './types';
+import { damageModifiers, type EncounterId } from './expedition';
+import { STAR_MULT, type BattleEvent, type Effect, type Random, type RelicId, type Rune, type RuneConfig, type RuneState } from './types';
 
 export interface Fighter { rune: Rune; config: RuneConfig; state: RuneState }
 export interface Combat {
@@ -10,6 +11,9 @@ export interface Combat {
   damage: number;
   combo: number;
   rng: Random;
+  encounter: EncounterId;
+  relics: readonly RelicId[];
+  priorHits: number;
   emit(event: BattleEvent): boolean;
   room(count?: number): boolean;
   activate(index: number, depth: number, from?: number, suppressCrit?: boolean): void;
@@ -18,10 +22,14 @@ export interface Combat {
 
 export interface EffectContext { index: number; isChain: boolean; depth: number; suppressCrit: boolean }
 
-export function dealDamage(combat: Combat, source: number | null, value: number, kind: 'rune' | 'poison' | 'tutorial', crit = false) {
-  const amount = Math.ceil(value * (crit ? 2 : 1));
+export function dealDamage(combat: Combat, source: number | null, value: number, kind: 'rune' | 'poison' | 'tutorial', crit = false, isChain = false) {
+  const { relic, enemy } = damageModifiers(combat.encounter, combat.relics, kind, source, isChain, crit, combat.priorHits);
+  const boosted = value * (crit ? 2 : 1) * relic;
+  const amount = Math.ceil(boosted * enemy);
+  const enemyDelta = amount - Math.ceil(boosted);
   const hp = Math.max(0, combat.hp - amount);
-  if (combat.emit({ type: 'DAMAGE', source, amount, crit, hp, kind })) {
+  if (combat.emit({ type: 'DAMAGE', source, amount, crit, hp, kind, ...(enemyDelta ? { enemyDelta } : {}) })) {
+    if (kind === 'rune' && amount > 0) combat.priorHits++;
     combat.hp = hp;
     combat.damage += amount;
     return true;
@@ -68,7 +76,7 @@ export function executeEffect(combat: Combat, rule: Effect, context: EffectConte
   const hit = (amount: number, canCrit = true, afterHit?: () => void) => {
     if (!combat.room(afterHit ? 2 : 1)) return;
     const crit = canCrit && combat.rng() < fighter.state.tempCritChance;
-    if (!dealDamage(combat, index, amount * fighter.state.tempMult, 'rune', crit)) return;
+    if (!dealDamage(combat, index, amount * fighter.state.tempMult, 'rune', crit, isChain)) return;
     afterHit?.();
     if (crit && !suppressCrit) combat.notifyCrit(depth);
   };
@@ -76,13 +84,16 @@ export function executeEffect(combat: Combat, rule: Effect, context: EffectConte
     case 'DEAL_DAMAGE': hit(scaled); break;
     case 'ADD_POISON': setPoison(combat, index, combat.poison + Math.ceil(scaled)); break;
     case 'MULTIPLY_POISON':
-      if (combat.poison > 0) setPoison(combat, index, Math.ceil(combat.poison * [0, 1.6, 2, 2.6][star]));
+      if (combat.poison > 0) {
+        const affected = Math.min(combat.poison, [0, 1500, 2500, 4000][star]);
+        setPoison(combat, index, combat.poison - affected + Math.ceil(affected * [0, 1.6, 2, 2.6][star]));
+      }
       break;
     case 'DETONATE_POISON':
       if (combat.poison > 0) hit(combat.poison * [0, 2.5, 3.5, 5][star], false,
         () => setPoison(combat, index, Math.floor(combat.poison * (value.retainRatio ?? 0))));
       break;
-    case 'GAIN_GOLD': setGold(combat, index, Math.ceil(scaled)); break;
+    case 'GAIN_GOLD': setGold(combat, index, Math.ceil(scaled) + Number(scaled > 0 && combat.relics.includes('copper_ledger'))); break;
     case 'SPEND_GOLD_BUFF': {
       const cost = value.goldCost ?? 0;
       if (combat.gold < cost || !combat.room(2)) break;

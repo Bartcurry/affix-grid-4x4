@@ -3,7 +3,7 @@ import { catalog, runes } from '../data/catalog';
 import { bossHealth, simulateBattle } from '../core/battleEngine';
 import { MAX_CELL_TRIGGERS, MAX_DEPTH, MAX_EVENTS } from '../core/eventBus';
 import { resolveTargets, toIndex } from '../core/grid';
-import { buyRune, mergeRunes, newRun, refreshShop, resolveLoss, sellRune, settleTurn, startEndless, swapRunes, toggleLock } from '../core/shopEngine';
+import { buyRune, mergeRunes, newRun, purchaseInfo, refreshShop, resolveLoss, sellRune, settleTurn, startEndless, swapRunes, toggleLock, victoryPayout } from '../core/shopEngine';
 import type { BattleEvent, Rune, Star, TurnResult } from '../core/types';
 
 const rune = (configId: string, star: Star = 1): Rune => ({ configId, star });
@@ -17,9 +17,23 @@ const attack = (...ids: string[]) => simulateBattle({ board: ids.map(id => rune(
 const amounts = (events: BattleEvent[]) => events.flatMap(event => event.type === 'DAMAGE' ? [event.amount] : []);
 
 describe('battle simulation', () => {
-  it('loads all 16 runes and resolves edge coordinates without wraparound', () => {
-    expect(Object.keys(catalog)).toHaveLength(16);
-    expect(runes).toHaveLength(16);
+  it('raises health without a new spike at the campaign or endless boundary', () => {
+    expect(bossHealth(1)).toBe(60);
+    expect(bossHealth(10)).toBe(1703);
+    expect(bossHealth(11) / bossHealth(10)).toBeLessThan(1.4);
+    expect(bossHealth(20)).toBe(45864);
+    expect(bossHealth(21) / bossHealth(20)).toBeLessThan(1.25);
+    for (let wave = 2; wave < 50; wave++) expect(bossHealth(wave)).toBeGreaterThan(bossHealth(wave - 1));
+  });
+
+  it('keeps ordinary flask damage intact but only amplifies part of extreme poison totals', () => {
+    const events = simulateBattle({ hp: 50_000, board: [rune('catalyst_flask')], gold: 0, poison: 5000 }, catalog, noCrit);
+    expect(amounts(events)).toEqual([5900]);
+    expect(resultOf(events).poison).toBe(4720);
+  });
+  it('loads all 20 runes and resolves edge coordinates without wraparound', () => {
+    expect(Object.keys(catalog)).toHaveLength(20);
+    expect(runes).toHaveLength(20);
     expect(toIndex(3, 3)).toBe(15);
     expect(resolveTargets(3, 'RIGHT')).toEqual([]);
     expect(resolveTargets(0, 'ADJACENT_4')).toEqual([4, 1]);
@@ -87,6 +101,43 @@ describe('battle simulation', () => {
 describe('run economy', () => {
   const turn = (win: boolean): TurnResult => ({ type: 'TURN_RESULT', gold: 36, combo: 4, damage: 60, hp: win ? 0 : 1, poison: 0, win });
 
+  it('supplies each opening at wave two without disturbing a locked offer', () => {
+    for (const [opening, supply] of [['chain', 'echo_stone'], ['poison', 'moss_brick'], ['gold', 'greed_amplifier'], ['amplify', 'ember_amp']] as const) {
+      const run = newRun(catalog, noCrit, opening);
+      run.shop[0] = { configId: 'red_seal', locked: true };
+      settleTurn(run, turn(true), catalog, noCrit);
+      expect(run.shop[0]).toEqual({ configId: 'red_seal', locked: true });
+      expect(run.shop[1]).toEqual({ configId: supply, locked: false });
+      settleTurn(run, turn(true), catalog, noCrit);
+      expect(run.shop[1]?.configId).not.toBe(supply);
+    }
+  });
+
+  it('uses the selected focus only on the first unlocked slot, without changing rarity', () => {
+    const run = newRun(catalog, noCrit);
+    run.shopFocus = 'poison';
+    run.shop[0] = { configId: 'red_seal', locked: true };
+    expect(refreshShop(run, catalog, () => .01)).toBe(true);
+    expect(run.shop.map(offer => offer?.configId)).toEqual(['red_seal', 'venom_drop', 'spark_orb']);
+    run.shopFocus = 'chain';
+    expect(refreshShop(run, catalog, () => .99)).toBe(true);
+    expect(run.shop[1]?.configId).toBe('relay_cross');
+    expect(run.gold).toBe(8);
+    run.shopFocus = 'amplify';
+    expect(refreshShop(run, catalog, () => .99)).toBe(true);
+    expect(run.shop[1]?.configId).toBe('combo_finisher');
+  });
+
+  it('uses the same settlement payout as the forecast and caps interest', () => {
+    const run = newRun(catalog, noCrit);
+    run.relics = ['gate_tithe'];
+    const result = { ...turn(true), gold: 69 };
+    const payout = victoryPayout(run, result.gold);
+    expect(payout).toEqual({ base: 8, interest: 5, relic: 4, total: 17 });
+    settleTurn(run, result, catalog, noCrit);
+    expect(run.gold).toBe(86);
+  });
+
   it('merges nine one-stars into a single board three-star', () => {
     const run = newRun(catalog, noCrit);
     run.board.fill(null);
@@ -103,11 +154,24 @@ describe('run economy', () => {
     run.bench = [rune('spark_orb'), rune('venom_drop'), rune('ember_amp'), rune('echo_stone')];
     run.shop[0] = { configId: 'spark_orb', locked: true };
     run.shop[1] = { configId: 'copper_mine', locked: false };
+    expect(purchaseInfo(run, 1, catalog)).toEqual({ copies: 0, willMerge: false, blocked: 'bench' });
+    expect(purchaseInfo(run, 0, catalog)).toEqual({ copies: 2, willMerge: true, blocked: null });
     expect(buyRune(run, 1, catalog)).toBeNull();
     expect(buyRune(run, 0, catalog)?.[0]).toMatchObject({ slot: { zone: 'board', index: 0 }, rune: { star: 2 } });
     expect(run.bench).toHaveLength(4);
     expect(run.gold).toBe(7);
     expect(swapRunes(run, { zone: 'board', index: 0 }, { zone: 'bench', index: 0 })).toBe(true);
+  });
+
+  it('shows purchase requirements without mutating the run', () => {
+    const run = newRun(catalog, noCrit);
+    run.gold = 2;
+    run.shop[0] = { configId: 'spark_orb', locked: false };
+    run.shop[1] = null;
+    const before = structuredClone(run);
+    expect(purchaseInfo(run, 0, catalog)).toEqual({ copies: 1, willMerge: false, blocked: 'gold' });
+    expect(purchaseInfo(run, 1, catalog).blocked).toBe('unavailable');
+    expect(run).toEqual(before);
   });
 
   it('preserves locks, grants interest and a manual refresh on the next wave', () => {

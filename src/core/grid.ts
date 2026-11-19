@@ -11,13 +11,14 @@ export function toIndex(row: number, col: number): number {
 export const toCoords = (index: number) => ({ row: Math.floor(index / GRID_SIZE), col: index % GRID_SIZE });
 
 const all = Array.from({ length: CELL_COUNT }, (_, index) => index);
-const scopes: Scope[] = ['SELF', 'LEFT', 'RIGHT', 'ADJACENT_4', 'SAME_ROW', 'SAME_COL', 'ROW_COL', 'ALL'];
+const scopes: Scope[] = ['SELF', 'LEFT', 'RIGHT', 'DOWN', 'ADJACENT_4', 'SAME_ROW', 'SAME_COL', 'ROW_COL', 'ALL'];
 const targets = Object.fromEntries(scopes.map(scope => [scope, all.map(index => {
   const { row, col } = toCoords(index);
   switch (scope) {
     case 'SELF': return [index];
     case 'LEFT': return [toIndex(row, col - 1)].filter(target => target >= 0);
     case 'RIGHT': return [toIndex(row, col + 1)].filter(target => target >= 0);
+    case 'DOWN': return [toIndex(row + 1, col)].filter(target => target >= 0);
     case 'ADJACENT_4': return [toIndex(row - 1, col), toIndex(row + 1, col), toIndex(row, col - 1), toIndex(row, col + 1)].filter(target => target >= 0);
     case 'SAME_ROW': return all.filter(target => toCoords(target).row === row);
     case 'SAME_COL': return all.filter(target => toCoords(target).col === col);

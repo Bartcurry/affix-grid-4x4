@@ -1,6 +1,8 @@
 import type { Slot } from '../core/types';
 import type { CanvasRenderer, Point } from './canvasRenderer';
 
+const sameSlot = (left: Slot | null, right: Slot | null) => left?.zone === right?.zone && left?.index === right?.index;
+
 interface Position extends Point { id: number; from: Slot | null; moved: boolean }
 
 export function bindDragDrop(renderer: CanvasRenderer, actions: {
@@ -9,12 +11,14 @@ export function bindDragDrop(renderer: CanvasRenderer, actions: {
   select(slot: Slot | null): void;
   move(from: Slot, to: Slot): void;
   sell(from: Slot): void;
+  preview(from: Slot | null, to: Slot | null): void;
 }) {
   const canvas = renderer.canvas;
   let pointer: Position | null = null;
   let keyboardPick: Slot | null = null;
 
   const clearDrag = () => {
+    if (renderer.drag) actions.preview(null, null);
     pointer = null;
     renderer.drag = null;
     renderer.invalidate();
@@ -26,6 +30,7 @@ export function bindDragDrop(renderer: CanvasRenderer, actions: {
     const from = target && target !== 'sell' ? target : null;
     canvas.setPointerCapture(event.pointerId);
     pointer = { x: event.clientX, y: event.clientY, id: event.pointerId, from, moved: false };
+    if (keyboardPick) actions.preview(null, null);
     keyboardPick = null;
     renderer.cursor = null;
     if (from && actions.hasRune(from)) actions.select(from);
@@ -37,7 +42,11 @@ export function bindDragDrop(renderer: CanvasRenderer, actions: {
     if (Math.hypot(event.clientX - pointer.x, event.clientY - pointer.y) > 5) pointer.moved = true;
     if (!pointer.moved) return;
     const point = renderer.point(event.clientX, event.clientY);
-    renderer.drag = { from: pointer.from, point, target: renderer.hit(point) };
+    const target = renderer.hit(point);
+    const previous = renderer.drag?.target;
+    const nextSlot = target === 'sell' ? null : target;
+    if (!sameSlot(previous && previous !== 'sell' ? previous : null, nextSlot)) actions.preview(pointer.from, nextSlot);
+    renderer.drag = { from: pointer.from, point, target };
     renderer.invalidate();
   });
 
@@ -53,8 +62,7 @@ export function bindDragDrop(renderer: CanvasRenderer, actions: {
     } else if (target && target !== 'sell') {
       if (!actions.hasRune(target) && renderer.selection) actions.move(renderer.selection, target);
       else actions.select(target);
-    } else if (target === 'sell' && renderer.selection) actions.sell(renderer.selection);
-    else actions.select(null);
+    } else if (target !== 'sell') actions.select(null);
   });
 
   for (const type of ['pointercancel', 'lostpointercapture']) canvas.addEventListener(type, event => {
@@ -64,13 +72,17 @@ export function bindDragDrop(renderer: CanvasRenderer, actions: {
   canvas.addEventListener('focus', () => {
     if (canvas.matches(':focus-visible')) { renderer.cursor = { zone: 'board', index: 0 }; renderer.invalidate(); }
   });
-  canvas.addEventListener('blur', () => { renderer.cursor = null; keyboardPick = null; renderer.invalidate(); });
+  canvas.addEventListener('blur', () => {
+    if (keyboardPick) actions.preview(null, null);
+    renderer.cursor = null; keyboardPick = null; renderer.invalidate();
+  });
   canvas.addEventListener('keydown', event => {
     if (!actions.enabled()) return;
     const cursor = renderer.cursor ?? { zone: 'board', index: 0 };
     const col = cursor.index % 4;
     let row = cursor.zone === 'bench' ? 4 : Math.floor(cursor.index / 4);
     let nextCol = col;
+    const pickedBefore = keyboardPick;
     switch (event.key) {
       case 'ArrowUp': row = Math.max(0, row - 1); break;
       case 'ArrowDown': row = Math.min(4, row + 1); break;
@@ -86,6 +98,8 @@ export function bindDragDrop(renderer: CanvasRenderer, actions: {
     }
     event.preventDefault();
     renderer.cursor = row === 4 ? { zone: 'bench', index: nextCol } : { zone: 'board', index: row * 4 + nextCol };
+    if (keyboardPick) actions.preview(keyboardPick, renderer.cursor);
+    else if (pickedBefore) actions.preview(null, null);
     renderer.invalidate();
   });
 }
