@@ -45,6 +45,7 @@ let noticeTimer: ReturnType<typeof setTimeout>;
 let victoryTimer: ReturnType<typeof setTimeout>;
 let ghostTimer: ReturnType<typeof setTimeout>;
 let dialogDismissible = false;
+let bossArmorHits = 0;
 const states = new Map<number, RuneState>();
 const renderer = new CanvasRenderer(element('arena'), run, catalog);
 const undoStack = new UndoStack();
@@ -127,6 +128,17 @@ function showForecast() {
   button('forecast-detail').disabled = !!placement;
 }
 
+function updateBossArmorUi(hits: number, breaking = false) {
+  const s1 = document.getElementById('boss-shield-1');
+  const s2 = document.getElementById('boss-shield-2');
+  if (s1) {
+    s1.className = hits >= 1 ? (breaking && hits === 1 ? 'boss-shield-icon broken breaking' : 'boss-shield-icon broken') : 'boss-shield-icon';
+  }
+  if (s2) {
+    s2.className = hits >= 2 ? (breaking && hits === 2 ? 'boss-shield-icon broken breaking' : 'boss-shield-icon broken') : 'boss-shield-icon';
+  }
+}
+
 function updateHud() {
   const maxHp = bossHealth(run.wave);
   const showOutcomeState = run.pendingLoss || run.status !== 'active';
@@ -151,6 +163,14 @@ function updateHud() {
   const gold = phase === 'PLAYBACK' ? displayed.gold : run.gold;
   element('poison').textContent = formatNumber(poison);
   element('gold').textContent = formatNumber(gold);
+
+  const poisonBadge = document.getElementById('hp-poison-badge');
+  const poisonText = document.getElementById('hp-poison-text');
+  if (poisonBadge && poisonText) {
+    poisonBadge.hidden = poison <= 0;
+    poisonText.textContent = formatNumber(poison);
+  }
+
   element('phase').textContent = phase === 'PLAYBACK' ? `连锁中 · ${displayed.combo} 连击` : run.pendingRelics.length ? '挑选遗物' : run.pendingLoss ? '待结算护盾' :
     run.status !== 'active' ? '战斗结束' : '布阵';
 }
@@ -328,7 +348,11 @@ const offers = Array.from({ length: 3 }, (_, index) => {
     for (const merge of merges) renderer.flash(merge.slot, catalog[merge.rune.configId].color, true);
     if (merges.length) { audio.merge(); select(merges.at(-1)!.slot); }
     else {
-      if (benchIndex >= 0) select({ zone: 'bench', index: benchIndex });
+      if (benchIndex >= 0) {
+        select({ zone: 'bench', index: benchIndex });
+        const placedRune = run.bench[benchIndex];
+        if (placedRune) renderer.flash({ zone: 'bench', index: benchIndex }, catalog[placedRune.configId]?.color ?? '#d4af37', false);
+      }
       notice('买到了。在备战区，拖上棋盘才会触发。');
     }
     redraw();
@@ -343,6 +367,12 @@ function redraw(save = true) {
   const encounter = encounterAt(run.wave);
   const enemy = encounters[encounter];
   element('enemy-name').textContent = enemy.name;
+
+  const armorShields = document.getElementById('boss-armor-shields');
+  if (armorShields) {
+    armorShields.hidden = encounter !== 'armor';
+    updateBossArmorUi(bossArmorHits);
+  }
 
   const bossPath = document.getElementById('boss-emblem-path');
   if (bossPath) bossPath.setAttribute('d', getBossSvgPath(encounter));
@@ -419,7 +449,13 @@ bindDragDrop(renderer, {
   enabled: arranging, hasRune: slot => !!runeAt(run, slot), select,
   move(from, to) {
     undoStack.push(run);
-    if (swapRunes(run, from, to)) { click(); select(to); redraw(); }
+    const movedRune = runeAt(run, from);
+    if (swapRunes(run, from, to)) {
+      click();
+      select(to);
+      if (movedRune) renderer.flash(to, catalog[movedRune.configId]?.color ?? '#d4af37', false);
+      redraw();
+    }
     else { undoStack.pop(run); }
   },
   sell: sellFrom,
@@ -528,6 +564,8 @@ function resetTimeline() {
   renderer.setCombo(0);
   states.clear();
   renderer.clearEffects();
+  bossArmorHits = 0;
+  updateBossArmorUi(0);
   displayed = { hp: bossHealth(run.wave), poison: 0, gold: run.gold, combo: 0 };
   const ghost = document.getElementById('hp-ghost');
   if (ghost) ghost.style.width = '100%';
@@ -668,6 +706,10 @@ function consume(event: BattleEvent) {
     case 'DAMAGE':
       displayed.hp = event.hp;
       if (event.crit) audio.crit();
+      if (event.kind === 'rune' && event.amount > 0 && encounterAt(run.wave) === 'armor' && bossArmorHits < 2) {
+        bossArmorHits++;
+        updateBossArmorUi(bossArmorHits, true);
+      }
       if (event.crit || event.amount >= bossHealth(run.wave) * 0.15) {
         const emblem = document.getElementById('boss-emblem-wrap');
         if (emblem) {

@@ -206,6 +206,47 @@ button:focus-visible, canvas:focus-visible {
   gap: 0.35rem;
 }
 
+/* Boss 铁壳减伤盾牌 */
+.boss-armor-shields {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 3px;
+  vertical-align: middle;
+}
+
+.boss-shield-icon {
+  width: 14px;
+  height: 14px;
+  display: inline-grid;
+  place-items: center;
+  color: #38bdf8;
+  filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.7));
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.boss-shield-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.boss-shield-icon.broken {
+  color: #475569;
+  filter: none;
+  opacity: 0.35;
+  transform: scale(0.75) rotate(-15deg);
+}
+
+.boss-shield-icon.breaking {
+  animation: shield-shatter 0.4s ease-out forwards;
+}
+
+@keyframes shield-shatter {
+  0% { transform: scale(1.4); filter: brightness(3) drop-shadow(0 0 8px #ffffff); color: #ffffff; }
+  50% { transform: scale(0.9) rotate(20deg); opacity: 0.8; }
+  100% { transform: scale(0.75) rotate(-15deg); opacity: 0.35; color: #475569; filter: none; }
+}
+
 .wave-pill {
   font-family: var(--mono-font);
   font-size: 0.68rem;
@@ -265,7 +306,42 @@ button:focus-visible, canvas:focus-visible {
 
 .hp-numbers {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+/* 血条右侧动态毒雾脉动徽章 */
+.hp-poison-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(16, 185, 129, 0.22);
+  border: 1px solid #10b981;
+  border-radius: 3px;
+  padding: 0 4px;
+  font-family: var(--mono-font);
+  font-size: 0.64rem;
+  font-weight: 750;
+  color: #34d399;
+  animation: poison-mist-pulse 2s infinite ease-in-out;
+}
+
+.poison-mini-icon {
+  width: 9px;
+  height: 9px;
+}
+
+@keyframes poison-mist-pulse {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(52, 211, 153, 0.3);
+    border-color: rgba(16, 185, 129, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 10px rgba(52, 211, 153, 0.7);
+    border-color: #34d399;
+    transform: scale(1.05);
+  }
 }
 
 .hp-text {
@@ -700,10 +776,10 @@ canvas {
   background: var(--bg-panel);
   border: 1px solid var(--gold-dark);
   border-radius: 6px;
-  padding: 0.35rem 0.5rem;
+  padding: 0.28rem 0.45rem;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.22rem;
 }
 
 .market-bar {
@@ -787,8 +863,8 @@ canvas {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.2rem;
-  padding: 0.32rem 0.25rem;
+  gap: 0.15rem;
+  padding: 0.25rem 0.2rem;
   background: radial-gradient(circle at 50% 20%, #1e2536 0%, #0d1017 100%);
   border: 1px solid var(--tier-border);
   border-radius: 4px;
@@ -820,25 +896,25 @@ canvas {
   background: transparent;
   padding: 0;
   min-height: auto;
-  gap: 0.15rem;
+  gap: 0.12rem;
 }
 
 .offer-icon {
-  width: 1.7rem;
-  height: 1.7rem;
+  width: 1.45rem;
+  height: 1.45rem;
   display: grid;
   place-items: center;
   color: var(--offer, var(--gold-bright));
 }
 
 .offer-icon svg {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.15rem;
+  height: 1.15rem;
 }
 
 .offer-name {
   font-family: var(--display-font);
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   font-weight: 750;
   color: #f1ece1;
   line-height: 1.2;
@@ -849,7 +925,7 @@ canvas {
 }
 
 .offer-meta {
-  font-size: 0.62rem;
+  font-size: 0.6rem;
   color: var(--text-sub);
   white-space: nowrap;
   overflow: hidden;
@@ -891,45 +967,61 @@ canvas {
 
 .offer-buy {
   width: 100%;
-  min-height: 1.7rem;
-  font-size: 0.68rem;
+  min-height: 1.55rem;
+  font-size: 0.65rem;
   font-weight: 700;
   color: #f1ece1;
   background: var(--bg-recessed);
   border: 1px solid var(--tier-border);
-  padding: 0.1rem;
+  padding: 0.08rem;
   border-radius: 3px;
   white-space: nowrap;
 }
 
 /* 主控操作栏 */
 .deck-controls {
-  display: grid;
-  grid-template-columns: 3.2rem 1fr 3.2rem;
-  gap: 0.4rem;
+  display: flex;
+  gap: 0.35rem;
   align-items: stretch;
 }
 
 .ctrl-btn {
-  min-height: 2.75rem;
+  width: 3.2rem;
+  min-height: 2.55rem;
   font-weight: 750;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
+  flex: none;
+  padding: 0.2rem 0.3rem;
 }
 
 /* 鎏金朱砂立体主按钮 */
 .primary.battle-btn {
-  min-height: 2.75rem;
+  flex: 1;
+  min-width: 0;
+  min-height: 2.55rem;
   background: linear-gradient(135deg, #b91c1c 0%, #991b1b 50%, #7f1d1d 100%);
   border: 1.5px solid var(--gold-primary);
   border-radius: 4px;
   color: var(--gold-bright);
   font-family: var(--display-font);
-  font-size: 1.05rem;
+  font-size: 1.02rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   box-shadow: 0 4px 16px rgba(185, 28, 28, 0.45), inset 0 1px 0 rgba(253, 224, 71, 0.35);
   position: relative;
   overflow: hidden;
+}
+
+#market-jump {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* 微弱光泽扫过动画 (Shimmer) */
@@ -1221,6 +1313,13 @@ dialog::backdrop {
   background: transparent;
   color: var(--text-sub);
   border: 0;
+}
+
+/* 移动竖屏隐藏冗余战报底栏，让 4×4 棋盘获得最大黄金视觉面积 */
+@media (max-width: 779px) {
+  .report {
+    display: none;
+  }
 }
 
 /* ─── 宽屏桌面端适配 (Dual Column Deck) ─── */

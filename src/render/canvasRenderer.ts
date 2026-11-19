@@ -1,3 +1,4 @@
+import { bossHealth } from '../core/battleEngine';
 import { runeAt } from '../core/shopEngine';
 import { runeFootprint } from '../core/tactics';
 import type { BattleEvent, Catalog, Rune, Run, RuneState, Slot } from '../core/types';
@@ -220,18 +221,25 @@ export class CanvasRenderer {
 
       case 'DAMAGE': {
         if (event.crit) this.shakeAt = at;
-        const tone = event.crit ? '#fde047' : event.kind === 'poison' ? '#34d399' : '#f1ece1';
-        const prefix = event.crit ? '暴击！−' : event.kind === 'poison' ? '剧毒爆！−' : event.kind === 'tutorial' ? '共鸣 ' : '−';
+        const maxHp = Math.max(1, bossHealth(this.run.wave));
+        const dmgRatio = event.amount / maxHp;
+        const isPoison = event.kind === 'poison';
+        const isCrit = event.crit;
+        const isLarge = isCrit || isPoison || dmgRatio >= 0.08;
+        const isHuge = isCrit || dmgRatio >= 0.18;
+        const tone = isCrit ? '#fde047' : isPoison ? '#34d399' : '#f1ece1';
+        const prefix = isCrit ? '暴击！−' : isPoison ? '剧毒爆！−' : event.kind === 'tutorial' ? '共鸣 ' : '−';
         const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.8;
         const speed = 24 + Math.random() * 12;
         this.animations.push({
           kind: 'float',
           at,
-          life: event.crit ? 820 : 680,
+          life: isHuge ? 860 : isLarge ? 760 : 640,
           anchor: anchor(event.source),
           text: `${prefix}${formatNumber(event.amount)}`,
           tone,
-          large: event.crit || event.amount > 200,
+          large: isLarge,
+          prefix: isCrit ? 'crit' : isPoison ? 'poison' : undefined,
           vx: Math.cos(angle) * speed * 0.5,
           vy: Math.abs(Math.sin(angle) * speed),
         });
@@ -442,7 +450,16 @@ export class CanvasRenderer {
     }
 
     const pulseActive = now - this.pulseAt < 320;
-    if (this.animations.length || shake > 0 || pulseActive || this.comboCount > 0) {
+    if (
+      !this.reducedMotion.matches ||
+      this.animations.length ||
+      shake > 0 ||
+      pulseActive ||
+      this.comboCount > 0 ||
+      this.drag ||
+      this.selection ||
+      this.popScales.size
+    ) {
       this.invalidate();
     }
   };
@@ -507,6 +524,42 @@ export class CanvasRenderer {
       ctx.shadowBlur = 18 * pulseProgress;
       this.roundRect(BOARD.x - 2, BOARD.y - 2, BOARD.width + 4, BOARD.height + 4, 9);
       ctx.stroke();
+      ctx.restore();
+    }
+
+    // 连击热度屏幕边缘热力光晕 (连击 >= 18 赤金色热力光晕)
+    if (this.comboCount >= 18) {
+      const heatPulse = Math.sin(now * 0.008) * 0.5 + 0.5;
+      const heatAlpha = 0.09 + heatPulse * 0.08;
+
+      ctx.save();
+      // 上边缘赤焰光晕
+      const topGrad = ctx.createLinearGradient(0, 0, 0, 48);
+      topGrad.addColorStop(0, `rgba(225, 29, 72, ${heatAlpha * 1.5})`);
+      topGrad.addColorStop(1, 'rgba(225, 29, 72, 0)');
+      ctx.fillStyle = topGrad;
+      ctx.fillRect(0, 0, WIDTH, 48);
+
+      // 下边缘赤金光晕
+      const botGrad = ctx.createLinearGradient(0, HEIGHT, 0, HEIGHT - 48);
+      botGrad.addColorStop(0, `rgba(249, 115, 22, ${heatAlpha * 1.5})`);
+      botGrad.addColorStop(1, 'rgba(249, 115, 22, 0)');
+      ctx.fillStyle = botGrad;
+      ctx.fillRect(0, HEIGHT - 48, WIDTH, 48);
+
+      // 左边缘
+      const leftGrad = ctx.createLinearGradient(0, 0, 32, 0);
+      leftGrad.addColorStop(0, `rgba(225, 29, 72, ${heatAlpha})`);
+      leftGrad.addColorStop(1, 'rgba(225, 29, 72, 0)');
+      ctx.fillStyle = leftGrad;
+      ctx.fillRect(0, 0, 32, HEIGHT);
+
+      // 右边缘
+      const rightGrad = ctx.createLinearGradient(WIDTH, 0, WIDTH - 32, 0);
+      rightGrad.addColorStop(0, `rgba(249, 115, 22, ${heatAlpha})`);
+      rightGrad.addColorStop(1, 'rgba(249, 115, 22, 0)');
+      ctx.fillStyle = rightGrad;
+      ctx.fillRect(WIDTH - 32, 0, 32, HEIGHT);
       ctx.restore();
     }
   }
@@ -754,8 +807,8 @@ export class CanvasRenderer {
     }
 
     // 3. 绘制中心纯 Canvas 矢量图腾（三层高光）
-    const iconSize = compact ? 22 : 32;
-    const iconCy = bounds.y + (compact ? bounds.height / 2 : bounds.height / 2 - 4);
+    const iconSize = compact ? 22 : 28;
+    const iconCy = bounds.y + (compact ? bounds.height / 2 - 2 : 27);
     drawRuneGlyph(
       ctx,
       rune.configId,
@@ -767,16 +820,16 @@ export class CanvasRenderer {
       selected ? 1.4 : 0.9
     );
 
-    // 4. 星级展示升级为底部居中镶嵌的发光星钻
+    // 4. 星级展示升级为底部居中镶嵌的发光星钻与皇冠
     this.drawStarDiamonds(bounds, rune.star, compact, now);
 
-    // 5. 符文名称（非紧凑时）
+    // 5. 符文名称（非紧凑时，居中于图腾与星钻之间）
     if (!compact && (!state || (!state.chargeStacks && state.tempMult <= 1))) {
       this.text(
         name,
         bounds.x + bounds.width / 2,
-        bounds.y + bounds.height - 11,
-        10.5,
+        bounds.y + 53,
+        9.5,
         '#f1ece1',
         'center'
       );
@@ -785,8 +838,8 @@ export class CanvasRenderer {
     // 6. 充能、倍率、聚灵紧凑胶囊徽章贴在角落
     if (state?.chargeStacks) {
       this.drawPillBadge(
-        bounds.x + 5,
-        bounds.y + bounds.height - 18,
+        bounds.x + 4,
+        bounds.y + bounds.height - 17,
         `${state.chargeStacks}充`,
         '#38bdf8',
         '#0c1e30cc'
@@ -794,10 +847,12 @@ export class CanvasRenderer {
     }
 
     if (state && state.tempMult > 1) {
+      const text = `×${+state.tempMult.toFixed(1)}`;
+      const w = Math.max(18, text.length * 5.8 + 8);
       this.drawPillBadge(
-        bounds.x + bounds.width - 32,
-        bounds.y + 5,
-        `×${+state.tempMult.toFixed(1)}`,
+        bounds.x + bounds.width - w - 4,
+        bounds.y + 4,
+        text,
         '#f59e0b',
         '#221606cc'
       );
@@ -805,9 +860,9 @@ export class CanvasRenderer {
 
     if (rune.bonusPower) {
       this.drawPillBadge(
-        bounds.x + 5,
-        bounds.y + 5,
-        `+${rune.bonusPower}威`,
+        bounds.x + 4,
+        bounds.y + 4,
+        `+${rune.bonusPower}`,
         '#fbbf24',
         '#1f1807cc'
       );
@@ -833,12 +888,57 @@ export class CanvasRenderer {
   }
 
   /**
-   * 绘制星级星钻（纯 Canvas 几何发光菱石）
+   * 绘制星级星钻（纯 Canvas 几何发光菱石与皇冠）
    */
   private drawStarDiamonds(bounds: Rect, star: number, compact: boolean, _now: number) {
     const ctx = this.ctx;
     const y = bounds.y + bounds.height - (compact ? 6 : 9);
-    const spacing = 7;
+
+    if (star === 3) {
+      // 3星鎏金皇冠微光
+      ctx.save();
+      const cx = bounds.x + bounds.width / 2;
+      ctx.translate(cx, y - 1);
+      ctx.shadowColor = '#fde047';
+      ctx.shadowBlur = 8;
+      ctx.fillStyle = '#fde047';
+      ctx.strokeStyle = '#d4af37';
+      ctx.lineWidth = 0.9;
+
+      // 3峰皇冠路径
+      ctx.beginPath();
+      ctx.moveTo(-7, 2.5);
+      ctx.lineTo(-8, -2);
+      ctx.lineTo(-4, 0);
+      ctx.lineTo(0, -4.5);
+      ctx.lineTo(4, 0);
+      ctx.lineTo(8, -2);
+      ctx.lineTo(7, 2.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // 3峰珍珠高光点
+      ctx.fillStyle = '#ffffff';
+      for (const [px, py] of [[-8, -2], [0, -4.5], [8, -2]]) {
+        ctx.beginPath();
+        ctx.arc(px, py, 0.9, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 底边金箍
+      ctx.strokeStyle = '#785a28';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(-6, 2);
+      ctx.lineTo(6, 2);
+      ctx.stroke();
+
+      ctx.restore();
+      return;
+    }
+
+    const spacing = 8;
     const startX = bounds.x + bounds.width / 2 - ((star - 1) * spacing) / 2;
 
     for (let i = 0; i < star; i++) {
@@ -846,21 +946,18 @@ export class CanvasRenderer {
       ctx.save();
       ctx.beginPath();
       ctx.moveTo(sx, y - 3);
-      ctx.lineTo(sx + 2.5, y);
+      ctx.lineTo(sx + 2.4, y);
       ctx.lineTo(sx, y + 3);
-      ctx.lineTo(sx - 2.5, y);
+      ctx.lineTo(sx - 2.4, y);
       ctx.closePath();
 
       if (star === 1) {
         ctx.fillStyle = '#e2e8f0';
         ctx.strokeStyle = '#94a3b8';
-      } else if (star === 2) {
+      } else {
         ctx.fillStyle = '#34d399';
         ctx.strokeStyle = '#10b981';
-      } else {
-        ctx.fillStyle = '#fde047';
-        ctx.strokeStyle = '#f59e0b';
-        ctx.shadowColor = '#fde047';
+        ctx.shadowColor = '#34d399';
         ctx.shadowBlur = 6;
       }
 
@@ -889,7 +986,7 @@ export class CanvasRenderer {
   ) {
     const ctx = this.ctx;
     ctx.save();
-    const w = text.length * 6 + 10;
+    const w = Math.max(18, text.length * 5.8 + 8);
     const h = 13;
 
     ctx.fillStyle = bgColor;
@@ -978,34 +1075,55 @@ export class CanvasRenderer {
     const ctx = this.ctx;
     const combo = this.comboCount;
 
-    ctx.save();
-    const x = BOARD.x + BOARD.width - 18;
-    const y = BOARD.y + BOARD.height - 14;
-
     const isGilded = combo >= 8 && combo < 18;
     const isVermilion = combo >= 18;
 
     const color = isVermilion ? '#f97316' : isGilded ? '#fde047' : '#38bdf8';
-    const fontSize = isVermilion ? 16 : isGilded ? 14 : 12;
+    const borderColor = isVermilion ? '#e11d48' : isGilded ? '#d4af37' : '#0284c7';
+    const bgColor = isVermilion
+      ? 'rgba(28, 10, 19, 0.94)'
+      : isGilded
+        ? 'rgba(26, 19, 9, 0.94)'
+        : 'rgba(12, 21, 32, 0.94)';
+
+    ctx.save();
+    const cx = BOARD.x + BOARD.width - 56;
+    const cy = 13;
+    const text = `连击 × ${combo}`;
 
     // 赤金连击伴随轻微倾斜弹跳
     if (isVermilion) {
-      const tilt = Math.sin(now * 0.02) * 0.08;
-      ctx.translate(x, y);
+      const bounce = Math.sin(now * 0.02) * 1.5;
+      const tilt = Math.sin(now * 0.025) * 0.06;
+      ctx.translate(cx, cy + bounce);
       ctx.rotate(tilt);
-      ctx.translate(-x, -y);
-      ctx.shadowColor = '#e11d48';
-      ctx.shadowBlur = 12;
-    } else if (isGilded) {
-      ctx.shadowColor = '#d4af37';
-      ctx.shadowBlur = 8;
+      ctx.translate(-cx, -cy - bounce);
     }
 
-    ctx.font = `800 ${fontSize}px "Noto Serif SC", "Songti SC", serif`;
-    ctx.textAlign = 'right';
+    ctx.font = `800 11.5px "Noto Serif SC", "Songti SC", serif`;
+    const textMetrics = ctx.measureText(text);
+    const w = textMetrics.width + 16;
+    const h = 18;
+
+    // 胶囊底框
+    ctx.fillStyle = bgColor;
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = 1.2;
+    if (isVermilion) {
+      ctx.shadowColor = '#e11d48';
+      ctx.shadowBlur = 10;
+    } else if (isGilded) {
+      ctx.shadowColor = '#d4af37';
+      ctx.shadowBlur = 6;
+    }
+    this.roundRect(cx - w / 2, cy - h / 2, w, h, 4);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = color;
-    ctx.fillText(`连击 × ${combo}`, x, y);
+    ctx.fillText(text, cx, cy);
     ctx.restore();
   }
 
@@ -1120,14 +1238,29 @@ export class CanvasRenderer {
         ctx.stroke();
       }
     } else if (animation.kind === 'float') {
-      // 轻抛物线飘字 + 黑色描边
+      // 轻抛物线飘字 + 黑色描边 + 放大弹跳
       const alpha = Math.max(0, 1 - progress);
       ctx.globalAlpha = alpha;
 
-      const gravity = 40;
+      const gravity = 45;
       const posX = animation.anchor.x + animation.vx * progress;
-      const posY = animation.anchor.y - animation.vy * progress + 0.5 * gravity * progress * progress;
-      const fontSize = animation.large ? 20 : 13.5;
+      const posY =
+        animation.anchor.y -
+        animation.vy * progress +
+        0.5 * gravity * progress * progress;
+
+      // 暴击与剧毒引爆附带专属放大弹跳
+      let bounceScale = 1.0;
+      if (animation.prefix || animation.large) {
+        bounceScale =
+          1.0 + Math.sin(Math.min(Math.PI, progress * Math.PI * 2.2)) * 0.35;
+      }
+
+      const baseFontSize = animation.large ? 19 : 13;
+      const fontSize = baseFontSize * bounceScale;
+
+      ctx.save();
+      ctx.translate(posX, posY);
 
       ctx.font = `800 ${fontSize}px "Noto Serif SC", "Songti SC", system-ui, serif`;
       ctx.textAlign = 'center';
@@ -1135,13 +1268,15 @@ export class CanvasRenderer {
 
       // 黑色高对比外描边
       ctx.strokeStyle = '#090b10';
-      ctx.lineWidth = 3.5;
-      ctx.strokeText(animation.text, posX, posY);
+      ctx.lineWidth = animation.large ? 4.2 : 3.0;
+      ctx.strokeText(animation.text, 0, 0);
 
       ctx.fillStyle = animation.tone;
       ctx.shadowColor = animation.tone;
-      ctx.shadowBlur = animation.large ? 12 : 4;
-      ctx.fillText(animation.text, posX, posY);
+      ctx.shadowBlur = animation.large ? 14 : 4;
+      ctx.fillText(animation.text, 0, 0);
+
+      ctx.restore();
     }
 
     ctx.restore();
