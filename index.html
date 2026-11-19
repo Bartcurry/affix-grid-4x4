@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="description" content="在 4×4 法阵中摆放、合成并连锁触发符文，挑战 20 波守门核心。" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f172a'/%3E%3Cpath fill='%2375efff' d='M17 3 7 18h8l-1 11 11-15h-8Z'/%3E%3C/svg%3E" />
+    <title>4×4 词条法阵</title>
+  </head>
+  <body>
+    <main class="game" id="game" aria-label="4×4 词条法阵">
+      <header class="topbar">
+        <div class="brand"><span class="brand-mark" aria-hidden="true">✣</span><div><p class="eyebrow">AFFIX GRID / 4×4</p><h1>词条法阵</h1></div></div>
+        <div class="utility"><button id="support" type="button" title="请作者喝可乐（自愿支持）">可乐</button><button id="sound" type="button" aria-pressed="false">音效</button><button id="help" type="button" aria-label="玩法说明">?</button></div>
+      </header>
+      <section class="boss" aria-label="战斗状态">
+        <div class="boss-head"><div class="boss-title"><p id="wave" class="eyebrow">WAVE 01 / 20</p><strong>守门核心</strong></div><div class="resources"><span id="shield" class="shield"></span><span id="poison" class="poison"></span><span id="gold" class="gold"></span></div></div>
+        <div class="hp-track" id="hp-meter" role="progressbar" aria-label="Boss 生命" aria-valuemin="0"><span id="hp-fill"></span><span id="hp-text" class="hp-text"></span></div>
+      </section>
+      <section class="arena" aria-label="布阵区域">
+        <div class="section-head"><h2>法阵<span> / MATRIX</span></h2><span id="phase" class="phase">布阵中</span></div>
+        <canvas id="arena" tabindex="0" aria-label="棋盘与备战区。方向键选择格子，回车选中或放置，Delete 出售，Escape 取消。">此浏览器不支持 Canvas。</canvas>
+      </section>
+      <section class="inspector" id="inspector" aria-label="词条详情"><div id="rune-icon" aria-hidden="true"></div><div class="inspect-copy"><h2 id="rune-name"></h2><p id="rune-desc"></p></div></section>
+      <section class="market" aria-label="符文商店">
+        <div class="section-head"><h2>补给商店<span> / SHOP</span></h2><div class="shop-tools"><button type="button" id="reward">广告 +2 刷新</button><button type="button" id="refresh"></button></div></div>
+        <div class="offers" id="offers"></div>
+      </section>
+      <footer class="controls">
+        <button type="button" id="speed" aria-label="切换播放速度">1×</button><button type="button" id="battle" class="primary">开始结算</button><button type="button" id="skip" disabled>跳过</button>
+      </footer>
+      <p id="notice" class="notice" role="status" aria-live="polite"></p>
+      <dialog id="panel"><div class="dialog-content"><p id="panel-tag" class="eyebrow"></p><h2 id="panel-title"></h2><p id="panel-text"></p><div id="panel-actions" class="dialog-actions"></div></div></dialog>
+      <dialog id="ad"><div class="dialog-content"><p class="eyebrow">REWARDED VIDEO / LOCAL MOCK</p><h2>模拟激励视频</h2><p id="ad-text" role="status"></p><div class="dialog-actions"><button id="cancel-ad" type="button">取消</button></div></div></dialog>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

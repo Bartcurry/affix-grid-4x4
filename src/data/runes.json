@@ -1,0 +1,137 @@
+[
+  {
+    "id": "spark_orb", "name": "电火花", "rarity": "common", "archetype": "chain",
+    "tags": ["chain", "damage"], "cost": 3, "color": "#38BDF8", "symbol": "⚡",
+    "desc": "造成12点伤害；若由其他符文连锁触发，伤害翻倍。",
+    "triggers": [
+      { "event": "ON_ACTIVATE", "effect": "DEAL_DAMAGE", "target": "BOSS", "value": { "base": 12, "scaleBy": "CHAIN_BONUS", "chainMult": 2.0 } }
+    ]
+  },
+  {
+    "id": "prism_right", "name": "右向折射镜", "rarity": "common", "archetype": "chain",
+    "tags": ["chain", "trigger"], "cost": 4, "color": "#0EA5E9", "symbol": "▶",
+    "desc": "造成6点伤害，并立即触发右侧相邻符文。",
+    "triggers": [
+      { "event": "ON_ACTIVATE", "effect": "DEAL_DAMAGE", "target": "BOSS", "value": { "base": 6, "scaleBy": "NONE" } },
+      { "event": "ON_ACTIVATE", "effect": "RETRIGGER_TARGET", "target": "RIGHT", "value": { "base": 1, "repeatCount": 1 } }
+    ]
+  },
+  {
+    "id": "relay_cross", "name": "十字中继器", "rarity": "epic", "archetype": "chain",
+    "tags": ["chain", "trigger"], "cost": 7, "color": "#818CF8", "symbol": "✚",
+    "desc": "激活时，同时触发上下左右4个相邻格子的符文。",
+    "triggers": [
+      { "event": "ON_ACTIVATE", "effect": "RETRIGGER_TARGET", "target": "ADJACENT_4", "value": { "base": 1, "repeatCount": 1 } }
+    ]
+  },
+  {
+    "id": "overclock_core", "name": "超频核心", "rarity": "rare", "archetype": "chain",
+    "tags": ["chain", "charge"], "cost": 5, "color": "#6366F1", "symbol": "◎",
+    "desc": "同行或同列每有符文激活，获1层充能；自身激活时释放全部充能，每层造成14点伤害。",
+    "triggers": [
+      { "event": "ON_ROW_COL_ACTIVATE", "effect": "ADD_CHARGE", "target": "SELF", "value": { "base": 1, "scaleBy": "NONE" } },
+      { "event": "ON_ACTIVATE", "effect": "RELEASE_CHARGE_DMG", "target": "BOSS", "value": { "base": 14, "scaleBy": "NONE" } }
+    ]
+  },
+  {
+    "id": "venom_drop", "name": "毒液滴管", "rarity": "common", "archetype": "poison",
+    "tags": ["poison"], "cost": 3, "color": "#4ADE80", "symbol": "💧",
+    "desc": "为Boss施加7层剧毒。",
+    "triggers": [
+      { "event": "ON_ACTIVATE", "effect": "ADD_POISON", "target": "BOSS", "value": { "base": 7, "scaleBy": "NONE" } }
+    ]
+  },
+  {
+    "id": "plague_spreader", "name": "瘟疫扩散器", "rarity": "rare", "archetype": "poison",
+    "tags": ["poison"], "cost": 5, "color": "#22C55E", "symbol": "☣",
+    "desc": "施加5层剧毒；上下左右每有1个剧毒标签符文，额外施加6层剧毒。",
+    "triggers": [
+      { "event": "ON_ACTIVATE", "effect": "ADD_POISON", "target": "BOSS", "value": { "base": 5, "scaleBy": "ADJACENT_TAG_COUNT", "matchTag": "poison", "bonusPerMatch": 6 } }
+    ]
+  },
+  {
+    "id": "catalyst_flask", "name": "催化烧瓶", "rarity": "rare", "archetype": "poison",
+    "tags": ["poison", "amplify"], "cost": 6, "color": "#10B981", "symbol": "⚗",
+    "desc": "使Boss当前的剧毒层数立即乘以1.6倍（向上取整）。",
+    "triggers": [
+      { "event": "ON_ACTIVATE", "effect": "MULTIPLY_POISON", "target": "BOSS", "value": { "base": 1.6, "scaleBy": "NONE" } }
+    ]
+  },
+  {
+    "id": "toxic_detonator", "name": "剧毒引爆器", "rarity": "epic", "archetype": "poison",
+    "tags": ["poison", "damage"], "cost": 7, "color": "#84CC16", "symbol": "✹",
+    "desc": "立即引爆Boss剧毒，造成当前毒层×2.5爆发伤害，并保留50%毒层。",
+    "triggers": [
+      { "event": "ON_ACTIVATE", "effect": "DETONATE_POISON", "target": "BOSS", "value": { "base": 2.5, "scaleBy": "BOSS_POISON", "retainRatio": 0.5 } }
+    ]
+  },
+  {
+    "id": "copper_mine", "name": "灵石矿脉", "rarity": "common", "archetype": "gold",
+    "tags": ["gold", "economy"], "cost": 3, "color": "#FACC15", "symbol": "◆",
+    "desc": "激活时产出3枚金币。",
+    "triggers": [
+      { "event": "ON_ACTIVATE", "effect": "GAIN_GOLD", "target": "SELF", "value": { "base": 3, "scaleBy": "NONE" } }
+    ]
+  },
+  {
+    "id": "greed_amplifier", "name": "聚宝盆", "rarity": "rare", "archetype": "gold",
+    "tags": ["gold", "economy"], "cost": 5, "color": "#EAB308", "symbol": "⬡",
+    "desc": "每当上下左右相邻符文被激活时，额外获得1枚金币。",
+    "triggers": [
+      { "event": "ON_NEIGHBOR_ACTIVATE", "effect": "GAIN_GOLD", "target": "SELF", "value": { "base": 1, "scaleBy": "NONE" } }
+    ]
+  },
+  {
+    "id": "gold_cannon", "name": "散财重炮", "rarity": "rare", "archetype": "gold",
+    "tags": ["gold", "damage"], "cost": 6, "color": "#F59E0B", "symbol": "❖",
+    "desc": "造成等于当前持有金币×1.5的巨额伤害（不消耗金币）。",
+    "triggers": [
+      { "event": "ON_ACTIVATE", "effect": "DEAL_DAMAGE", "target": "BOSS", "value": { "base": 1.5, "scaleBy": "PLAYER_GOLD" } }
+    ]
+  },
+  {
+    "id": "tax_collector", "name": "点金祭坛", "rarity": "epic", "archetype": "gold",
+    "tags": ["gold", "amplify"], "cost": 6, "color": "#D97706", "symbol": "▲",
+    "desc": "消耗4枚金币造成45点伤害，并使上下左右相邻符文本回合伤害+40%。",
+    "triggers": [
+      {
+        "event": "ON_ACTIVATE", "effect": "SPEND_GOLD_BUFF", "target": "BOSS",
+        "value": { "base": 45, "goldCost": 4, "scaleBy": "NONE" },
+        "secondaryEffect": { "effect": "ADD_TEMP_MULT", "target": "ADJACENT_4", "value": { "base": 0.4, "scaleBy": "NONE" } }
+      }
+    ]
+  },
+  {
+    "id": "ember_amp", "name": "增幅棱镜", "rarity": "common", "archetype": "amplify",
+    "tags": ["amplify"], "cost": 4, "color": "#F97316", "symbol": "◇",
+    "desc": "使上下左右4个相邻符文本回合伤害倍率+60%。",
+    "triggers": [
+      { "event": "ON_ACTIVATE", "effect": "ADD_TEMP_MULT", "target": "ADJACENT_4", "value": { "base": 0.6, "scaleBy": "NONE" } }
+    ]
+  },
+  {
+    "id": "echo_stone", "name": "回响之石", "rarity": "rare", "archetype": "amplify",
+    "tags": ["amplify", "trigger"], "cost": 6, "color": "#EC4899", "symbol": "◀◀",
+    "desc": "立即连续触发左侧相邻符文2次。",
+    "triggers": [
+      { "event": "ON_ACTIVATE", "effect": "RETRIGGER_TARGET", "target": "LEFT", "value": { "base": 1, "repeatCount": 2 } }
+    ]
+  },
+  {
+    "id": "blood_altar", "name": "暴击图腾", "rarity": "rare", "archetype": "amplify",
+    "tags": ["amplify", "crit"], "cost": 5, "color": "#EF4444", "symbol": "✦",
+    "desc": "激活时使同行符文本回合暴击率+35%；全盘每次暴击时额外造成18点追击伤害。",
+    "triggers": [
+      { "event": "ON_ACTIVATE", "effect": "ADD_TEMP_CRIT", "target": "SAME_ROW", "value": { "base": 0.35, "scaleBy": "NONE" } },
+      { "event": "ON_ANY_CRIT", "effect": "DEAL_DAMAGE", "target": "BOSS", "value": { "base": 18, "scaleBy": "NONE" } }
+    ]
+  },
+  {
+    "id": "combo_finisher", "name": "终焉共鸣器", "rarity": "epic", "archetype": "amplify",
+    "tags": ["amplify", "damage"], "cost": 7, "color": "#A855F7", "symbol": "★",
+    "desc": "造成本回合全盘已发生的总触发次数×12点伤害（适合放右下角收尾）。",
+    "triggers": [
+      { "event": "ON_ACTIVATE", "effect": "DEAL_DAMAGE", "target": "BOSS", "value": { "base": 12, "scaleBy": "TOTAL_TRIGGERS_THIS_TURN" } }
+    ]
+  }
+]
