@@ -1399,6 +1399,26 @@ dialog::backdrop {
 #invite-text { width: 100%; min-height: 5.1rem; resize: vertical; background: #141519; border: 1px solid #655139; border-radius: 4px; padding: .45rem; color: #f5deb8; font: inherit; }
 .challenge-dialog .dialog-actions .primary { border-color: #f5d298; background: #efbc70; color: #25160e; font-weight: 700; }
 .challenge-dialog .dialog-actions .primary:hover { background: #f8ce8d; }
+.invite-modes { display: flex; gap: .35rem; }
+.invite-modes button { flex: 1; min-height: 2.35rem; color: #d6c5ad; }
+.invite-modes button[aria-pressed=true] { border-color: #e1b971; background: #33291f; color: #ffdfa2; }
+.shared-board-dialog { width: min(29rem, calc(100% - 1.5rem)); }
+#shared-board-close { width: 2.45rem; height: 2.45rem; padding: 0; font-size: 1.35rem; }
+.shared-board-scores { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .38rem; }
+.shared-board-scores > div { display: grid; gap: .22rem; padding: .47rem .62rem; border: 1px solid #695638; background: #27211f; color: #d4ba96; font-size: .77rem; }
+.shared-board-scores > div:last-child { border-color: #497475; background: #1a292c; color: #acd9cf; }
+.shared-board-scores strong { color: #f8e7bd; font: 750 1.2rem var(--mono-font); }
+.shared-board-grid button[data-empty=true] { background: #202228; border-style: dashed; color: #657486; }
+.shared-board-grid button[data-empty=true] span { color: #657486; }
+.shared-board-grid button[aria-pressed=true] { outline-color: #ffd28b; }
+.shared-board-grid button[data-modifier=xuan_ice] small { color: #84cced; }
+.shared-board-grid button[data-modifier=spirit_gathering] small { color: #f4cb7e; }
+.shared-board-actions { display: flex; flex-wrap: wrap; gap: .38rem; }
+.shared-board-actions button { min-height: 2.55rem; }
+.shared-board-actions .primary { flex: 1; background: #e9b970; border-color: #f1cb8f; color: #201710; font-weight: 750; }
+.shared-board-link { display: flex; gap: .3rem; }
+.shared-board-link input { min-width: 0; flex: 1; border: 1px solid #64523e; background: #181b23; color: #efdab9; padding: .36rem; }
+.shared-board-link button { flex: none; min-height: 2rem; }
 .market-preview { width: min(34rem, calc(100% - 1.5rem)); }
 .market-preview-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .55rem; }
 .market-preview-head h2 { margin: .15rem 0 0; }

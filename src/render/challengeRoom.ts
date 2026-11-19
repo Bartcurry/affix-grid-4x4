@@ -1,6 +1,9 @@
 import { challengeFromRun, challengeUrl, compareScores, type Challenge } from '../core/challenge';
 import { openings, runScore } from '../core/openings';
-import type { Run } from '../core/types';
+import { boardShareUrl } from '../core/boardShare';
+import { canArrange } from '../core/shopEngine';
+import { prepareBattle } from '../core/tactics';
+import type { Catalog, Run } from '../core/types';
 
 export function bindChallengeRoom(click: () => void, enter: () => void, leave: () => void) {
   const dialog = document.querySelector<HTMLDialogElement>('#challenge-dialog')!;
@@ -34,7 +37,7 @@ export function bindChallengeRoom(click: () => void, enter: () => void, leave: (
   };
 }
 
-export function bindInviteRoom(click: () => void) {
+export function bindInviteRoom(click: () => void, catalog: Catalog, format: (number: number) => string) {
   const dialog = document.querySelector<HTMLDialogElement>('#invite-dialog')!;
   const get = <T extends HTMLElement = HTMLElement>(id: string) => dialog.querySelector<T>(`#${id}`)!;
   const details = get<HTMLDetailsElement>('invite-details');
@@ -42,6 +45,9 @@ export function bindInviteRoom(click: () => void) {
   const copy = get('invite-copy');
   const native = get('invite-native');
   const feedback = get('invite-feedback');
+  const modes = get('invite-modes');
+  const campaign = get('invite-campaign');
+  const board = get('invite-board');
   let share: ShareData = {};
 
   function manual() {
@@ -55,12 +61,13 @@ export function bindInviteRoom(click: () => void) {
   get('invite-close').onclick = () => { click(); dialog.close(); };
   copy.onclick = async () => {
     click();
+    const contents = textarea.value;
     try {
-      await navigator.clipboard.writeText(textarea.value);
-      if (!dialog.open) return;
+      await navigator.clipboard.writeText(contents);
+      if (!dialog.open || textarea.value !== contents) return;
       feedback.hidden = false;
       feedback.textContent = '邀请已复制。';
-    } catch { if (dialog.open) manual(); }
+    } catch { if (dialog.open && textarea.value === contents) manual(); }
   };
   native.onclick = async () => {
     click();
@@ -73,16 +80,32 @@ export function bindInviteRoom(click: () => void) {
     const url = challengeUrl(location.href, challenge);
     const name = openings[challenge.opening].name;
     const score = `${challenge.cleared} 波 / ${challenge.combo} 连击`;
-    const text = `来打同一个开局。「${name}」${challenge.cleared || challenge.combo ? `，我的战绩是 ${score}。` : '，看看谁能走得更远。'}`;
-    share = { title: '4×4 词条法阵', text, ...(url ? { url } : {}) };
-    textarea.value = `《4×4 词条法阵》${text}\n${url ?? `种子码 ${challenge.seed}`}`;
-    get('invite-summary').textContent = url
-      ? `${name}开局 · ${score}。朋友点开链接就能从同一个种子开始。`
-      : `${name}开局 · ${score}。离线试玩可以分享种子码 ${challenge.seed}。`;
-    details.open = false;
-    feedback.hidden = true;
-    native.hidden = !url || typeof navigator.share !== 'function';
-    copy.classList.toggle('primary', native.hidden);
+    const boardUrl = canArrange(run) ? boardShareUrl(location.href, run) : null;
+    modes.hidden = !boardUrl;
+    function selectBoard(enabled: boolean) {
+      const useBoard = enabled && !!boardUrl;
+      campaign.setAttribute('aria-pressed', String(!useBoard));
+      board.setAttribute('aria-pressed', String(useBoard));
+      const address = useBoard ? boardUrl : url;
+      let text = `来打同一个开局。「${name}」${challenge.cleared || challenge.combo ? `，我的战绩是 ${score}。` : '，看看谁能走得更远。'}`;
+      let summary = url ? `${name}开局 · ${score}。朋友从同一个种子开始。` : `${name}开局 · ${score}。离线试玩可以分享种子码 ${challenge.seed}。`;
+      if (useBoard) {
+        const result = prepareBattle(run, catalog).events.at(-1);
+        const damage = result?.type === 'TURN_RESULT' ? format(result.damage) : '0';
+        text = `接手我的第 ${run.wave} 波。原阵打 ${damage} 伤害，你换几格能打得更高？`;
+        summary = `第 ${run.wave} 波 · 原阵 ${damage} 伤害。朋友打开就能换位试打。`;
+      }
+      share = { title: '4×4 词条法阵', text, ...(address ? { url: address } : {}) };
+      textarea.value = `《4×4 词条法阵》${text}\n${address ?? `种子码 ${challenge.seed}`}`;
+      get('invite-summary').textContent = summary;
+      details.open = false;
+      feedback.hidden = true;
+      native.hidden = !address || typeof navigator.share !== 'function';
+      copy.classList.toggle('primary', native.hidden);
+    }
+    campaign.onclick = () => { click(); selectBoard(false); };
+    board.onclick = () => { click(); selectBoard(true); };
+    selectBoard(false);
     if (!dialog.open) dialog.showModal();
   };
 }

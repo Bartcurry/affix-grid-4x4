@@ -225,6 +225,7 @@
       <dialog id="invite-dialog" class="challenge-dialog" aria-labelledby="invite-title">
         <div class="dialog-content">
           <h2 id="invite-title">约朋友打同一局</h2>
+          <div id="invite-modes" class="invite-modes" role="group" aria-label="分享范围" hidden><button type="button" id="invite-campaign" aria-pressed="true">整局挑战</button><button type="button" id="invite-board" aria-pressed="false">这一波</button></div>
           <p id="invite-summary"></p>
           <div class="dialog-actions">
             <button id="invite-native" class="primary" type="button" hidden>分享邀请</button>
@@ -235,6 +236,21 @@
           <details id="invite-details" class="invite-details">
             <summary>查看邀请内容</summary>
             <textarea id="invite-text" rows="4" readonly aria-label="可复制的邀请内容"></textarea>
+          </details>
+        </div>
+      </dialog>
+
+      <dialog id="shared-board-dialog" class="shared-board-dialog" aria-labelledby="shared-board-title">
+        <div class="dialog-content">
+          <div class="daily-heading"><div><p id="shared-board-wave" class="daily-date"></p><h2 id="shared-board-title">接手这一波</h2></div><button id="shared-board-close" type="button" aria-label="退出试阵" autofocus>×</button></div>
+          <div class="shared-board-scores"><div><span>原阵伤害</span><strong id="shared-board-original"></strong></div><div><span>你的最高伤害</span><strong id="shared-board-best">—</strong></div></div>
+          <p id="shared-board-rules"></p>
+          <div id="shared-board-grid" class="daily-board shared-board-grid" role="group" aria-label="试阵棋盘"></div>
+          <p id="shared-board-result" class="daily-result" role="status"></p>
+          <div class="shared-board-actions"><button id="shared-board-check" class="primary" type="button">试打</button><button id="shared-board-reset" type="button">恢复原阵</button><button id="shared-board-journal" type="button" hidden>看复盘</button></div>
+          <details id="shared-board-share" class="invite-details" hidden>
+            <summary>分享改好的阵容</summary>
+            <div class="shared-board-link"><input id="shared-board-link" type="url" readonly aria-label="改阵挑战链接" /><button id="shared-board-copy" type="button">复制</button></div>
           </details>
         </div>
       </dialog>

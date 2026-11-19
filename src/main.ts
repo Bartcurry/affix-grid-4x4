@@ -1,6 +1,7 @@
 import './style.css';
 import { affixAt, armorLayers, encounters, lastGate, relics, upcomingEncounter } from './core/expedition';
 import { challengeParam, challengeSaveKey, readChallenge } from './core/challenge';
+import { boardSharePrefix, readSharedBoard } from './core/boardShare';
 import { previewRelics } from './core/relicPreview';
 import { isOpening, openingIds, openings, runScore, updateRecords } from './core/openings';
 import { foughtHealth } from './core/journal';
@@ -19,6 +20,7 @@ import { bindBattleJournal } from './render/battleJournal';
 import { bindChallengeRoom, bindInviteRoom } from './render/challengeRoom';
 import { bindTrialRoom } from './render/trialRoom';
 import { bindMarketPreview } from './render/marketPreviewRoom';
+import { openSharedBoard } from './render/sharedBoardRoom';
 import { bindRouteRoom } from './render/routeRoom';
 import { PlaybackController } from './render/playbackController';
 import { SynthAudio } from './audio/synthAudio';
@@ -38,8 +40,10 @@ const player = new PlaybackController();
 const challengeQuery = new URLSearchParams(location.search).get(challengeParam);
 const challenge = readChallenge(challengeQuery);
 const invalidChallenge = challengeQuery !== null && !challenge;
+const sharedBoard = readSharedBoard(location.hash, catalog);
+const invalidBoard = location.hash.startsWith(boardSharePrefix) && !sharedBoard;
 const platform = new WebMockAdapter(catalog, element('ad'), element('ad-text'), button('cancel-ad'), challenge ? challengeSaveKey(challenge) : undefined);
-const loaded = platform.load();
+const loaded = sharedBoard ? null : platform.load();
 const saved = challenge && loaded && (loaded.run.seed !== challenge.seed || loaded.run.opening !== challenge.opening || loaded.run.relicRule !== challenge.relicRule) ? null : loaded;
 
 const initialSeed = challenge?.seed ?? generateSeedCode().code;
@@ -90,7 +94,7 @@ const persist = () => {
   platform.save({ schemaVersion: 2, run, skin, muted: audio.muted, speed: player.speed, exactForecast, records });
 };
 const click = () => { audio.unlock(); audio.click(); };
-const inviteRoom = bindInviteRoom(click);
+const inviteRoom = bindInviteRoom(click, catalog, formatNumber);
 const shareRun = () => inviteRoom(run);
 const challengeRoom = bindChallengeRoom(click, persist, () => {
   const mainPage = new URL(location.href);
@@ -727,7 +731,7 @@ function openOpenings(first = false) {
   const replacing = run.status === 'active' && !first;
   element('opening-note').textContent = replacing
     ? '换开局会另开一局。现在这局的最高纪录会保留。'
-    : first && invalidChallenge ? '这条同局邀请已失效。可以先选一套阵开始主线。' : '四套阵都能直接打第一波，后面怎么摆由你。';
+    : first && (invalidChallenge || invalidBoard) ? '这条游戏邀请无法读取。可以先选一套阵开始主线。' : '四套阵都能直接打第一波，后面怎么摆由你。';
   button('opening-close').textContent = first ? '用借火开局' : '回到当前局';
   openingDialog.dataset.first = String(first);
 
@@ -968,7 +972,18 @@ function showLanding() {
   else if (saved) {
     showOutcome();
     if (invalidChallenge) notice('这条同局邀请已失效。已回到主线。');
+    if (invalidBoard) notice('这条试阵链接无法读取。已回到主线。');
   }
   else openOpenings(true);
 }
-if (!dailyRoom.openShared()) showLanding();
+if (sharedBoard) {
+  openSharedBoard(sharedBoard, catalog, (owner, id) => iconPath(owner, runeVectors[id] ?? emptyIcon), formatNumber, click, journal, () => {
+    const address = new URL(location.href);
+    address.hash = '';
+    history.replaceState(history.state, '', address);
+    location.reload();
+  });
+} else if (!dailyRoom.openShared()) showLanding();
+window.addEventListener('hashchange', () => {
+  if (location.hash.startsWith(boardSharePrefix) || sharedBoard) location.reload();
+});
