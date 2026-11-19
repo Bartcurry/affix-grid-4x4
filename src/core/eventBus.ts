@@ -25,7 +25,7 @@ export function createEventBus(board: Readonly<Slots>, catalog: Catalog, hp: num
   let tutorialPending = tutorial && fighters[0]?.rune.configId === 'spark_orb' && fighters[1]?.rune.configId === 'prism_right';
 
   const combat: Combat = {
-    fighters, hp, gold, poison, shield, rng, encounter, relics, priorHits: 0, damage: 0, combo: 0, affix,
+    fighters, hp, gold, poison, shield, rng, encounter, relics, priorHits: 0, hitRows: 0, damage: 0, combo: 0, affix,
     breachHp: encounter === 'last_gate' ? Math.floor(hp / 2) : 0,
     breached: false,
     emit(event) {

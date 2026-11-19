@@ -87,6 +87,7 @@ export function newRun(catalog: Catalog, rng: Random, opening: OpeningId = 'chai
     tileModifiers,
     opening,
     openingRule: 1,
+    relicRule: 1,
     shopFocus: opening,
     wave: 1,
     gold: setup.gold,
@@ -229,7 +230,7 @@ export function settleTurn(run: Run, result: TurnResult, catalog: Catalog, rng: 
   if (payout.trial) run.clearedTrials = [...(run.clearedTrials ?? []), run.wave];
   if (run.wave === 20 && !run.endless) run.status = 'victory';
   else {
-    const choices = relicChoices(run.wave, run.relics);
+    const choices = relicChoices(run.wave, run.relics, run.relicRule);
     advanceWave(run, catalog, rng);
     run.pendingRelics = choices;
   }

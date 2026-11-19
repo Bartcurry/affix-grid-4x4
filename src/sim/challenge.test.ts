@@ -15,7 +15,7 @@ describe('shared campaign challenges', () => {
     expect([...url.searchParams.keys()]).toEqual([challengeParam]);
     expect(url.hash).toBe('');
     const invitation = readChallenge(url.searchParams.get(challengeParam))!;
-    expect(invitation).toEqual({ opening: 'poison', seed: challenge.seed, cleared: 14, combo: 29 });
+    expect(invitation).toEqual({ opening: 'poison', seed: challenge.seed, cleared: 14, combo: 29, relicRule: 1 });
     const guest = newRun(catalog, createMulberry32(decodeSeed(invitation.seed)), invitation.opening, invitation.seed);
     expect(guest).toEqual({ ...original, seed: invitation.seed });
     expect(challengeUrl('file:///C:/private/preview.html', challenge)).toBeNull();
@@ -30,6 +30,15 @@ describe('shared campaign challenges', () => {
     }
     expect(challengeSaveKey(challenge)).toBe(challengeSaveKey({ ...challenge, cleared: 15, combo: 1 }));
     expect(challengeSaveKey(challenge)).not.toBe(challengeSaveKey({ ...challenge, opening: 'gold' }));
+  });
+
+  it('still opens the old v2 invitation with its original save slot and schedule', () => {
+    const expanded = challengeFromRun(newRun(catalog, createMulberry32(667), 'chain'));
+    const classic = readChallenge(`v2.chain.${expanded.seed}.7.22`)!;
+    expect(classic).toEqual({ opening: 'chain', seed: expanded.seed, cleared: 7, combo: 22 });
+    expect(challengeSaveKey(classic)).toBe(`affix-grid-4x4.challenge.v2.chain.${expanded.seed}`);
+    expect(challengeSaveKey(expanded)).toBe(`affix-grid-4x4.challenge.v3.chain.${expanded.seed}`);
+    expect(new URL(challengeUrl('https://example.org/', classic)!).searchParams.get(challengeParam)).toBe(`v2.chain.${expanded.seed}.7.22`);
   });
 
   it('ranks cleared waves before the combo tiebreak', () => {

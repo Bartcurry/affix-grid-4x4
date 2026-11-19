@@ -29,10 +29,10 @@ interface SimulationResult {
 }
 
 const RELIC_PREFERENCES: Record<OpeningId, RelicId[]> = {
-  chain: ['chain_ring', 'whetstone', 'red_lens', 'gate_tithe', 'copper_ledger', 'moss_bowl'],
-  poison: ['moss_bowl', 'gate_tithe', 'whetstone', 'chain_ring', 'copper_ledger', 'red_lens'],
-  gold: ['copper_ledger', 'gate_tithe', 'chain_ring', 'whetstone', 'red_lens', 'moss_bowl'],
-  amplify: ['whetstone', 'chain_ring', 'gate_tithe', 'red_lens', 'copper_ledger', 'moss_bowl'],
+  chain: ['chain_ring', 'row_banner', 'whetstone', 'red_lens', 'seal_script', 'gate_tithe', 'copper_ledger', 'moss_bowl'],
+  poison: ['moss_bowl', 'gate_tithe', 'row_banner', 'whetstone', 'chain_ring', 'copper_ledger', 'seal_script', 'red_lens'],
+  gold: ['copper_ledger', 'gate_tithe', 'chain_ring', 'seal_script', 'row_banner', 'whetstone', 'red_lens', 'moss_bowl'],
+  amplify: ['seal_script', 'whetstone', 'row_banner', 'chain_ring', 'gate_tithe', 'red_lens', 'copper_ledger', 'moss_bowl'],
 };
 
 function scoreRune(run: Run, configId: string): number {

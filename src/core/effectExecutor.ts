@@ -1,4 +1,4 @@
-import { resolveTargets } from './grid';
+import { resolveTargets, toCoords } from './grid';
 import { damageModifiers, type EncounterId } from './expedition';
 import { STAR_MULT, type BattleEvent, type Effect, type Random, type RelicId, type Rune, type RuneConfig, type RuneState } from './types';
 
@@ -15,6 +15,7 @@ export interface Combat {
   encounter: EncounterId;
   relics: readonly RelicId[];
   priorHits: number;
+  hitRows: number;
   breachHp: number;
   breached: boolean;
   affix?: string;
@@ -32,13 +33,24 @@ export function dealDamage(combat: Combat, source: number | null, value: number,
   if (combat.affix === 'shield_tax' && combat.gold < 10) {
     finalEnemy *= 0.8;
   }
-  const boosted = value * (crit ? 2 : 1) * relic;
+  const runeHit = kind === 'rune' && source !== null && value > 0;
+  const row = runeHit ? 1 << toCoords(source).row : 0;
+  const banner = runeHit && !(combat.hitRows & row) && combat.relics.includes('row_banner');
+  const seal = runeHit && (combat.fighters[source]?.state.tempMult ?? 1) > 1 && combat.relics.includes('seal_script');
+  const relicEffects: RelicId[] = [];
+  if (banner) relicEffects.push('row_banner');
+  if (seal) relicEffects.push('seal_script');
+  const boosted = value * (crit ? 2 : 1) * relic * (banner ? 1.6 : 1) * (seal ? 1.3 : 1);
   const amount = Math.ceil(boosted * finalEnemy);
   const enemyDelta = amount - Math.ceil(boosted);
   const hp = Math.max(0, combat.hp - amount);
   const breach = !combat.breached && hp > 0 && hp <= combat.breachHp;
-  if (combat.emit({ type: 'DAMAGE', source, amount, crit, hp, kind, ...(enemyDelta ? { enemyDelta } : {}), ...(breach ? { breach: true } : {}) })) {
-    if (kind === 'rune' && amount > 0) combat.priorHits++;
+  if (combat.emit({ type: 'DAMAGE', source, amount, crit, hp, kind, ...(enemyDelta ? { enemyDelta } : {}),
+    ...(breach ? { breach: true } : {}), ...(relicEffects.length ? { relics: relicEffects } : {}) })) {
+    if (kind === 'rune' && amount > 0) {
+      combat.priorHits++;
+      combat.hitRows |= row;
+    }
     combat.hp = hp;
     if (breach) combat.breached = true;
     combat.damage += amount;

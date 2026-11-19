@@ -1195,6 +1195,11 @@ dialog::backdrop {
   gap: 0.45rem;
 }
 
+.relic-baseline { padding: .45rem .55rem; border: 1px solid #63523a; background: #24222a; color: #dfccad; font-size: .75rem; }
+.relic-baseline > div { display: flex; flex-wrap: wrap; gap: .28rem .6rem; justify-content: space-between; margin-top: .24rem; color: #f7e9d5; font: .8rem var(--mono-font); }
+.relic-impact { border-top: 1px solid #594936; padding-top: .3rem; width: 100%; color: #efc490; font: .74rem/1.4 var(--mono-font); }
+.relic-impact[data-win=true] { color: #c0dd9d; }
+
 .relic-choices button {
   display: flex;
   flex-direction: column;

@@ -1,6 +1,7 @@
 import './style.css';
 import { affixAt, armorLayers, encounters, lastGate, relics, upcomingEncounter } from './core/expedition';
 import { challengeParam, challengeSaveKey, readChallenge } from './core/challenge';
+import { previewRelics } from './core/relicPreview';
 import { isOpening, openingIds, openings, runScore, updateRecords } from './core/openings';
 import { foughtHealth } from './core/journal';
 import { fieldTip } from './core/fieldGuide';
@@ -39,10 +40,15 @@ const challenge = readChallenge(challengeQuery);
 const invalidChallenge = challengeQuery !== null && !challenge;
 const platform = new WebMockAdapter(catalog, element('ad'), element('ad-text'), button('cancel-ad'), challenge ? challengeSaveKey(challenge) : undefined);
 const loaded = platform.load();
-const saved = challenge && loaded && (loaded.run.seed !== challenge.seed || loaded.run.opening !== challenge.opening) ? null : loaded;
+const saved = challenge && loaded && (loaded.run.seed !== challenge.seed || loaded.run.opening !== challenge.opening || loaded.run.relicRule !== challenge.relicRule) ? null : loaded;
 
 const initialSeed = challenge?.seed ?? generateSeedCode().code;
-let run = saved?.run ?? newRun(catalog, createMulberry32(decodeSeed(initialSeed)), challenge?.opening ?? 'chain', initialSeed);
+function createOpeningRun(opening: OpeningId, seed?: string) {
+  const next = newRun(catalog, createMulberry32(seed ? decodeSeed(seed) : 1), opening, seed);
+  if (challenge) next.relicRule = challenge.relicRule;
+  return next;
+}
+let run = saved?.run ?? createOpeningRun(challenge?.opening ?? 'chain', initialSeed);
 const target = () => battleTarget(run.wave, run.trialWave);
 let records = saved?.records ?? {};
 let forecast: ReturnType<typeof planTurn> | null = null;
@@ -591,15 +597,29 @@ function openRelicBag() {
 }
 
 function showRelicChoices() {
-  element('relic-wave').textContent = `打过第 ${run.wave - 1} 波 · 路边的供桌`;
-  element('relic-choices').replaceChildren(...run.pendingRelics.map(id => {
+  element('relic-wave').textContent = `打过第 ${run.wave - 1} 波 · 选一件遗物`;
+  const { baseline, choices } = previewRelics(run, catalog);
+  element('relic-baseline-title').textContent = `第 ${run.wave} 波 · 当前阵容预估`;
+  element('relic-baseline-damage').textContent = `伤害 ${formatNumber(baseline.result.damage)} / ${formatNumber(baseline.hp)}`;
+  element('relic-baseline-gold').textContent = `结算 ${formatNumber(baseline.gold)} 金`;
+  const signed = (value: number) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${formatNumber(Math.abs(value))}`;
+  element('relic-choices').replaceChildren(...choices.map(({ id, result, gold }) => {
     const item = document.createElement('button');
     const name = document.createElement('strong');
     const text = document.createElement('span');
+    const impact = document.createElement('small');
     name.textContent = relics[id].name;
     text.textContent = relics[id].text;
+    impact.className = 'relic-impact';
+    impact.dataset.win = String(result.win);
+    const damageDelta = result.damage - baseline.result.damage;
+    const goldDelta = gold - baseline.gold;
+    const damageLabel = damageDelta ? `${signed(damageDelta)} 伤害` : '伤害持平';
+    const goldLabel = goldDelta ? `${signed(goldDelta)} 金` : '金币持平';
+    impact.textContent = `${damageLabel} · ${goldLabel} · ${result.win ? '能打过' : `还差 ${formatNumber(result.hp)} 点`}`;
     item.type = 'button';
-    item.append(name, text);
+    item.dataset.relic = id;
+    item.append(name, text, impact);
     item.onclick = () => {
       if (!chooseRelic(run, id)) return;
       audio.unlock(); audio.merge();
@@ -683,8 +703,7 @@ function startOpening(id: OpeningId, customSeed?: string) {
   if (openingDialog.open) openingDialog.close();
   if (dialog.open) dialog.close();
   const seed = customSeed || element<HTMLInputElement>('opening-seed')?.value.trim() || undefined;
-  const initialPrng = createMulberry32(seed ? decodeSeed(seed) : 1);
-  run = newRun(catalog, initialPrng, id, seed);
+  run = createOpeningRun(id, seed);
   undoStack.clear();
   renderer.setRun(run);
   renderer.cursor = null;

@@ -1,5 +1,6 @@
 import { MAX_EVENTS } from './eventBus';
 import { CELL_COUNT } from './grid';
+import { relics } from './expedition';
 import { battleTarget, trialAt } from './trials';
 import type { BattleEvent, BattleJournal, Catalog } from './types';
 
@@ -50,7 +51,9 @@ export function readJournal(raw: unknown, catalog: Catalog): BattleJournal | und
       case 'CHAIN_LINK': return slot(event.from) && slot(event.to);
       case 'DAMAGE': return ['rune', 'poison', 'tutorial'].includes(event.kind) && (event.source === null || slot(event.source)) &&
         natural(event.amount) && natural(event.hp) && typeof event.crit === 'boolean' && (event.enemyDelta === undefined || integer(event.enemyDelta)) &&
-        (event.breach === undefined || event.breach === true && wave === 20);
+        (event.breach === undefined || event.breach === true && wave === 20) &&
+        (event.relics === undefined || Array.isArray(event.relics) && event.relics.length <= 2 &&
+          event.relics.every(id => typeof id === 'string' && Object.hasOwn(relics, id)));
       case 'POISON': return (event.source === null || slot(event.source)) && natural(event.poison);
       case 'GOLD': return slot(event.source) && natural(event.gold) && integer(event.delta);
       case 'RUNE_STATE': return slot(event.index) && !!event.state && natural(event.state.chargeStacks) &&

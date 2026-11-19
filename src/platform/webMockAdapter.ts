@@ -110,6 +110,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       tileModifiers,
       opening,
       openingRule: 1,
+      relicRule: rawRun.relicRule === 1 ? 1 : undefined,
       shopFocus,
       wave,
       gold,

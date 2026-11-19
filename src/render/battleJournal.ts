@@ -1,4 +1,4 @@
-import { encounters } from '../core/expedition';
+import { encounters, relics } from '../core/expedition';
 import { battleTarget } from '../core/trials';
 import { damageLeaders, journalRows, type JournalFilter } from '../core/journal';
 import type { BattleJournal, Catalog } from '../core/types';
@@ -53,6 +53,7 @@ export function bindBattleJournal(catalog: Catalog, format: (value: number) => s
         case 'CHAIN_LINK': label.textContent = `${name(event.from)} 接到 ${name(event.to)}`; break;
         case 'DAMAGE':
           label.textContent = `${event.kind === 'tutorial' ? '起手共鸣' : event.source === null ? '回合末剧毒' : name(event.source)}：${event.crit ? '暴击，' : ''}${format(event.amount)} 伤害${event.enemyDelta ? `（敌人招式 ${signed(event.enemyDelta)}）` : ''}，敌人剩 ${format(event.hp)} 生命`;
+          if (event.relics?.length) label.append(` · ${event.relics.map(id => relics[id].name).join('、')}`);
           if (event.breach) { entry.dataset.breach = 'true'; label.append('。城门已破。'); }
           break;
         case 'POISON': label.textContent = `${event.source === null ? '毒层衰减' : name(event.source)}：${format(previousPoison)} → ${format(event.poison)} 层毒`; break;

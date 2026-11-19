@@ -63,6 +63,8 @@ export const relics = {
   red_lens: { name: '朱砂镜', text: '暴击伤害再增加 20%。' },
   copper_ledger: { name: '铜钱簿', text: '每次符文产出金币时，多得 1 金。' },
   gate_tithe: { name: '过门钱', text: '每打过一波，额外拿 4 金。' },
+  seal_script: { name: '朱漆印谱', text: '本轮伤害倍率超过 1 倍的符文，伤害再提高 30%。' },
+  row_banner: { name: '四行旗', text: '每一排第一次打出的符文伤害提高 60%。' },
 } satisfies Record<RelicId, { name: string; text: string }>;
 
 const altars: readonly (readonly RelicId[])[] = [
@@ -72,8 +74,16 @@ const altars: readonly (readonly RelicId[])[] = [
   ['gate_tithe', 'whetstone', 'copper_ledger', 'red_lens', 'moss_bowl', 'chain_ring'],
 ];
 
-export function relicChoices(waveCleared: number, owned: readonly RelicId[]): RelicId[] {
-  const options = waveCleared % 4 === 0 ? altars[waveCleared / 4 - 1] : undefined;
+const expandedAltars: readonly (readonly RelicId[])[] = [
+  altars[0],
+  ['seal_script', 'red_lens', 'copper_ledger', 'gate_tithe', 'moss_bowl', 'whetstone', 'chain_ring'],
+  ['moss_bowl', 'row_banner', 'chain_ring', 'red_lens', 'whetstone', 'gate_tithe', 'copper_ledger', 'seal_script'],
+  ['gate_tithe', 'row_banner', 'seal_script', 'whetstone', 'copper_ledger', 'red_lens', 'moss_bowl', 'chain_ring'],
+];
+
+export function relicChoices(waveCleared: number, owned: readonly RelicId[], rule?: 1): RelicId[] {
+  const schedule = rule === 1 ? expandedAltars : altars;
+  const options = waveCleared % 4 === 0 ? schedule[waveCleared / 4 - 1] : undefined;
   return options?.filter(id => !owned.includes(id)).slice(0, 3) ?? [];
 }
 
