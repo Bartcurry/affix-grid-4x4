@@ -1,8 +1,9 @@
-import { dailyLink, dailyPuzzle, newDailyRecord, runDaily, shanghaiDay, validDailyDate, type DailyPuzzle, type DailyRecord } from '../core/daily';
+import { dailyLink, dailyPuzzle, dailyStreak, newDailyRecord, recentDailyDates, runDaily, shanghaiDay, validDailyDate, type DailyPuzzle, type DailyRecord } from '../core/daily';
 import { encounters } from '../core/expedition';
 import type { Catalog } from '../core/types';
 
 const storageKey = 'affix-grid-4x4.daily.v1';
+const tileLabel = { li_fire: '离火', xuan_ice: '玄冰', spirit_gathering: '聚灵' } as const;
 
 export function bindDailyRoom(catalog: Catalog, glyph: (node: HTMLElement, id: string) => void, click: () => void,
   canOpen: () => boolean, onSharedClose: () => void) {
@@ -11,19 +12,54 @@ export function bindDailyRoom(catalog: Catalog, glyph: (node: HTMLElement, id: s
   const board = get('daily-board');
   const result = get('daily-result');
   const link = get<HTMLInputElement>('daily-link');
+  const archive = get<HTMLDetailsElement>('daily-archive');
+  const dates = get('daily-dates');
+  const copyButton = get('daily-copy');
   let puzzle: DailyPuzzle;
   let pieces: string[];
   let selected: number | null;
   let moves: number;
   let shared = false;
+  let copyTimer: ReturnType<typeof setTimeout>;
   const records = new Map<string, DailyRecord>();
-  try {
-    const data: unknown = JSON.parse(localStorage.getItem(storageKey) ?? '{}');
-    if (data && typeof data === 'object') {
+  const drafts = new Map<string, { pieces: string[]; moves: number }>();
+
+  function readSavedRecords() {
+    try {
+      const data: unknown = JSON.parse(localStorage.getItem(storageKey) ?? '{}');
+      if (!data || typeof data !== 'object') return;
       for (const [day, value] of Object.entries(data)) if (validDailyDate(day) && value &&
-        Number.isSafeInteger(value.moves) && value.moves > 0 && Number.isSafeInteger(value.damage) && value.damage > 0) records.set(day, value);
-    }
-  } catch {}
+        Number.isSafeInteger(value.moves) && value.moves > 0 && Number.isSafeInteger(value.damage) && value.damage > 0) {
+        records.set(day, newDailyRecord(records.get(day), { moves: value.moves, damage: value.damage }));
+      }
+    } catch {}
+  }
+
+  function renderArchive() {
+    const today = shanghaiDay();
+    const streak = dailyStreak(records, today);
+    const badge = get('daily-streak');
+    badge.hidden = streak === 0;
+    badge.textContent = `连续解开 ${streak} 期`;
+    dates.replaceChildren(...recentDailyDates(today).map(day => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.day = day;
+      const best = records.get(day);
+      button.dataset.solved = String(!!best);
+      button.setAttribute('aria-pressed', String(day === puzzle.day));
+      button.setAttribute('aria-label', `${day}${day === today ? '，今天' : ''}${best ? `，已解，最佳 ${best.moves} 步` : '，待解'}`);
+      const date = document.createElement('strong'); date.textContent = day === today ? '今天' : day.slice(5).replace('-', '/');
+      const status = document.createElement('small'); status.textContent = best ? `${best.moves} 步` : '待解';
+      button.append(date, status);
+      button.onclick = () => {
+        click();
+        open(day);
+        dates.querySelector<HTMLButtonElement>('[aria-pressed=true]')?.focus({ preventScroll: true });
+      };
+      return button;
+    }));
+  }
 
   function stats() {
     get('daily-moves').textContent = String(moves);
@@ -45,9 +81,11 @@ export function bindDailyRoom(catalog: Catalog, glyph: (node: HTMLElement, id: s
       const piece = document.createElement('button');
       piece.type = 'button';
       piece.setAttribute('aria-pressed', String(index === selected));
-      piece.setAttribute('aria-label', `第 ${cell + 1} 格：${catalog[id].name}`);
+      const modifier = puzzle.template.tileModifiers?.[cell];
+      if (modifier) piece.dataset.modifier = modifier;
+      piece.setAttribute('aria-label', `第 ${cell + 1} 格：${catalog[id].name}${modifier ? `，${tileLabel[modifier]}位` : ''}`);
       piece.style.setProperty('--daily-ink', catalog[id].color);
-      const stamp = document.createElement('small'); stamp.textContent = String(cell + 1);
+      const stamp = document.createElement('small'); stamp.textContent = `${cell + 1}${modifier ? ` ${tileLabel[modifier]}` : ''}`;
       const icon = document.createElement('span'); glyph(icon, id);
       const name = document.createElement('strong'); name.textContent = catalog[id].name;
       piece.append(stamp, icon, name);
@@ -80,19 +118,39 @@ export function bindDailyRoom(catalog: Catalog, glyph: (node: HTMLElement, id: s
   }
 
   function open(day: string) {
+    const alreadyOpen = dialog.open;
+    if (alreadyOpen && puzzle.day === day) return true;
     const next = dailyPuzzle(day, catalog);
     if (!next) return false;
+    readSavedRecords();
+    if (alreadyOpen) drafts.set(puzzle.day, { pieces, moves });
+    else archive.open = false;
     puzzle = next;
     get('daily-date').textContent = `${day} · 北京时间每日更新`;
     get('daily-title').textContent = puzzle.template.title;
-    get('daily-intro').textContent = `${encounters[puzzle.template.enemy].name} · ${puzzle.template.hp} 生命。用尽量少的换位打过它。`;
+    const { enemy, hp, gold } = puzzle.template;
+    get('daily-intro').textContent = `${encounters[enemy].name} · ${hp} 生命${gold ? ` · 起始 ${gold} 金` : ''}。用尽量少的换位打过它。`;
     const clue = get<HTMLDetailsElement>('daily-clue');
     clue.open = false;
     get('daily-clue-text').textContent = puzzle.template.clue;
     get('daily-today').hidden = day === shanghaiDay();
     link.value = dailyLink(day);
-    reset();
-    if (!dialog.open) dialog.showModal();
+    clearTimeout(copyTimer);
+    copyButton.textContent = '复制挑战';
+    const draft = drafts.get(day);
+    if (draft) {
+      pieces = draft.pieces; moves = draft.moves; selected = null;
+      delete result.dataset.win;
+      result.textContent = '继续上次的摆法。';
+      stats(); draw();
+    } else reset();
+    renderArchive();
+    if (shared) {
+      const address = new URL(location.href);
+      address.searchParams.set('daily', day);
+      try { history.replaceState(history.state, '', address); } catch {}
+    }
+    if (!alreadyOpen) dialog.showModal();
     return true;
   }
 
@@ -107,35 +165,46 @@ export function bindDailyRoom(catalog: Catalog, glyph: (node: HTMLElement, id: s
     const outcome = runDaily(puzzle.template, pieces, catalog).result;
     result.dataset.win = String(outcome.win);
     if (!outcome.win) { result.textContent = `打了 ${outcome.damage} 点，还差 ${outcome.hp} 点。`; return; }
+    readSavedRecords();
     const record = newDailyRecord(records.get(puzzle.day), { moves, damage: outcome.damage });
     records.set(puzzle.day, record);
     try {
-      const recent = [...records].sort(([left], [right]) => right.localeCompare(left)).slice(0, 90);
-      localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(recent)));
+      localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(records)));
     } catch {}
     stats();
+    renderArchive();
     result.textContent = `${moves} 步打出 ${outcome.damage} 点，解开了。${moves === puzzle.par ? ' 已是最少步数。' : ` 最少能用 ${puzzle.par} 步。`}`;
   };
-  get('daily-copy').onclick = async () => {
+  copyButton.onclick = async () => {
     click();
-    const best = records.get(puzzle.day);
-    const copy = `《4×4 词条法阵》${puzzle.day} 每日残局：${puzzle.template.title}。${best ? `我用 ${best.moves} 步打出了 ${best.damage} 点伤害。` : '来试试几步能解。'}\n${link.value}`;
+    const day = puzzle.day;
+    const best = records.get(day);
+    const copy = `《4×4 词条法阵》${day} 每日残局：${puzzle.template.title}。${best ? `我用 ${best.moves} 步打出了 ${best.damage} 点伤害。` : '来试试几步能解。'}\n${link.value}`;
     try {
       await navigator.clipboard.writeText(copy);
-      if (dialog.open) get('daily-copy').textContent = '已复制';
-      setTimeout(() => { get('daily-copy').textContent = '复制挑战'; }, 1500);
+      if (!dialog.open || puzzle.day !== day) return;
+      copyButton.textContent = '已复制';
+      clearTimeout(copyTimer);
+      copyTimer = setTimeout(() => { copyButton.textContent = '复制挑战'; }, 1500);
     } catch {
+      if (!dialog.open || puzzle.day !== day) return;
       (link.parentElement as HTMLDetailsElement).open = true;
       link.focus(); link.select();
     }
   };
   dialog.addEventListener('close', () => {
+    drafts.clear();
     if (!shared) return;
     shared = false;
     const address = new URL(location.href);
     address.searchParams.delete('daily');
     try { history.replaceState(history.state, '', address); } catch {}
     onSharedClose();
+  });
+  window.addEventListener('storage', event => {
+    if (event.key !== storageKey || !dialog.open) return;
+    readSavedRecords();
+    stats(); renderArchive();
   });
   return {
     openShared() {

@@ -1,9 +1,20 @@
 import { simulateBattle } from './battleEngine';
 import type { EncounterId } from './expedition';
 import { createMulberry32 } from './rng';
-import type { BattleEvent, Catalog, Slots } from './types';
+import type { BattleEvent, Catalog, Slots, TileModifierMap } from './types';
 
-export const dailyTemplates = [
+export interface DailyTemplate {
+  title: string;
+  enemy: EncounterId;
+  hp: number;
+  cells: readonly number[];
+  pieces: readonly string[];
+  clue: string;
+  gold?: number;
+  tileModifiers?: TileModifierMap;
+}
+
+export const classicDailyTemplates: readonly DailyTemplate[] = [
   { title: '井底回声', enemy: 'armor', hp: 61, cells: [0, 1, 4, 5], pieces: ['falling_bell', 'spark_orb', 'prism_right', 'echo_stone'],
     clue: '铁壳卫的前两次受击减伤。小伤害先打，别让电火花替它们破甲。' },
   { title: '药炉余火', enemy: 'cistern', hp: 60, cells: [0, 1, 2, 3], pieces: ['venom_drop', 'venom_drop', 'catalyst_flask', 'toxic_detonator'],
@@ -16,12 +27,29 @@ export const dailyTemplates = [
     clue: '火漆印加成正下方，棱镜加成邻居。想让电火花吃到加成，它们得先动。' },
   { title: '石门留毒', enemy: 'regent', hp: 45, cells: [0, 1, 2, 3], pieces: ['venom_drop', 'moss_brick', 'echo_stone', 'toxic_detonator'],
     clue: '毒伤能绕开前三次减半的护甲。苔砖要贴着常被触发的符文。' },
-] as const satisfies readonly { title: string; enemy: EncounterId; hp: number; cells: readonly number[]; pieces: readonly string[]; clue: string }[];
+];
 
-type Template = typeof dailyTemplates[number];
-export type DailyPuzzle = { day: string; template: Template; pieces: string[]; par: number };
+export const newDailyTemplates: readonly DailyTemplate[] = [
+  { title: '离火留声', enemy: 'bell', hp: 140, cells: [1, 2, 5, 6, 9],
+    pieces: ['prism_right', 'spark_orb', 'falling_bell', 'echo_stone', 'ember_amp'], tileModifiers: { 5: 'li_fire' },
+    clue: '离火位会多触发一次。试试让这个额外触发也能接到电火花。' },
+  { title: '开炉凑二十五', enemy: 'flanks', hp: 100, cells: [0, 1, 2, 5, 6], gold: 21,
+    pieces: ['copper_mine', 'coin_mold', 'gold_cannon', 'alchemy_bell', 'greed_amplifier'],
+    clue: '开局只有 21 金。点金铃触发前先凑到 25 金，它就能给下方的符文加伤。' },
+  { title: '半扇城门', enemy: 'last_gate', hp: 180, cells: [1, 2, 5, 9, 10],
+    pieces: ['spark_orb', 'falling_bell', 'overclock_core', 'combo_finisher', 'prism_right'],
+    clue: '半血破门后，后两排更强。用前面的连锁先把门打开，再让后排收尾。' },
+  { title: '苔阶引信', enemy: 'cistern', hp: 225, cells: [5, 6, 9, 10, 14],
+    pieces: ['moss_brick', 'venom_drop', 'toxic_fuse', 'relay_cross', 'falling_bell'],
+    clue: '让苔砖贴着多次触发的符文。毒火引信只有被连锁时才会引爆，毒层还能留给回合末。' },
+];
+
+export const dailyTemplates = [...newDailyTemplates, ...classicDailyTemplates];
+
+export type DailyPuzzle = { day: string; template: DailyTemplate; pieces: string[]; par: number };
 const dayMs = 86_400_000;
 const releaseDay = '2026-11-20';
+const expandedDay = '2026-11-26';
 const signature = (pieces: readonly string[]) => pieces.join('|');
 
 export function shanghaiDay(now = new Date()): string {
@@ -34,10 +62,11 @@ export function validDailyDate(day: unknown): day is string {
   return Number.isFinite(value) && new Date(value).toISOString().slice(0, 10) === day;
 }
 
-export function runDaily(template: Template, pieces: readonly string[], catalog: Catalog) {
+export function runDaily(template: DailyTemplate, pieces: readonly string[], catalog: Catalog) {
   const board: Slots = Array(16).fill(null);
   template.cells.forEach((cell, index) => { board[cell] = { configId: pieces[index], star: 1 }; });
-  const events: BattleEvent[] = simulateBattle({ board, hp: template.hp, gold: 0, encounter: template.enemy }, catalog, () => 1);
+  const events: BattleEvent[] = simulateBattle({ board, hp: template.hp, gold: template.gold ?? 0, encounter: template.enemy,
+    tileModifiers: template.tileModifiers }, catalog, () => 1);
   const result = events.at(-1);
   if (result?.type !== 'TURN_RESULT') throw new Error('Missing daily result');
   return { board, events, result };
@@ -56,9 +85,9 @@ function swaps(pieces: readonly string[]) {
   return alternatives;
 }
 
-const pools = new WeakMap<Catalog, Map<Template, { pieces: string[]; par: number }[]>>();
+const pools = new WeakMap<Catalog, Map<DailyTemplate, { pieces: string[]; par: number }[]>>();
 
-function puzzlePool(template: Template, catalog: Catalog) {
+function puzzlePool(template: DailyTemplate, catalog: Catalog) {
   let cached = pools.get(catalog);
   if (!cached) { cached = new Map(); pools.set(catalog, cached); }
   const prior = cached.get(template);
@@ -89,20 +118,40 @@ function puzzlePool(template: Template, catalog: Catalog) {
 
 export function dailyPuzzle(day: string, catalog: Catalog): DailyPuzzle | null {
   if (!validDailyDate(day)) return null;
-  const dayIndex = Math.floor((Date.parse(day) - Date.parse(releaseDay)) / dayMs);
-  const templateIndex = dayIndex % dailyTemplates.length;
-  const template = dailyTemplates[templateIndex];
+  const expanded = day >= expandedDay;
+  const schedule = expanded ? dailyTemplates : classicDailyTemplates;
+  const dayIndex = (Date.parse(day) - Date.parse(expanded ? expandedDay : releaseDay)) / dayMs;
+  const templateIndex = dayIndex % schedule.length;
+  const template = schedule[templateIndex];
   const pool = puzzlePool(template, catalog);
   if (!pool.length) return null;
   const rng = createMulberry32(templateIndex + 983);
   const start = Math.floor(rng() * pool.length);
-  const setup = pool[(start + Math.floor(dayIndex / dailyTemplates.length)) % pool.length];
+  const setup = pool[(start + Math.floor(dayIndex / schedule.length)) % pool.length];
   return { day, template, pieces: [...setup.pieces], par: setup.par };
 }
 
 export interface DailyRecord { moves: number; damage: number }
 export function newDailyRecord(previous: DailyRecord | undefined, next: DailyRecord) {
   return !previous || next.moves < previous.moves || (next.moves === previous.moves && next.damage > previous.damage) ? next : previous;
+}
+
+const dayOffset = (day: string, offset: number) => new Date(Date.parse(day) + offset * dayMs).toISOString().slice(0, 10);
+
+export function recentDailyDates(today: string) {
+  if (!validDailyDate(today)) return [];
+  return Array.from({ length: 7 }, (_, index) => dayOffset(today, index - 6)).filter(validDailyDate);
+}
+
+export function dailyStreak(records: ReadonlyMap<string, DailyRecord>, today: string) {
+  if (!validDailyDate(today)) return 0;
+  let day = records.has(today) ? today : dayOffset(today, -1);
+  let count = 0;
+  while (day >= releaseDay && records.has(day)) {
+    count++;
+    day = dayOffset(day, -1);
+  }
+  return count;
 }
 
 const sharedPage = 'https://bartcurry.github.io/affix-grid-4x4/';

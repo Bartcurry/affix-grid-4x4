@@ -1456,6 +1456,18 @@ dialog::backdrop {
 .daily-heading h2 { margin: .18rem 0 0; }
 .daily-date { font-size: .74rem; color: #c2a473; }
 #daily-close { min-width: 2.6rem; min-height: 2.6rem; font-size: 1.35rem; }
+.daily-archive { border: 1px solid #65533d; background: #24231f; border-radius: 4px; color: #f1dbb5; font-size: .79rem; }
+.daily-archive summary { display: flex; align-items: center; gap: .45rem; min-height: 2.05rem; padding: .28rem .55rem; cursor: pointer; }
+.daily-archive summary::-webkit-details-marker { display: none; }
+.daily-archive summary::after { content: ''; margin-left: auto; width: .35rem; height: .35rem; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; transform: rotate(45deg) translateY(-.1rem); }
+.daily-archive[open] summary::after { transform: rotate(225deg); }
+.daily-archive summary strong { color: #c3df9f; font-weight: 700; }
+.daily-dates { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .16rem; padding: 0 .35rem .35rem; }
+.daily-dates button { display: grid; justify-items: center; align-content: center; gap: .16rem; padding: .2rem .05rem; min-height: 2.45rem; border-color: #695c4b; color: #ded0b7; background: #171c26; white-space: nowrap; }
+.daily-dates strong { font-size: .67rem; }
+.daily-dates small { color: #a9a8a0; font-size: .6rem; }
+.daily-dates button[data-solved=true] small { color: #c3df9f; }
+.daily-dates button[aria-pressed=true] { background: #3a3023; color: #f6d999; border-color: #e4b970; box-shadow: inset 0 0 0 1px #80623b; }
 .daily-board {
   width: min(100%, 20rem); margin: .2rem auto; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: .27rem; padding: .42rem; background: #181914; border: 1px solid #80643b; box-shadow: inset 0 0 0 2px #30281c;
@@ -1465,6 +1477,7 @@ dialog::backdrop {
 .daily-board button { display: grid; grid-template-rows: auto 1.25rem 1fr; justify-items: center; align-items: center; gap: .03rem; padding: .15rem; min-height: 0; background: #353025; border: 1px solid #8e7450; color: #f3e0b8; }
 .daily-board button[aria-pressed=true] { background: #51402a; outline: 2px solid #e5bc77; outline-offset: -2px; }
 .daily-board button small { justify-self: start; font-size: .65rem; color: #beaa85; padding-left: .15rem; }
+.daily-board button[data-modifier=li_fire] small { color: #ffbd8d; font-weight: 750; }
 .daily-board button span { color: var(--daily-ink); }
 .daily-board button strong { text-align: center; font-size: clamp(.6rem, 2.35vw, .76rem); line-height: 1.12; overflow-wrap: anywhere; }
 .daily-stats { padding-block: .3rem; border-bottom: 1px solid #514531; font-size: .84rem; color: #dfc592; }

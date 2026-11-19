@@ -354,6 +354,10 @@
         <div class="dialog-content">
           <div class="daily-heading"><div><p id="daily-date" class="daily-date"></p><h2 id="daily-title">每日残局</h2></div><button id="daily-close" type="button" aria-label="关闭每日残局">×</button></div>
           <p id="daily-intro"></p>
+          <details id="daily-archive" class="daily-archive">
+            <summary><span>补玩近七期</span><strong id="daily-streak" hidden></strong></summary>
+            <div id="daily-dates" class="daily-dates" role="group" aria-label="选择往期残局"></div>
+          </details>
           <div id="daily-board" class="daily-board" aria-label="点两枚符文换位"></div>
           <div class="daily-stats"><span>交换 <strong id="daily-moves">0</strong> 次</span><span id="daily-best"></span></div>
           <p id="daily-result" class="daily-result" role="status"></p>
