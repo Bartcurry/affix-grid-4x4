@@ -1,15 +1,24 @@
 import './style.css';
-import { bossHealth, simulateBattle } from './core/battleEngine';
-import { affixAt, encounterAt, encounters, relics, upcomingEncounter } from './core/expedition';
-import { isOpening, openingIds, openings, updateRecords } from './core/openings';
+import { affixAt, armorLayers, encounters, lastGate, relics, upcomingEncounter } from './core/expedition';
+import { challengeParam, challengeSaveKey, readChallenge } from './core/challenge';
+import { isOpening, openingIds, openings, runScore, updateRecords } from './core/openings';
+import { foughtHealth } from './core/journal';
+import { fieldTip } from './core/fieldGuide';
 import { createMulberry32, decodeSeed, generateSeedCode } from './core/rng';
-import { planTurn, previewPlacement, runeFootprint, usesTutorial } from './core/tactics';
-import { buyRune, canArrange, chooseRelic, newRun, purchaseInfo, refreshShop, resolveLoss, runeAt, sellRune, sellValue, settleTurn, startEndless, swapRunes, toggleLock, UndoStack, victoryPayout } from './core/shopEngine';
+import { planTurn, prepareBattle, previewPlacement, runeFootprint } from './core/tactics';
+import { battleTarget, trialAt } from './core/trials';
+import { buyRune, canArrange, chooseRelic, newRun, purchaseInfo, refreshShop, resolveLoss, runeAt, selectTrial, sellRune, sellValue, settleTurn, startEndless, swapRunes, toggleLock, UndoStack, victoryPayout } from './core/shopEngine';
 import { STAR_MULT, initialRuneState, type BattleEvent, type OpeningId, type Rune, type RuneState, type Slot } from './core/types';
 import { catalog } from './data/catalog';
 import { CanvasRenderer, formatNumber, runeVectors } from './render/canvasRenderer';
 import { getBossSvgPath } from './render/glyphs';
 import { bindDragDrop } from './render/dragDrop';
+import { bindDailyRoom } from './render/dailyRoom';
+import { bindBattleJournal } from './render/battleJournal';
+import { bindChallengeRoom, bindInviteRoom } from './render/challengeRoom';
+import { bindTrialRoom } from './render/trialRoom';
+import { bindMarketPreview } from './render/marketPreviewRoom';
+import { bindRouteRoom } from './render/routeRoom';
 import { PlaybackController } from './render/playbackController';
 import { SynthAudio } from './audio/synthAudio';
 import { WebMockAdapter } from './platform/webMockAdapter';
@@ -25,11 +34,16 @@ const game = element('game');
 const dialog = element<HTMLDialogElement>('panel');
 const audio = new SynthAudio();
 const player = new PlaybackController();
-const platform = new WebMockAdapter(catalog, element('ad'), element('ad-text'), button('cancel-ad'));
-const saved = platform.load();
+const challengeQuery = new URLSearchParams(location.search).get(challengeParam);
+const challenge = readChallenge(challengeQuery);
+const invalidChallenge = challengeQuery !== null && !challenge;
+const platform = new WebMockAdapter(catalog, element('ad'), element('ad-text'), button('cancel-ad'), challenge ? challengeSaveKey(challenge) : undefined);
+const loaded = platform.load();
+const saved = challenge && loaded && (loaded.run.seed !== challenge.seed || loaded.run.opening !== challenge.opening) ? null : loaded;
 
-const initialSeed = generateSeedCode();
-let run = saved?.run ?? newRun(catalog, createMulberry32(initialSeed.seed), 'chain', initialSeed.code);
+const initialSeed = challenge?.seed ?? generateSeedCode().code;
+let run = saved?.run ?? newRun(catalog, createMulberry32(decodeSeed(initialSeed)), challenge?.opening ?? 'chain', initialSeed);
+const target = () => battleTarget(run.wave, run.trialWave);
 let records = saved?.records ?? {};
 let forecast: ReturnType<typeof planTurn> | null = null;
 let placement: ReturnType<typeof planTurn> | null = null;
@@ -39,13 +53,13 @@ audio.muted = saved?.muted ?? false;
 player.speed = saved?.speed ?? 1;
 
 let phase: 'ARRANGE' | 'PLAYBACK' = 'ARRANGE';
-let displayed = { hp: bossHealth(run.wave), poison: 0, gold: run.gold, combo: 0 };
-let shopInspect: number | null = null;
+let displayed = { hp: target().hp, poison: 0, gold: run.gold, combo: 0 };
 let noticeTimer: ReturnType<typeof setTimeout>;
 let victoryTimer: ReturnType<typeof setTimeout>;
 let ghostTimer: ReturnType<typeof setTimeout>;
 let dialogDismissible = false;
 let bossArmorHits = 0;
+let gateBreached = false;
 const states = new Map<number, RuneState>();
 const renderer = new CanvasRenderer(element('arena'), run, catalog);
 const undoStack = new UndoStack();
@@ -57,6 +71,7 @@ const bossColors: Record<string, string> = {
   flanks: '#f59e0b',
   bell: '#38bdf8',
   regent: '#f43f5e',
+  last_gate: '#fb8668',
 };
 
 const rarityLabel = { common: '普通', rare: '稀有', epic: '史诗' };
@@ -67,8 +82,28 @@ const persist = () => {
   records = updateRecords(records, run);
   platform.save({ schemaVersion: 2, run, skin, muted: audio.muted, speed: player.speed, exactForecast, records });
 };
-const tutorials = () => usesTutorial(run);
 const click = () => { audio.unlock(); audio.click(); };
+const inviteRoom = bindInviteRoom(click);
+const shareRun = () => inviteRoom(run);
+const challengeRoom = bindChallengeRoom(click, persist, () => {
+  const mainPage = new URL(location.href);
+  mainPage.searchParams.delete(challengeParam);
+  location.replace(mainPage.href);
+});
+button('invite-open').onclick = () => { if (phase === 'ARRANGE') { click(); shareRun(); } };
+if (challenge) {
+  button('openings').textContent = '同局';
+  button('openings').title = '同局战绩';
+}
+const journal = bindBattleJournal(catalog, formatNumber);
+const reviewLast = () => journal(run.lastJournal);
+button('journal-open').onclick = () => { click(); reviewLast(); };
+const openTrial = bindTrialRoom(catalog, formatNumber, enabled => {
+  if (!arranging() || !selectTrial(run, enabled)) return false;
+  click(); resetTimeline(); redraw();
+  return true;
+});
+button('trial-open').onclick = () => { if (arranging()) { click(); openTrial(run); } };
 
 function iconPath(owner: HTMLElement, pathData: string) {
   const namespace = 'http://www.w3.org/2000/svg';
@@ -85,6 +120,12 @@ function iconPath(owner: HTMLElement, pathData: string) {
 }
 
 const emptyIcon = 'M16 3l13 13-13 13L3 16 16 3Zm0 6v14m-7-7h14';
+const openMarketPreview = bindMarketPreview(catalog, (owner, id) => iconPath(owner, runeVectors[id] ?? emptyIcon), formatNumber,
+  (index, configId, cell) => run.shop[index]?.configId === configId && buyOffer(index, cell));
+const openRoute = bindRouteRoom((owner, encounter) => iconPath(owner, getBossSvgPath(encounter)));
+button('route-open').onclick = () => { if (phase !== 'PLAYBACK') { click(); openRoute(run); } };
+const dailyRoom = bindDailyRoom(catalog, (owner, id) => iconPath(owner, runeVectors[id] ?? emptyIcon), click,
+  () => phase === 'ARRANGE', showLanding);
 
 function notice(text: string) {
   const target = element('notice');
@@ -112,36 +153,51 @@ function showForecast() {
   panel.hidden = !forecast || !arranging();
   showArenaHint();
   if (panel.hidden || !forecast) return;
-  const { hp, result } = placement ?? forecast;
+  const preview = placement ?? forecast;
+  const { hp, result } = preview;
   const change = result.damage - forecast.result.damage;
-  panel.dataset.verdict = forecast.verdict;
-  element('forecast-verdict').textContent = forecast.verdictText;
-  element('forecast-fill').style.width = `${Math.min(100, 100 * result.damage / hp)}%`;
+  panel.dataset.verdict = preview.verdict;
+  element('forecast-verdict').textContent = preview.verdictText;
+  const visibleDamage = exactForecast ? result.damage : preview.minDamage;
+  element('forecast-fill').style.width = `${Math.min(100, 100 * visibleDamage / hp)}%`;
 
   if (exactForecast) {
     const delta = change ? ` · ${change > 0 ? '+' : '−'}${formatNumber(Math.abs(change))} 伤害` : '';
     element('forecast-readout').textContent = `${placement ? '放置后' : '预计伤害'} ${formatNumber(result.damage)} / ${formatNumber(hp)} · ${result.combo} 连击${delta}`;
   } else {
-    const delta = change ? ` · ${change > 0 ? '+' : '−'}${formatNumber(Math.abs(change))}` : '';
-    element('forecast-readout').textContent = `${placement ? '放置后' : '战果预估'} ${formatNumber(forecast.minDamage)} ~ ${formatNumber(forecast.expectedDamage)} / ${formatNumber(hp)} · ${result.combo} 连击${delta}`;
+    const baselineChange = preview.minDamage - forecast.minDamage;
+    const delta = baselineChange ? ` · ${baselineChange > 0 ? '+' : '−'}${formatNumber(Math.abs(baselineChange))}` : '';
+    element('forecast-readout').textContent = `${placement ? '放置后' : '战果预估'} 无暴击 ${formatNumber(preview.minDamage)} / ${formatNumber(hp)}${delta}`;
   }
   button('forecast-detail').disabled = !!placement;
 }
 
 function updateBossArmorUi(hits: number, breaking = false) {
-  const s1 = document.getElementById('boss-shield-1');
-  const s2 = document.getElementById('boss-shield-2');
-  if (s1) {
-    s1.className = hits >= 1 ? (breaking && hits === 1 ? 'boss-shield-icon broken breaking' : 'boss-shield-icon broken') : 'boss-shield-icon';
-  }
-  if (s2) {
-    s2.className = hits >= 2 ? (breaking && hits === 2 ? 'boss-shield-icon broken breaking' : 'boss-shield-icon broken') : 'boss-shield-icon';
+  const layers = armorLayers(target().encounter);
+  const shields = element('boss-armor-shields');
+  shields.hidden = !layers || gateBreached;
+  shields.setAttribute('aria-label', `减伤护甲剩余 ${Math.max(layers - hits, 0)} 层`);
+  for (let index = 1; index <= 3; index++) {
+    const icon = element(`boss-shield-${index}`);
+    icon.hidden = index > layers;
+    icon.classList.toggle('broken', index <= hits);
+    icon.classList.toggle('breaking', breaking && index === hits);
   }
 }
 
+function updateGateUi() {
+  const finale = target().encounter === 'last_gate';
+  const stage = element('boss-stage');
+  stage.hidden = !finale;
+  game.dataset.gate = finale ? gateBreached ? 'breached' : 'closed' : '';
+  if (!finale) return;
+  stage.textContent = gateBreached ? '破门' : '守门';
+  element('enemy-hint').textContent = gateBreached ? lastGate.breached : `${lastGate.closed} 半血破门。`;
+}
+
 function updateHud() {
-  const maxHp = bossHealth(run.wave);
   const showOutcomeState = run.pendingLoss || run.status !== 'active';
+  const maxHp = showOutcomeState ? foughtHealth(run.lastJournal, run.wave, run.trialWave) : target().hp;
   const hp = phase === 'PLAYBACK' ? displayed.hp : showOutcomeState ? Math.max(0, maxHp - run.lastDamage) : maxHp;
   const pct = Math.max(0, Math.min(100, (100 * hp) / maxHp));
 
@@ -182,6 +238,7 @@ function markWaves() {
     const notch = document.createElement('span');
     const wave = index + 1;
     notch.dataset.state = wave < run.wave || run.status === 'victory' ? 'cleared' : wave === run.wave ? 'current' : 'ahead';
+    if (run.clearedTrials?.includes(wave)) notch.dataset.bounty = 'true';
     return notch;
   }));
 }
@@ -189,8 +246,7 @@ function markWaves() {
 function inspect() {
   const slot = renderer.selection;
   const selected = slot && runeAt(run, slot);
-  const offer = shopInspect === null ? null : run.shop[shopInspect];
-  const rune: Rune | null = selected || (offer ? { configId: offer.configId, star: 1 } : null);
+  const rune: Rune | null = selected;
   const icon = element('rune-icon');
   const name = element('rune-name');
   const info = element('rune-desc');
@@ -198,7 +254,7 @@ function inspect() {
   const state = slot?.zone === 'board' ? states.get(slot.index) ?? initialRuneState() : initialRuneState();
   element('inspector').style.setProperty('--accent', config?.color ?? 'var(--gold)');
   iconPath(icon, rune ? runeVectors[rune.configId] : emptyIcon);
-  element('rune-context').textContent = config ? `${offer ? '店内' : slot?.zone === 'board' ? '棋盘' : '备战区'} · ${archetypeLabel[config.archetype]}` : '';
+  element('rune-context').textContent = config ? `${slot?.zone === 'board' ? '棋盘' : '备战区'} · ${archetypeLabel[config.archetype]}` : '';
   const emptyTileMod = !config && slot?.zone === 'board' ? run.tileModifiers?.[slot.index] : undefined;
   if (emptyTileMod) {
     if (emptyTileMod === 'li_fire') {
@@ -212,7 +268,7 @@ function inspect() {
       info.textContent = '每当上下左右相邻格子激活时，位于此格的符文获得 +2 永久基础威力（跨波保留）。';
     }
   } else {
-    name.textContent = config?.name ?? (run.wave === 1 ? tutorials() ? '第一波可以直接打' : openings[run.opening].name : '先挑一枚符文');
+    name.textContent = config?.name ?? (run.wave === 1 ? openings[run.opening].name : '先挑一枚符文');
     info.textContent = config?.desc ?? (run.wave === 1 ? openings[run.opening].note : '点棋盘或店里的一枚符文，就能看到它的作用。');
   }
   const stats = config && rune ? [rarityLabel[config.rarity], `${'★'.repeat(rune.star)} · 星级 ×${STAR_MULT[rune.star]}`] : emptyTileMod ? ['特殊阵眼', `格 ${slot!.index + 1}`] : [];
@@ -253,16 +309,17 @@ function inspect() {
   sell.textContent = `回收 +${price} 金`;
   sell.setAttribute('aria-label', selected ? `回收 ${config?.name}，获得 ${price} 金` : '回收符文');
   showArenaHint();
-  const hasSelection = Boolean(selected || offer || emptyTileMod);
+  const hasSelection = Boolean(selected || emptyTileMod);
   element('inspector').dataset.visible = String(hasSelection);
   renderer.sellLabel = selected ? `拖到此处回收 · +${price} 金` : '拖到此处回收符文';
-  for (const [index, card] of offers.entries()) card.card.dataset.selected = String(index === shopInspect);
   renderer.invalidate();
 }
 
-function select(slot: Slot | null) { shopInspect = null; renderer.selection = slot; inspect(); }
+function select(slot: Slot | null) { renderer.selection = slot; inspect(); }
 
 function syncControls() {
+  button('daily-open').disabled = phase === 'PLAYBACK';
+  button('journal-open').hidden = !run.lastJournal || phase === 'PLAYBACK';
   game.classList.toggle('skin', skin);
   game.dataset.phase = phase.toLowerCase();
   button('sound').setAttribute('aria-pressed', String(!audio.muted));
@@ -271,7 +328,6 @@ function syncControls() {
   button('speed').setAttribute('aria-label', `播放速度 ${player.speed} 倍，点击切换`);
   button('skip').disabled = phase !== 'PLAYBACK';
   button('skip').hidden = phase !== 'PLAYBACK';
-  button('market-jump').hidden = phase === 'PLAYBACK';
   button('undo').disabled = !arranging() || undoStack.length === 0;
   button('battle').disabled = !arranging();
   button('battle').textContent = phase === 'PLAYBACK' ? '连锁结算中' : '启动法阵';
@@ -283,7 +339,9 @@ function syncControls() {
   focus.disabled = !arranging();
   button('reward').disabled = !arranging();
   button('support').disabled = phase === 'PLAYBACK';
+  button('invite-open').disabled = phase === 'PLAYBACK';
   button('help').disabled = phase === 'PLAYBACK';
+  button('route-open').disabled = phase === 'PLAYBACK';
   button('openings').disabled = !arranging();
   const toggle = element<HTMLInputElement>('exact-toggle');
   if (toggle) toggle.checked = exactForecast;
@@ -301,6 +359,7 @@ function doUndo() {
 
 button('undo').onclick = doUndo;
 window.addEventListener('keydown', event => {
+  if (document.querySelector('dialog[open]')) return;
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !event.shiftKey) {
     if (arranging() && undoStack.length > 0) {
       event.preventDefault();
@@ -316,63 +375,98 @@ exactCheckbox.onchange = () => {
   persist();
 };
 
+function buyOffer(index: number, cell?: number) {
+  if (!arranging()) return false;
+  const benchIndex = run.bench.indexOf(null);
+  undoStack.push(run);
+  const merges = buyRune(run, index, catalog, cell);
+  if (!merges) { undoStack.pop(run); return false; }
+  click();
+  for (const merge of merges) renderer.flash(merge.slot, catalog[merge.rune.configId].color, true);
+  if (merges.length) audio.merge();
+  const slot = cell !== undefined ? { zone: 'board' as const, index: cell } : merges.at(-1)?.slot ?? { zone: 'bench' as const, index: benchIndex };
+  select(slot);
+  const placed = runeAt(run, slot);
+  if (placed && !merges.length) renderer.flash(slot, catalog[placed.configId].color, false);
+  redraw();
+  if (cell !== undefined) {
+    requestAnimationFrame(() => {
+      const arena = element('arena');
+      arena.scrollIntoView({ block: 'nearest' });
+      arena.focus({ preventScroll: true });
+    });
+  } else if (!merges.length) notice('买到了。在备战区，拖上棋盘才会触发。');
+  return true;
+}
+
+function tryOffer(index: number, preferred?: number) {
+  if (!arranging() || !forecast) return;
+  click();
+  openMarketPreview(run, index, forecast.result, preferred);
+}
+
 const offers = Array.from({ length: 3 }, (_, index) => {
   const card = document.createElement('div'); card.className = 'offer';
-  const preview = document.createElement('button'); preview.className = 'offer-info';
+  const preview = document.createElement('button'); preview.className = 'offer-info'; preview.type = 'button';
   const icon = document.createElement('span'); icon.className = 'offer-icon'; icon.setAttribute('aria-hidden', 'true');
   const name = document.createElement('span'); name.className = 'offer-name';
   const meta = document.createElement('span'); meta.className = 'offer-meta';
   preview.append(icon, name, meta);
   const lock = document.createElement('button'); lock.className = 'lock'; lock.type = 'button';
-  const buy = document.createElement('button'); buy.className = 'offer-buy';
-  card.append(preview, lock, buy); element('offers').append(card);
-  const look = () => {
-    const offer = run.shop[index];
-    if (!offer) return;
-    renderer.selection = null; shopInspect = index; inspect();
-  };
-  preview.addEventListener('click', () => { click(); look(); element('inspector').scrollIntoView({ block: 'nearest' }); });
+  const actions = document.createElement('div'); actions.className = 'offer-actions';
+  const tryButton = document.createElement('button'); tryButton.className = 'offer-try'; tryButton.type = 'button'; tryButton.textContent = '试摆';
+  const buy = document.createElement('button'); buy.className = 'offer-buy'; buy.type = 'button';
+  actions.append(tryButton, buy);
+  card.append(preview, lock, actions); element('offers').append(card);
+  preview.onclick = tryButton.onclick = () => tryOffer(index);
   lock.addEventListener('click', () => {
     if (toggleLock(run, index)) { click(); redraw(); }
   });
-  buy.addEventListener('click', () => {
-    if (!arranging()) return;
-    click(); look();
-    const benchIndex = run.bench.indexOf(null);
-    undoStack.push(run);
-    const merges = buyRune(run, index, catalog);
-    if (!merges) {
-      undoStack.pop(run);
-      return;
-    }
-    for (const merge of merges) renderer.flash(merge.slot, catalog[merge.rune.configId].color, true);
-    if (merges.length) { audio.merge(); select(merges.at(-1)!.slot); }
-    else {
-      if (benchIndex >= 0) {
-        select({ zone: 'bench', index: benchIndex });
-        const placedRune = run.bench[benchIndex];
-        if (placedRune) renderer.flash({ zone: 'bench', index: benchIndex }, catalog[placedRune.configId]?.color ?? '#d4af37', false);
-      }
-      notice('买到了。在备战区，拖上棋盘才会触发。');
-    }
-    redraw();
-  });
-  return { card, preview, icon, name, meta, lock, buy };
+  buy.onclick = () => { buyOffer(index); };
+  return { card, preview, icon, name, meta, lock, buy, tryButton };
 });
 
 function redraw(save = true) {
   if (arranging()) forecast = planTurn(run, catalog);
   placement = null;
   updateHud(); markWaves(); syncControls(); showForecast(); inspect();
-  const encounter = encounterAt(run.wave);
-  const enemy = encounters[encounter];
-  element('enemy-name').textContent = enemy.name;
-
-  const armorShields = document.getElementById('boss-armor-shields');
-  if (armorShields) {
-    armorShields.hidden = encounter !== 'armor';
-    updateBossArmorUi(bossArmorHits);
+  const tip = forecast && arranging() ? fieldTip(run, catalog, forecast) : null;
+  element('field-tip').hidden = !tip;
+  const tipAction = button('field-tip-action');
+  tipAction.hidden = !tip || (tip.offer === undefined && !tip.origin);
+  tipAction.onclick = null;
+  for (const offer of offers) delete offer.card.dataset.suggested;
+  if (tip) {
+    element('field-tip-text').textContent = tip.text;
+    if (tip.offer !== undefined) {
+      const offerIndex = tip.offer;
+      const item = offers[offerIndex];
+      item.card.dataset.suggested = 'true';
+      tipAction.textContent = '试摆';
+      tipAction.onclick = () => tryOffer(offerIndex, tip.destination?.index);
+    } else if (tip.origin) {
+      const origin = tip.origin;
+      tipAction.textContent = '选中符文';
+      tipAction.onclick = () => { click(); select(origin); element('arena').focus(); };
+    }
   }
+  const { encounter, trial } = target();
+  const enemy = encounters[encounter];
+  element('enemy-name').textContent = trial?.name ?? enemy.name;
+  const bounty = !run.endless && trialAt(run.wave);
+  const trialButton = button('trial-open');
+  trialButton.hidden = !bounty || !arranging();
+  if (bounty) {
+    trialButton.textContent = trial ? '悬赏 · 已接' : `悬赏 +${bounty.reward} 金`;
+    trialButton.dataset.active = String(!!trial);
+  }
+
+  if (phase !== 'PLAYBACK') {
+    const journal = (run.pendingLoss || run.status !== 'active') && run.lastJournal?.wave === run.wave ? run.lastJournal : undefined;
+    bossArmorHits = journal?.events.filter(event => event.type === 'DAMAGE' && event.kind === 'rune' && event.amount > 0).length ?? 0;
+    gateBreached = journal?.events.some(event => event.type === 'DAMAGE' && event.breach) ?? false;
+  }
+  updateBossArmorUi(bossArmorHits);
 
   const bossPath = document.getElementById('boss-emblem-path');
   if (bossPath) bossPath.setAttribute('d', getBossSvgPath(encounter));
@@ -388,17 +482,17 @@ function redraw(save = true) {
     element('enemy-hint').hidden = !enemy.hint;
   }
 
-  // 2 waves advance boss preview
-  const upcoming = upcomingEncounter(run.wave, 2);
-  element('boss-intel-text').textContent = `2波后：${upcoming.name} · ${upcoming.hint}`;
+  updateGateUi();
+  const upcoming = upcomingEncounter(run.wave, 1);
+  element('boss-intel-text').textContent = run.wave === 20 ? '终局 · 闭门王' : `下波 · ${upcoming.name}`;
 
   element('game').dataset.enemy = encounter;
   element('board-count').textContent = `已布阵 ${run.board.filter(Boolean).length}/16`;
   element('bench-count').textContent = `备战区 ${run.bench.filter(Boolean).length}/4`;
   element('last-damage').textContent = run.bestCombo || run.lastDamage || run.attempts ? formatNumber(run.lastDamage) : '—';
   element('best-combo').textContent = run.bestCombo ? String(run.bestCombo) : '—';
-  element('run-opening').textContent = `${openings[run.opening].name} · ${openings[run.opening].label}开局`;
-  element('run-seed').textContent = `种子码：${run.seed}`;
+  element('run-opening').textContent = `${openings[run.opening].name} · ${challenge ? '同局挑战' : `${openings[run.opening].label}开局`}`;
+  element('run-seed').textContent = challenge ? `已过 ${runScore(run).cleared} 波 · 对方 ${challenge.cleared}` : `种子码：${run.seed}`;
 
   const list = element('relic-list');
   list.hidden = !run.relics.length;
@@ -410,7 +504,7 @@ function redraw(save = true) {
     item.onclick = openRelicBag;
     return item;
   }));
-  offers.forEach(({ card, preview, icon, name, meta, lock, buy }, index) => {
+  offers.forEach(({ card, preview, icon, name, meta, lock, buy, tryButton }, index) => {
     const offer = run.shop[index];
     const config = offer && catalog[offer.configId];
     card.style.setProperty('--offer', config?.color ?? '#56657e');
@@ -420,13 +514,14 @@ function redraw(save = true) {
     iconPath(icon, config ? runeVectors[config.id] : emptyIcon);
     name.textContent = config?.name ?? '已售罄';
     meta.textContent = config ? willMerge ? '买下就升星' : copies ? `${rarityLabel[config.rarity]} · 已有 ${copies} 枚` : `${rarityLabel[config.rarity]} · ${archetypeLabel[config.archetype]}` : '换一批再来';
-    preview.disabled = !config || phase === 'PLAYBACK';
+    preview.disabled = tryButton.disabled = !config || !arranging();
+    tryButton.setAttribute('aria-label', config ? `试摆 ${config.name}` : '无库存');
     lock.hidden = !config;
     lock.disabled = !arranging();
     iconPath(lock, offer?.locked ? 'M8 14V9a8 8 0 0 1 16 0v5M5 14h22v15H5Z M16 20v4' : 'M9 14V9a8 8 0 0 1 15-4M5 14h22v15H5Z M16 20v4');
     lock.setAttribute('aria-pressed', String(!!offer?.locked));
     lock.setAttribute('aria-label', `${offer?.locked ? '解锁' : '锁定'} ${config?.name ?? ''}`);
-    buy.textContent = config ? blocked === 'gold' ? `缺 ${config.cost - run.gold} 金` : blocked === 'bench' ? '备战区已满' : `购买 · ${config.cost} 金` : '无库存';
+    buy.textContent = config ? blocked === 'gold' ? `缺 ${config.cost - run.gold} 金` : blocked === 'bench' ? '满格' : `${config.cost} 金` : '售罄';
     buy.disabled = !arranging() || blocked !== null;
     buy.setAttribute('aria-label', config ? `购买 ${config.name}，${config.cost} 金${willMerge ? '，买入即可升星' : ''}` : '无库存');
   });
@@ -525,7 +620,7 @@ button('forecast-detail').onclick = () => {
   const deltaGold = result.gold - run.gold;
   const combatGold = deltaGold < 0 ? `战斗花 ${formatNumber(-deltaGold)} 金` : `战斗赚 ${formatNumber(deltaGold)} 金`;
   element('forecast-gold').textContent = result.win
-    ? `${combatGold} · 过关 ${payout.base} 金${payout.interest ? ` · 利息 ${payout.interest} 金` : ''}${payout.relic ? ` · 遗物 ${payout.relic} 金` : ''}。结束时有 ${formatNumber(result.gold + payout.total)} 金。`
+    ? `${combatGold} · 过关 ${payout.base} 金${payout.interest ? ` · 利息 ${payout.interest} 金` : ''}${payout.relic ? ` · 遗物 ${payout.relic} 金` : ''}${payout.trial ? ` · 悬赏 ${payout.trial} 金` : ''}。结束时有 ${formatNumber(result.gold + payout.total)} 金。`
     : `${combatGold}。打不过也会保留战斗后的 ${formatNumber(result.gold)} 金，但没有过关奖励。`;
   element('forecast-sources').replaceChildren(...sources.map(source => {
     const item = document.createElement('li');
@@ -565,8 +660,9 @@ function resetTimeline() {
   states.clear();
   renderer.clearEffects();
   bossArmorHits = 0;
+  gateBreached = false;
   updateBossArmorUi(0);
-  displayed = { hp: bossHealth(run.wave), poison: 0, gold: run.gold, combo: 0 };
+  displayed = { hp: target().hp, poison: 0, gold: run.gold, combo: 0 };
   const ghost = document.getElementById('hp-ghost');
   if (ghost) ghost.style.width = '100%';
 }
@@ -598,11 +694,12 @@ function resetOpeningChoice() {
 }
 
 function openOpenings(first = false) {
+  button('opening-daily').hidden = !first;
   resetOpeningChoice();
   const replacing = run.status === 'active' && !first;
   element('opening-note').textContent = replacing
     ? '换开局会另开一局。现在这局的最高纪录会保留。'
-    : '四套阵都能直接打第一波，后面怎么摆由你。';
+    : first && invalidChallenge ? '这条同局邀请已失效。可以先选一套阵开始主线。' : '四套阵都能直接打第一波，后面怎么摆由你。';
   button('opening-close').textContent = first ? '用借火开局' : '回到当前局';
   openingDialog.dataset.first = String(first);
 
@@ -651,7 +748,12 @@ function openOpenings(first = false) {
   openingDialog.showModal();
 }
 
-button('openings').onclick = () => { if (arranging()) { click(); openOpenings(); } };
+button('openings').onclick = () => {
+  if (!arranging()) return;
+  click();
+  if (challenge) challengeRoom(challenge, run);
+  else openOpenings();
+};
 button('opening-start').onclick = () => { if (openingCandidate) { click(); startOpening(openingCandidate); } };
 button('opening-back').onclick = () => { click(); resetOpeningChoice(); element('opening-choices').querySelector('button')?.focus(); };
 button('opening-close').onclick = () => {
@@ -672,16 +774,24 @@ function showOutcome() {
       if (run.status === 'defeat') showOutcome();
       else notice(protectedRetry ? '护盾保留。现在可以重新布阵。' : '护盾 −1，重新布阵后可再次挑战。');
     };
-    showPanel(`第 ${run.wave} 波没打过`, `你打了 ${formatNumber(run.lastDamage)} 点，还差 ${formatNumber(bossHealth(run.wave) - run.lastDamage)} 点。\n重来时${encounters[encounterAt(run.wave)].name}会回满血；看一次模拟广告可以保住护盾。`, [
+    const { trial, encounter } = target();
+    const missing = Math.max(0, foughtHealth(run.lastJournal, run.wave, run.trialWave) - run.lastDamage);
+    const retry = trial ? '重新布阵后，可到悬赏里改走原路。' : `重来时${encounters[encounter].name}会回满血。`;
+    showPanel(`第 ${run.wave} 波没打过`, `你打了 ${formatNumber(run.lastDamage)} 点，还差 ${formatNumber(missing)} 点。\n${retry}看一次模拟广告可以保住护盾。`, [
+      ...(run.lastJournal ? [{ label: '看看怎么打的', act: reviewLast }] : []),
       { label: '看广告 · 无损改阵重打', primary: true, act: async () => { if (await platform.showRewardedVideo('retry')) after(true); } },
       { label: '扣除 1 点护盾', act: () => after(false) },
     ]);
   } else if (run.status !== 'active') {
     const won = run.status === 'victory';
     const actions: Action[] = [
+      { label: '分享同局挑战', act: shareRun },
       { label: '导出战绩 PNG', act: async () => { if (!await platform.exportScore(run)) notice('战绩导出失败，请再试一次。'); } },
-      { label: '复制种子码', act: () => { void navigator.clipboard?.writeText(run.seed); notice(`已复制种子码：${run.seed}`); } },
-      { label: '新开一局', act: () => openOpenings(), primary: !won },
+      ...(run.lastJournal ? [{ label: '复盘最后一波', act: reviewLast }] : []),
+      ...(challenge ? [
+        { label: '对比战绩', act: () => challengeRoom(challenge, run) },
+        { label: '同种子再打', act: () => startOpening(challenge.opening, challenge.seed), primary: !won },
+      ] : [{ label: '新开一局', act: () => openOpenings(), primary: !won }]),
     ];
     if (won) actions.unshift({ label: '继续无尽模式', primary: true, act: () => {
       dialog.close();
@@ -690,8 +800,9 @@ function showOutcome() {
       run.rngState = prng.getState();
       resetTimeline(); redraw();
     } });
+    const score = runScore(run);
     showPanel(won ? '打完二十波了' : '护盾用完了',
-      `打到第 ${run.wave} 波，最高 ${run.bestCombo} 连击。\n最后一轮打了 ${formatNumber(run.lastDamage)} 点。\n本局种子码：${run.seed}`, actions);
+      `打过 ${score.cleared} 波，最高 ${score.combo} 连击。\n最后一轮打了 ${formatNumber(run.lastDamage)} 点。\n本局种子码：${run.seed}`, actions);
   }
 }
 
@@ -703,14 +814,21 @@ function consume(event: BattleEvent) {
       audio.combo(event.combo);
       renderer.setCombo(event.combo);
       break;
-    case 'DAMAGE':
+    case 'DAMAGE': {
       displayed.hp = event.hp;
       if (event.crit) audio.crit();
-      if (event.kind === 'rune' && event.amount > 0 && encounterAt(run.wave) === 'armor' && bossArmorHits < 2) {
+      const boss = target();
+      if (event.kind === 'rune' && event.amount > 0 && bossArmorHits < armorLayers(boss.encounter)) {
         bossArmorHits++;
         updateBossArmorUi(bossArmorHits, true);
       }
-      if (event.crit || event.amount >= bossHealth(run.wave) * 0.15) {
+      if (event.breach) {
+        gateBreached = true;
+        updateBossArmorUi(bossArmorHits);
+        updateGateUi();
+        renderer.pulseBorder();
+      }
+      if (event.crit || event.breach || event.amount >= boss.hp * 0.15) {
         const emblem = document.getElementById('boss-emblem-wrap');
         if (emblem) {
           emblem.classList.remove('boss-hit');
@@ -719,6 +837,7 @@ function consume(event: BattleEvent) {
         }
       }
       break;
+    }
     case 'POISON': displayed.poison = event.poison; break;
     case 'GOLD': displayed.gold = event.gold; break;
     case 'RUNE_STATE': states.set(event.index, event.state); if (renderer.selection?.zone === 'board' && renderer.selection.index === event.index) inspect(); break;
@@ -730,38 +849,30 @@ button('battle').onclick = async () => {
   if (!arranging()) return;
   undoStack.clear();
   click(); resetTimeline(); phase = 'PLAYBACK'; redraw(false);
-  const battlePrng = createMulberry32(run.rngState);
-  const events = simulateBattle({
-    board: run.board,
-    hp: bossHealth(run.wave),
-    gold: run.gold,
-    poison: 0,
-    seed: battlePrng.getState(),
-    tutorial: usesTutorial(run),
-    encounter: encounterAt(run.wave),
-    relics: run.relics,
-    tileModifiers: run.tileModifiers,
-    affix: affixAt(run.wave)?.id,
-    shield: run.shield,
-  }, catalog, battlePrng);
-  run.rngState = battlePrng.getState();
+  const startingBoard = run.board.map(rune => rune ? { ...rune } : null);
+  const startingGold = run.gold;
+  const prepared = prepareBattle(run, catalog);
+  const { events } = prepared;
 
   const result = await player.play(events, consume, {
-    maxHp: bossHealth(run.wave),
+    maxHp: prepared.hp,
     onHitStop: () => {
       renderer.pulseBorder();
       audio.hitStopChord();
     },
   });
   phase = 'ARRANGE'; states.clear(); renderer.clearEffects(); audio.finish(result.win);
-  const prng = createMulberry32(run.rngState);
+  run.lastJournal = { wave: run.wave, trialWave: run.trialWave, gold: startingGold, board: startingBoard, events };
+  const payout = victoryPayout(run, result.gold);
+  run.board = prepared.board;
+  const prng = createMulberry32(prepared.rngState);
   settleTurn(run, result, catalog, prng);
   run.rngState = prng.getState();
   redraw();
   if (result.win && run.status === 'active' && !run.pendingRelics.length) {
     renderer.waveComplete = true; renderer.invalidate();
     victoryTimer = setTimeout(() => { renderer.waveComplete = false; renderer.invalidate(); }, 1500);
-    notice(`打过第 ${run.wave - 1} 波 · ${formatNumber(result.damage)} 伤害 · 过关 +${victoryPayout(run, result.gold).total} 金`);
+    notice(`打过第 ${run.wave - 1} 波 · ${formatNumber(result.damage)} 伤害 · 过关 +${payout.total} 金${payout.trial ? `（悬赏 +${payout.trial}）` : ''}`);
   }
   showOutcome();
 };
@@ -772,7 +883,7 @@ button('refresh').onclick = () => {
   const prng = createMulberry32(run.rngState);
   if (refreshShop(run, catalog, prng)) {
     run.rngState = prng.getState();
-    click(); shopInspect = null; redraw();
+    click(); redraw();
   } else {
     undoStack.pop(run);
   }
@@ -789,7 +900,6 @@ element<HTMLSelectElement>('shop-focus').onchange = event => {
 
 button('speed').onclick = () => { click(); player.speed = player.speed === 1 ? 2 : 1; syncControls(); persist(); };
 button('skip').onclick = () => { click(); player.skip(); };
-button('market-jump').onclick = () => { click(); element('market').focus(); };
 button('inspect-jump').onclick = () => { click(); element('inspector').focus(); };
 button('board-jump').onclick = () => { click(); element('arena').focus(); };
 button('sound').onclick = () => { audio.muted = !audio.muted; click(); syncControls(); persist(); };
@@ -809,5 +919,12 @@ button('help').onclick = () => {
 };
 
 redraw(!!saved);
-if (saved) showOutcome();
-else openOpenings(true);
+function showLanding() {
+  if (challenge && !saved) challengeRoom(challenge, run, true);
+  else if (saved) {
+    showOutcome();
+    if (invalidChallenge) notice('这条同局邀请已失效。已回到主线。');
+  }
+  else openOpenings(true);
+}
+if (!dailyRoom.openShared()) showLanding();

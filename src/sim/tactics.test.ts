@@ -10,7 +10,7 @@ describe('tactical forecast', () => {
     const run = newRun(catalog, shopRandom);
     const before = structuredClone(run);
     const forecast = planTurn(run, catalog);
-    expect(forecast.tutorialDamage).toBe(42);
+    expect(forecast.tutorialDamage).toBe(0);
     expect(forecast.result.win).toBe(true);
     expect(forecast.byCell.reduce((sum, source) => sum + source.damage, 0) + forecast.tutorialDamage + forecast.poisonDamage)
       .toBe(forecast.result.damage);

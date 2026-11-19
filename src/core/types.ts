@@ -28,6 +28,8 @@ export interface Effect {
     tierDivisor?: number;
     maxCap?: number;
     minGoldThreshold?: number;
+    fullRateGold?: number;
+    excessGoldRate?: number;
     burstPercent?: number;
   };
   secondaryEffect?: Effect;
@@ -57,6 +59,7 @@ export interface Run {
   rngState: number;
   tileModifiers: TileModifierMap;
   opening: OpeningId;
+  openingRule?: 1;
   shopFocus: Archetype | 'any';
   wave: number;
   gold: number;
@@ -69,23 +72,33 @@ export interface Run {
   endless: boolean;
   status: 'active' | 'victory' | 'defeat';
   lastDamage: number;
+  lastJournal?: BattleJournal;
   lastPoison: number;
   bestCombo: number;
   pendingLoss: boolean;
   relics: RelicId[];
   pendingRelics: RelicId[];
+  trialWave?: number;
+  clearedTrials?: number[];
 }
 
 export type BattleEvent =
   | { type: 'CELL_ACTIVATE'; index: number; isChain: boolean; depth: number; combo: number }
   | { type: 'CHAIN_LINK'; from: number; to: number; tutorial?: boolean }
-  | { type: 'DAMAGE'; source: number | null; amount: number; hp: number; crit: boolean; kind: 'rune' | 'poison' | 'tutorial'; enemyDelta?: number }
+  | { type: 'DAMAGE'; source: number | null; amount: number; hp: number; crit: boolean; kind: 'rune' | 'poison' | 'tutorial'; enemyDelta?: number; breach?: true }
   | { type: 'POISON'; source: number | null; poison: number }
   | { type: 'GOLD'; source: number; gold: number; delta: number }
   | { type: 'RUNE_STATE'; index: number; state: RuneState }
   | { type: 'TURN_RESULT'; damage: number; combo: number; hp: number; poison: number; gold: number; win: boolean };
 
 export type TurnResult = Extract<BattleEvent, { type: 'TURN_RESULT' }>;
+export interface BattleJournal {
+  wave: number;
+  trialWave?: number;
+  board: Slots;
+  gold: number;
+  events: BattleEvent[];
+}
 export type Random = () => number;
 export type Catalog = Readonly<Record<string, RuneConfig>>;
 export const STAR_MULT = { 1: 1, 2: 2.2, 3: 5 } as const;

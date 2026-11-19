@@ -8,7 +8,7 @@ const chapterOneHealth = 50 * 1.48 ** 9;
 const chapterTwoHealth = chapterOneHealth * 1.39 ** 10;
 
 export function bossHealth(wave: number): number {
-  if (wave === 1) return 60;
+  if (wave === 1) return 40;
   if (wave <= 10) return Math.round(50 * 1.48 ** (wave - 1));
   const health = wave <= 20 ? chapterOneHealth * 1.39 ** (wave - 10) : chapterTwoHealth * 1.24 ** (wave - 20);
   return Math.min(Number.MAX_SAFE_INTEGER, Math.round(health));

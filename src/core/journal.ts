@@ -1,0 +1,70 @@
+import { MAX_EVENTS } from './eventBus';
+import { CELL_COUNT } from './grid';
+import { battleTarget, trialAt } from './trials';
+import type { BattleEvent, BattleJournal, Catalog } from './types';
+
+export type JournalFilter = 'all' | 'chain' | 'damage' | 'economy' | 'support';
+
+export function damageLeaders(journal: BattleJournal) {
+  const breakdown = new Map<number | 'poison' | 'tutorial', number>();
+  let total = 0;
+  for (const event of journal.events) {
+    if (event.type !== 'DAMAGE' || !event.amount) continue;
+    const source = event.kind === 'rune' ? event.source : event.kind;
+    total += event.amount;
+    if (source !== null) breakdown.set(source, (breakdown.get(source) ?? 0) + event.amount);
+  }
+  return [...breakdown.entries()].sort((left, right) => right[1] - left[1]).slice(0, 3)
+    .map(([source, amount]) => ({ source, amount, share: amount / total }));
+}
+
+export function journalRows(journal: BattleJournal, filter: JournalFilter) {
+  let poison = 0;
+  return journal.events.flatMap((event, index) => {
+    const previousPoison = poison;
+    if (event.type === 'POISON') poison = event.poison;
+    const matches = filter === 'all' || (filter === 'chain' && (event.type === 'CELL_ACTIVATE' || event.type === 'CHAIN_LINK')) ||
+      (filter === 'damage' && (event.type === 'DAMAGE' || event.type === 'POISON')) ||
+      (filter === 'economy' && event.type === 'GOLD') || (filter === 'support' && event.type === 'RUNE_STATE');
+    return event.type !== 'TURN_RESULT' && matches ? [{ event, step: index + 1, previousPoison }] : [];
+  });
+}
+
+const natural = (value: unknown) => typeof value === 'number' && Number.isInteger(value) && value >= 0;
+const integer = (value: unknown) => typeof value === 'number' && Number.isInteger(value);
+
+export function readJournal(raw: unknown, catalog: Catalog): BattleJournal | undefined {
+  if (!raw || typeof raw !== 'object') return;
+  const data = raw as BattleJournal;
+  const { wave, board, gold, events } = data;
+  if (!natural(wave) || wave < 1 || !natural(gold) || !Array.isArray(board) || board.length !== CELL_COUNT ||
+    !board.every(rune => rune === null || (rune && typeof rune.configId === 'string' &&
+      Object.hasOwn(catalog, rune.configId) && [1, 2, 3].includes(rune.star))) ||
+    !Array.isArray(events) || !events.length || events.length > MAX_EVENTS || events.at(-1)?.type !== 'TURN_RESULT') return;
+  const slot = (index: number) => natural(index) && index < CELL_COUNT && !!board[index];
+  const finite = (value: unknown) => typeof value === 'number' && Number.isFinite(value);
+  function valid(event: BattleEvent, index: number) {
+    if (!event || typeof event !== 'object') return false;
+    switch (event.type) {
+      case 'CELL_ACTIVATE': return slot(event.index) && typeof event.isChain === 'boolean' && natural(event.depth) && natural(event.combo);
+      case 'CHAIN_LINK': return slot(event.from) && slot(event.to);
+      case 'DAMAGE': return ['rune', 'poison', 'tutorial'].includes(event.kind) && (event.source === null || slot(event.source)) &&
+        natural(event.amount) && natural(event.hp) && typeof event.crit === 'boolean' && (event.enemyDelta === undefined || integer(event.enemyDelta)) &&
+        (event.breach === undefined || event.breach === true && wave === 20);
+      case 'POISON': return (event.source === null || slot(event.source)) && natural(event.poison);
+      case 'GOLD': return slot(event.source) && natural(event.gold) && integer(event.delta);
+      case 'RUNE_STATE': return slot(event.index) && !!event.state && natural(event.state.chargeStacks) &&
+        finite(event.state.tempMult) && finite(event.state.tempCritChance);
+      case 'TURN_RESULT': return index === events.length - 1 && typeof event.win === 'boolean' &&
+        [event.damage, event.combo, event.hp, event.poison, event.gold].every(natural);
+      default: return false;
+    }
+  }
+  if (events.every(valid)) return { wave, board, gold, events, trialWave: data.trialWave === wave && trialAt(wave) ? wave : undefined };
+}
+
+export function foughtHealth(journal: BattleJournal | undefined, wave: number, trialWave?: number) {
+  if (!journal || journal.wave !== wave) return battleTarget(wave, trialWave).hp;
+  const result = journal.events.at(-1);
+  return result?.type === 'TURN_RESULT' && result.hp > 0 ? result.damage + result.hp : battleTarget(wave, journal.trialWave).hp;
+}

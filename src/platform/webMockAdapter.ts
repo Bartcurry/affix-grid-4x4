@@ -1,7 +1,9 @@
 import { BENCH_SIZE, generateTileModifiers, newRun, SHOP_SIZE } from '../core/shopEngine';
 import { CELL_COUNT } from '../core/grid';
+import { readJournal } from '../core/journal';
 import { relics } from '../core/expedition';
-import { isOpening, openingIds, openings, type RunRecords } from '../core/openings';
+import { trialAt, trialCount } from '../core/trials';
+import { isOpening, openingIds, openings, runScore, type RunRecords } from '../core/openings';
 import { createMulberry32, decodeSeed, generateSeedCode } from '../core/rng';
 import type { Catalog, OpeningId, Run, Slots, TileModifierMap } from '../core/types';
 import { catalog as defaultCatalog } from '../data/catalog';
@@ -82,6 +84,11 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
 
     const board = fixSlots(rawRun.board, CELL_COUNT);
     const bench = fixSlots(rawRun.bench, BENCH_SIZE);
+    if (rawRun.openingRule !== 1 && opening === 'chain' && wave === 1 && !rawRun.attempts && !rawRun.lastDamage &&
+      board[0]?.configId === 'spark_orb' && board[0].star === 1 && board[1]?.configId === 'prism_right' &&
+      board[1].star === 1 && !board.slice(2).some(Boolean)) {
+      [board[0], board[1]] = [board[1], board[0]];
+    }
 
     const shop = Array.isArray(rawRun.shop) && rawRun.shop.length === SHOP_SIZE
       ? rawRun.shop.map((offer: any) => offer && known(offer.configId) ? { configId: offer.configId, locked: !!offer.locked } : null)
@@ -93,12 +100,16 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
     const pendingRelicsList = Array.isArray(rawRun.pendingRelics)
       ? rawRun.pendingRelics.filter((id: any) => typeof id === 'string' && Object.hasOwn(relics, id))
       : [];
+    const clearedTrials = Array.isArray(rawRun.clearedTrials)
+      ? rawRun.clearedTrials.filter((entry: unknown): entry is number => natural(entry) && entry < wave && !!trialAt(entry))
+      : [];
 
     const migratedRun: Run = {
       seed,
       rngState,
       tileModifiers,
       opening,
+      openingRule: 1,
       shopFocus,
       wave,
       gold,
@@ -111,6 +122,9 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       endless: !!rawRun.endless,
       status: ['active', 'victory', 'defeat'].includes(rawRun.status) ? rawRun.status : 'active',
       lastDamage: damageCount(rawRun.lastDamage) ? rawRun.lastDamage : 0,
+      lastJournal: readJournal(rawRun.lastJournal, catalog),
+      trialWave: !rawRun.endless && rawRun.trialWave === wave && trialAt(wave) ? wave : undefined,
+      clearedTrials: clearedTrials.length ? [...new Set<number>(clearedTrials)].sort((a, b) => a - b) : undefined,
       lastPoison: damageCount(rawRun.lastPoison) ? rawRun.lastPoison : 0,
       bestCombo: natural(rawRun.bestCombo) ? rawRun.bestCombo : 0,
       pendingLoss: !!rawRun.pendingLoss,
@@ -134,14 +148,15 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
 
 export class WebMockAdapter implements PlatformAdapter {
   constructor(private readonly catalog: Catalog, private readonly ad: HTMLDialogElement, private readonly adText: HTMLElement,
-    private readonly cancelButton: HTMLButtonElement) {}
+    private readonly cancelButton: HTMLButtonElement, private readonly saveKey = SAVE_KEY_V2) {}
 
   load(): SaveData | null {
     try {
-      const rawV2 = localStorage.getItem(SAVE_KEY_V2);
+      const rawV2 = localStorage.getItem(this.saveKey);
       if (rawV2) {
         return migrateSave(rawV2, this.catalog);
       }
+      if (this.saveKey !== SAVE_KEY_V2) return null;
       const rawV1 = localStorage.getItem(SAVE_KEY_V1);
       if (rawV1) {
         const migrated = migrateSave(rawV1, this.catalog);
@@ -156,7 +171,7 @@ export class WebMockAdapter implements PlatformAdapter {
 
   save(data: SaveData) {
     try {
-      localStorage.setItem(SAVE_KEY_V2, JSON.stringify(data));
+      localStorage.setItem(this.saveKey, JSON.stringify(data));
     } catch {
       return;
     }
@@ -196,7 +211,8 @@ export class WebMockAdapter implements PlatformAdapter {
     };
     print('词条法阵', 161, 70, '#f3e9cf');
     print(`${openings[run.opening].name} · ${openings[run.opening].label}开局`, 244, 33, '#e2bf87');
-    print(`打过第 ${run.wave - Number(run.status !== 'victory')} 波`, 390, 44, '#ffdc85');
+    print(`打过 ${runScore(run).cleared} 波`, 390, 44, '#ffdc85');
+    if (run.clearedTrials?.length) print(`悬赏拿下 ${run.clearedTrials.length} / ${trialCount}`, 451, 26, '#e2bf87');
     print(`本轮伤害 ${formatNumber(run.lastDamage)}`, 512, 33, '#f0dec1');
     print(`最高连击 ${run.bestCombo}`, 582, 33, '#f0dec1');
     print(`种子码 ${run.seed}`, 652, 26, '#e2bf87');

@@ -2,9 +2,17 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#090B10" />
-    <meta name="description" content="在 4×4 法阵中摆放、合成并连锁触发符文，挑战 20 波守门核心。「玄墨鎏金」新中式战术法阵。" />
+    <meta name="description" content="摆四行符文，打出一串连锁。挑战 20 波、解每日残局，也能约朋友从同一个种子开局。" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="4×4 词条法阵" />
+    <meta property="og:description" content="摆四行符文，打出一串连锁。挑战 20 波、解每日残局，也能约朋友从同一个种子开局。" />
+    <meta property="og:image" content="https://bartcurry.github.io/affix-grid-4x4/share-card.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="4×4 词条法阵的游戏棋盘，摆有电火花、折射镜、催化烧瓶和其他符文。" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23090B10' d='M0 0h32v32H0z'/%3E%3Cpath fill='none' stroke='%23D4AF37' stroke-width='1.5' d='M3 3h26v26H3zM16 7l9 9-9 9-9-9zm0 4v10m-5-5h10'/%3E%3C/svg%3E" />
     <title>4×4 词条法阵 · 玄墨鎏金</title>
   </head>
@@ -24,10 +32,12 @@
               <div class="boss-title-row">
                 <span id="wave" class="wave-pill">第 1 / 20 波</span>
                 <h2 id="enemy-name" class="boss-name">守门核心</h2>
-                <div id="boss-armor-shields" class="boss-armor-shields" hidden title="铁壳减伤护盾">
+                <div id="boss-armor-shields" class="boss-armor-shields" hidden title="减伤护甲" aria-label="减伤护甲" role="img">
                   <span class="boss-shield-icon" id="boss-shield-1"><svg viewBox="0 0 32 32"><path d="M16 3L27 7V15C27 22 22 27 16 29C10 27 5 22 5 15V7Z" fill="currentColor"/></svg></span>
                   <span class="boss-shield-icon" id="boss-shield-2"><svg viewBox="0 0 32 32"><path d="M16 3L27 7V15C27 22 22 27 16 29C10 27 5 22 5 15V7Z" fill="currentColor"/></svg></span>
+                  <span class="boss-shield-icon" id="boss-shield-3" hidden><svg viewBox="0 0 32 32"><path d="M16 3L27 7V15C27 22 22 27 16 29C10 27 5 22 5 15V7Z" fill="currentColor"/></svg></span>
                 </div>
+                <span id="boss-stage" class="boss-stage" hidden aria-live="polite"></span>
               </div>
               <div class="hp-gauge-row">
                 <div class="hp-track" id="hp-meter" role="progressbar" aria-label="敌人生命" aria-valuemin="0">
@@ -61,6 +71,7 @@
           </div>
 
           <div class="hud-utility">
+            <button id="daily-open" type="button" title="每日残局">每日</button>
             <button id="openings" type="button" title="换开局">开局</button>
             <button id="sound" type="button" aria-pressed="false" title="音效">音效</button>
             <button id="help" type="button" aria-label="玩法说明" title="玩法">玩法</button>
@@ -69,14 +80,17 @@
 
         <!-- 战况栏第二行：紧凑芯片条（前方敌情预告 + 20波进度刻度 + 已获遗物紧凑列表） -->
         <div class="hud-row-chips">
-          <div class="boss-intel" id="boss-intel">
+          <button class="boss-intel" id="route-open" type="button" aria-haspopup="dialog" aria-label="敌情与关卡路线">
             <span class="chip-badge">敌情</span>
-            <span id="boss-intel-text" class="boss-intel-text">加载中...</span>
-          </div>
+            <span id="boss-intel-text" class="boss-intel-text"></span>
+          </button>
           <div class="wave-track" id="wave-track" aria-hidden="true"></div>
           <div id="relic-list" class="relic-chip-list"></div>
         </div>
-        <p id="enemy-hint" class="enemy-hint" hidden></p>
+        <div class="enemy-row">
+          <p id="enemy-hint" class="enemy-hint" hidden></p>
+          <button id="trial-open" type="button" aria-haspopup="dialog" hidden></button>
+        </div>
       </header>
 
       <!-- 核心黄金区域：4×4 动态法阵棋盘与悬浮词条详情卡片 -->
@@ -122,6 +136,7 @@
             <label class="forecast-toggle" title="切换模糊战果与精确数值"><input type="checkbox" id="exact-toggle"><span>精确</span></label>
             <button id="forecast-detail" type="button" class="btn-subtle">明细</button>
           </div>
+          <div id="field-tip" class="field-tip" hidden><span id="field-tip-text"></span><button id="field-tip-action" type="button" hidden>看看</button></div>
         </section>
 
         <!-- 符文铺（3张实体小牌横排展示） -->
@@ -158,7 +173,6 @@
           <button type="button" id="battle" class="primary battle-btn">启动法阵</button>
           <button type="button" id="speed" class="ctrl-btn" aria-label="切换播放速度">1×</button>
           <button type="button" id="skip" class="ctrl-btn" hidden disabled>跳过</button>
-          <button type="button" id="market-jump" hidden>商店</button>
         </footer>
       </div>
 
@@ -172,7 +186,7 @@
           <div><dt>上轮伤害</dt><dd id="last-damage">—</dd></div>
           <div><dt>最高连击</dt><dd id="best-combo">—</dd></div>
         </dl>
-        <button id="support" type="button" title="请作者喝可乐（自愿支持）">支持</button>
+        <div class="report-links"><button id="journal-open" type="button" hidden>上轮复盘</button><button id="invite-open" type="button" aria-haspopup="dialog">分享</button><button id="support" type="button" title="请作者喝可乐（自愿支持）">支持</button></div>
       </section>
 
       <!-- 浮动通知 Toast -->
@@ -187,7 +201,51 @@
         </div>
       </dialog>
 
+      <dialog id="challenge-dialog" class="challenge-dialog" aria-labelledby="challenge-title">
+        <div class="dialog-content">
+          <p id="challenge-opening" class="challenge-opening"></p>
+          <h2 id="challenge-title">同局挑战</h2>
+          <p>从同一个种子开局。先比通关波数，波数相同再比最高连击。</p>
+          <div class="challenge-scores">
+            <div><h3>朋友的战绩</h3><strong id="challenge-target-wave"></strong><small id="challenge-target-combo"></small></div>
+            <div><h3>你的战绩</h3><strong id="challenge-player-wave"></strong><small id="challenge-player-combo"></small></div>
+          </div>
+          <p id="challenge-status" class="challenge-status" hidden></p>
+          <div class="dialog-actions">
+            <button id="challenge-enter" class="primary" type="button" autofocus>开始同局挑战</button>
+            <button id="challenge-leave" type="button">回主线</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="invite-dialog" class="challenge-dialog" aria-labelledby="invite-title">
+        <div class="dialog-content">
+          <h2 id="invite-title">约朋友打同一局</h2>
+          <p id="invite-summary"></p>
+          <div class="dialog-actions">
+            <button id="invite-native" class="primary" type="button" hidden>分享邀请</button>
+            <button id="invite-copy" class="primary" type="button">复制邀请</button>
+            <button id="invite-close" type="button">关闭</button>
+          </div>
+          <p id="invite-feedback" role="status" hidden></p>
+          <details id="invite-details" class="invite-details">
+            <summary>查看邀请内容</summary>
+            <textarea id="invite-text" rows="4" readonly aria-label="可复制的邀请内容"></textarea>
+          </details>
+        </div>
+      </dialog>
+
       <!-- 弹窗：战斗推演明细 -->
+      <dialog id="trial-dialog" class="trial-dialog" aria-labelledby="trial-title">
+        <div class="dialog-content">
+          <p id="trial-wave" class="trial-wave"></p>
+          <h2 id="trial-title">路边的悬赏</h2>
+          <p>两条路都用当前阵容试算。开战前可换路，打不过照常结算护盾。</p>
+          <div id="trial-routes" class="trial-routes"></div>
+          <button id="trial-close" type="button" autofocus>返回布阵</button>
+        </div>
+      </dialog>
+
       <dialog id="forecast-dialog" aria-labelledby="forecast-title">
         <div class="dialog-content">
           <h2 id="forecast-title">战斗明细</h2>
@@ -197,6 +255,40 @@
           <div class="dialog-actions">
             <button id="forecast-close" class="primary" type="button">返回布阵</button>
           </div>
+        </div>
+      </dialog>
+
+      <dialog id="market-preview" class="market-preview" aria-labelledby="market-preview-title">
+        <div class="dialog-content">
+          <header class="market-preview-head">
+            <span id="market-preview-icon" aria-hidden="true"></span>
+            <div><small id="market-preview-meta"></small><h2 id="market-preview-title"></h2></div>
+            <button id="market-preview-close" type="button" aria-label="关闭试摆" autofocus>×</button>
+          </header>
+          <p id="market-preview-description"></p>
+          <p id="market-preview-blocked" hidden></p>
+          <div id="market-preview-options" class="market-preview-options" hidden>
+            <div id="market-preview-grid" class="market-preview-grid" role="group" aria-label="选择试摆格子"></div>
+            <div class="market-preview-stats"><div><span>当前阵容</span><strong id="market-before"></strong></div><div><span id="market-after-label">购入并放置</span><strong id="market-after"></strong></div></div>
+            <p id="market-preview-result" role="status"></p>
+            <p id="market-preview-link" hidden></p>
+            <button id="market-preview-buy" type="button"></button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="route-dialog" class="route-dialog" aria-labelledby="route-title">
+        <div class="dialog-content">
+          <h2 id="route-title">阵前敌情</h2>
+          <p id="route-progress"></p>
+          <div id="route-waves" class="route-waves" role="group" aria-label="查看关卡"></div>
+          <section class="route-detail" aria-live="polite">
+            <div class="route-detail-head"><h3 id="route-enemy"></h3><span id="route-health"></span></div>
+            <p id="route-rule"></p>
+            <ul id="route-finale" class="route-finale" hidden></ul>
+            <p id="route-reward" class="route-reward" hidden></p>
+          </section>
+          <button id="route-close" type="button" autofocus>回到布阵</button>
         </div>
       </dialog>
 
@@ -239,11 +331,41 @@
               <button id="opening-back" type="button">再挑挑</button>
             </div>
           </div>
+          <button id="opening-daily" type="button" class="btn-subtle-close" hidden>先试一盘每日残局</button>
           <button id="opening-close" type="button" class="btn-subtle-close">回到当前局</button>
         </div>
       </dialog>
 
       <!-- 弹窗：模拟激励广告 -->
+      <dialog id="journal-dialog" class="journal-dialog" aria-labelledby="journal-title">
+        <div class="dialog-content">
+          <h2 id="journal-title"></h2><p id="journal-summary"></p>
+          <section id="journal-damage" class="journal-damage" aria-labelledby="journal-damage-title" hidden>
+            <h3 id="journal-damage-title">本波伤害最高的来源</h3>
+            <ol id="journal-leaders"></ol>
+          </section>
+          <div class="journal-filters" role="group" aria-label="筛选记录"><button type="button" data-filter="all">全部</button><button type="button" data-filter="chain">触发</button><button type="button" data-filter="damage">伤害与毒</button><button type="button" data-filter="economy">金币</button><button type="button" data-filter="support">增益</button></div>
+          <ol id="journal-rows" tabindex="0" aria-label="战斗事件"></ol><p id="journal-empty" hidden>这类事件没有发生。</p>
+          <button id="journal-close" type="button">收起复盘</button>
+        </div>
+      </dialog>
+
+      <dialog id="daily-dialog" class="daily-dialog" aria-labelledby="daily-title">
+        <div class="dialog-content">
+          <div class="daily-heading"><div><p id="daily-date" class="daily-date"></p><h2 id="daily-title">每日残局</h2></div><button id="daily-close" type="button" aria-label="关闭每日残局">×</button></div>
+          <p id="daily-intro"></p>
+          <div id="daily-board" class="daily-board" aria-label="点两枚符文换位"></div>
+          <div class="daily-stats"><span>交换 <strong id="daily-moves">0</strong> 次</span><span id="daily-best"></span></div>
+          <p id="daily-result" class="daily-result" role="status"></p>
+          <details id="daily-clue" class="daily-clue"><summary>看一条提示</summary><p id="daily-clue-text"></p></details>
+          <div class="daily-actions">
+            <button id="daily-check" class="primary" type="button">试打这套阵</button><button id="daily-reset" type="button">重摆</button>
+            <button id="daily-copy" type="button">复制挑战</button><button id="daily-today" type="button" hidden>玩今天这题</button>
+          </div>
+          <details class="daily-share"><summary>挑战链接</summary><input id="daily-link" type="url" readonly aria-label="可复制的挑战链接" /></details>
+        </div>
+      </dialog>
+
       <dialog id="ad">
         <div class="dialog-content">
           <h2>神识参悟</h2>

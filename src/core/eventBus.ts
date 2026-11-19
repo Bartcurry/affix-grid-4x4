@@ -26,6 +26,8 @@ export function createEventBus(board: Readonly<Slots>, catalog: Catalog, hp: num
 
   const combat: Combat = {
     fighters, hp, gold, poison, shield, rng, encounter, relics, priorHits: 0, damage: 0, combo: 0, affix,
+    breachHp: encounter === 'last_gate' ? Math.floor(hp / 2) : 0,
+    breached: false,
     emit(event) {
       if (!combat.room()) return false;
       events.push(event);

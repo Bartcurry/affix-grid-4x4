@@ -84,9 +84,9 @@
   {
     "id": "gold_cannon", "name": "散财重炮", "rarity": "rare", "archetype": "gold",
     "tags": ["gold", "damage"], "cost": 6, "color": "#F59E0B", "symbol": "❖",
-    "desc": "造成等于当前持有金币×1.5的巨额伤害（不消耗金币）。",
+    "desc": "按手头金币打伤害：前 60 金每金 1.5 点，超出部分每金 0.22 点。开炮不花钱。",
     "triggers": [
-      { "event": "ON_ACTIVATE", "effect": "DEAL_DAMAGE", "target": "BOSS", "value": { "base": 1.5, "scaleBy": "PLAYER_GOLD" } }
+      { "event": "ON_ACTIVATE", "effect": "DEAL_DAMAGE", "target": "BOSS", "value": { "base": 1.5, "scaleBy": "PLAYER_GOLD", "fullRateGold": 60, "excessGoldRate": 0.22 } }
     ]
   },
   {
@@ -129,9 +129,9 @@
   {
     "id": "combo_finisher", "name": "终焉共鸣器", "rarity": "epic", "archetype": "amplify",
     "tags": ["amplify", "damage"], "cost": 7, "color": "#A855F7", "symbol": "★",
-    "desc": "造成本回合全盘已发生的总触发次数×12点伤害（适合放右下角收尾）。",
+    "desc": "本轮每触发一次符文，就为这一击加 16 点伤害。放在阵尾，等前面的符文先动。",
     "triggers": [
-      { "event": "ON_ACTIVATE", "effect": "DEAL_DAMAGE", "target": "BOSS", "value": { "base": 12, "scaleBy": "TOTAL_TRIGGERS_THIS_TURN" } }
+      { "event": "ON_ACTIVATE", "effect": "DEAL_DAMAGE", "target": "BOSS", "value": { "base": 16, "scaleBy": "TOTAL_TRIGGERS_THIS_TURN" } }
     ]
   },
   {

@@ -15,6 +15,8 @@ export interface Combat {
   encounter: EncounterId;
   relics: readonly RelicId[];
   priorHits: number;
+  breachHp: number;
+  breached: boolean;
   affix?: string;
   emit(event: BattleEvent): boolean;
   room(count?: number): boolean;
@@ -25,7 +27,7 @@ export interface Combat {
 export interface EffectContext { index: number; isChain: boolean; depth: number; suppressCrit: boolean }
 
 export function dealDamage(combat: Combat, source: number | null, value: number, kind: 'rune' | 'poison' | 'tutorial', crit = false, isChain = false) {
-  const { relic, enemy } = damageModifiers(combat.encounter, combat.relics, kind, source, isChain, crit, combat.priorHits, combat.affix);
+  const { relic, enemy } = damageModifiers(combat.encounter, combat.relics, kind, source, isChain, crit, combat.priorHits, combat.affix, combat.breached);
   let finalEnemy = enemy;
   if (combat.affix === 'shield_tax' && combat.gold < 10) {
     finalEnemy *= 0.8;
@@ -34,9 +36,11 @@ export function dealDamage(combat: Combat, source: number | null, value: number,
   const amount = Math.ceil(boosted * finalEnemy);
   const enemyDelta = amount - Math.ceil(boosted);
   const hp = Math.max(0, combat.hp - amount);
-  if (combat.emit({ type: 'DAMAGE', source, amount, crit, hp, kind, ...(enemyDelta ? { enemyDelta } : {}) })) {
+  const breach = !combat.breached && hp > 0 && hp <= combat.breachHp;
+  if (combat.emit({ type: 'DAMAGE', source, amount, crit, hp, kind, ...(enemyDelta ? { enemyDelta } : {}), ...(breach ? { breach: true } : {}) })) {
     if (kind === 'rune' && amount > 0) combat.priorHits++;
     combat.hp = hp;
+    if (breach) combat.breached = true;
     combat.damage += amount;
     return true;
   }
@@ -76,7 +80,12 @@ export function executeEffect(combat: Combat, rule: Effect, context: EffectConte
   }
   switch (value.scaleBy) {
     case 'CHAIN_BONUS': if (isChain) base *= value.chainMult ?? 1; break;
-    case 'PLAYER_GOLD': base = (value.base * combat.gold) + bonusPower; break;
+    case 'PLAYER_GOLD': {
+      const fullRateGold = Math.min(combat.gold, value.fullRateGold ?? combat.gold);
+      const excessGold = combat.gold - fullRateGold;
+      base = value.base * fullRateGold + (value.excessGoldRate ?? value.base) * excessGold + bonusPower;
+      break;
+    }
     case 'TOTAL_TRIGGERS_THIS_TURN': base *= combat.combo; break;
     case 'BOSS_POISON': base *= combat.poison; break;
     case 'BOSS_POISON_TIER': {

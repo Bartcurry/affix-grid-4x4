@@ -2,12 +2,19 @@ import { CELL_COUNT } from './grid';
 import { relicChoices } from './expedition';
 import { openings } from './openings';
 import { createMulberry32, decodeSeed, encodeSeed, type PRNG } from './rng';
+import { trialAt } from './trials';
 import type { Archetype, Catalog, Offer, OpeningId, Random, Rarity, RelicId, Run, Rune, Slot, Slots, Star, TileModifierMap, TurnResult } from './types';
 
 export const BENCH_SIZE = 4;
 export const SHOP_SIZE = 3;
 export const REFRESH_COST = 2;
 export const canArrange = (run: Run) => run.status === 'active' && !run.pendingLoss && !run.pendingRelics.length;
+
+export function selectTrial(run: Run, enabled: boolean) {
+  if (!canArrange(run) || run.endless || !trialAt(run.wave)) return false;
+  run.trialWave = enabled ? run.wave : undefined;
+  return true;
+}
 
 export function rarityOdds(wave: number): Record<Rarity, number> {
   return wave <= 4 ? { common: 0.75, rare: 0.22, epic: 0.03 }
@@ -79,6 +86,7 @@ export function newRun(catalog: Catalog, rng: Random, opening: OpeningId = 'chai
     rngState: typeof (effectiveRng as any)?.getState === 'function' ? (effectiveRng as PRNG).getState() : rngState,
     tileModifiers,
     opening,
+    openingRule: 1,
     shopFocus: opening,
     wave: 1,
     gold: setup.gold,
@@ -178,9 +186,10 @@ export function purchaseInfo(run: Run, index: number, catalog: Catalog) {
   return { copies, willMerge, blocked };
 }
 
-export function buyRune(run: Run, index: number, catalog: Catalog): Merge[] | null {
+export function buyRune(run: Run, index: number, catalog: Catalog, placeAt?: number): Merge[] | null {
   const info = purchaseInfo(run, index, catalog);
   if (info.blocked) return null;
+  if (placeAt !== undefined && (info.willMerge || !validSlot(run, { zone: 'board', index: placeAt }))) return null;
   const offer = run.shop[index];
   if (!offer) return null;
   const config = catalog[offer.configId];
@@ -192,6 +201,7 @@ export function buyRune(run: Run, index: number, catalog: Catalog): Merge[] | nu
   run.bench[targetBenchIndex] = { configId: config.id, star: 1 };
   const merges = mergeRunes(run);
   run.bench.length = BENCH_SIZE;
+  if (placeAt !== undefined) swapRunes(run, { zone: 'bench', index: freeSlot }, { zone: 'board', index: placeAt });
   return merges;
 }
 
@@ -214,7 +224,9 @@ export function settleTurn(run: Run, result: TurnResult, catalog: Catalog, rng: 
   run.bestCombo = Math.max(run.bestCombo, result.combo);
   run.attempts++;
   if (!result.win) { run.pendingLoss = true; return; }
-  run.gold += victoryPayout(run, result.gold).total;
+  const payout = victoryPayout(run, result.gold);
+  run.gold += payout.total;
+  if (payout.trial) run.clearedTrials = [...(run.clearedTrials ?? []), run.wave];
   if (run.wave === 20 && !run.endless) run.status = 'victory';
   else {
     const choices = relicChoices(run.wave, run.relics);
@@ -223,11 +235,12 @@ export function settleTurn(run: Run, result: TurnResult, catalog: Catalog, rng: 
   }
 }
 
-export function victoryPayout(run: Pick<Run, 'relics'>, goldAfterBattle: number) {
+export function victoryPayout(run: Pick<Run, 'relics' | 'wave' | 'trialWave' | 'endless'>, goldAfterBattle: number) {
   const base = 8;
   const interest = Math.min(5, Math.floor(goldAfterBattle / 10));
   const relic = run.relics.includes('gate_tithe') ? 4 : 0;
-  return { base, interest, relic, total: base + interest + relic };
+  const trial = !run.endless && run.trialWave === run.wave ? trialAt(run.wave)?.reward ?? 0 : 0;
+  return { base, interest, relic, trial, total: base + interest + relic + trial };
 }
 
 export function chooseRelic(run: Run, choice: RelicId): boolean {
@@ -239,6 +252,7 @@ export function chooseRelic(run: Run, choice: RelicId): boolean {
 
 function advanceWave(run: Run, catalog: Catalog, rng: Random) {
   run.wave++;
+  run.trialWave = undefined;
   run.attempts = 0;
   run.freeRefreshes = 1;
   rollShop(run, catalog, rng, { supply: run.wave === 2 ? openings[run.opening].supply : undefined });

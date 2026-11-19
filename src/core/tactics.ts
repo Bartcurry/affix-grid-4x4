@@ -1,43 +1,33 @@
-import { bossHealth, simulateBattle } from './battleEngine';
-import { affixAt, encounterAt } from './expedition';
+import { simulateBattle } from './battleEngine';
+import { affixAt } from './expedition';
 import { resolveTargets } from './grid';
 import { createMulberry32 } from './rng';
 import { runeAt } from './shopEngine';
+import { battleTarget } from './trials';
 import type { Catalog, RuneConfig, Run, Scope, Slot } from './types';
 
-export function usesTutorial(run: Pick<Run, 'wave' | 'board' | 'opening'>) {
-  return run.opening === 'chain' && run.wave === 1 && run.board[0]?.configId === 'spark_orb' && run.board[1]?.configId === 'prism_right';
+type BattleSetup = Pick<Run, 'wave' | 'trialWave' | 'board' | 'gold' | 'relics' | 'tileModifiers' | 'shield' | 'rngState'>;
+
+function battleInput(run: BattleSetup) {
+  const { hp, encounter } = battleTarget(run.wave, run.trialWave);
+  return {
+    board: run.board.map(rune => rune ? { ...rune } : null), hp, gold: run.gold,
+    encounter, relics: run.relics, tileModifiers: run.tileModifiers,
+    affix: affixAt(run.wave)?.id, shield: run.shield,
+  };
 }
 
-export function planTurn(run: Pick<Run, 'wave' | 'attempts' | 'board' | 'gold' | 'relics' | 'opening' | 'tileModifiers' | 'shield' | 'rngState'>, catalog: Catalog) {
-  const hp = bossHealth(run.wave);
-  const deepBoard = run.board.map(r => r ? { ...r } : null);
-  const encounter = encounterAt(run.wave);
-  const affix = affixAt(run.wave)?.id;
-  const stateSeed = typeof run.rngState === 'number' && Number.isSafeInteger(run.rngState) && run.rngState > 0 ? run.rngState : 1;
+export function prepareBattle(run: BattleSetup, catalog: Catalog) {
+  const input = battleInput(run);
+  const rng = createMulberry32(run.rngState);
+  const events = simulateBattle(input, catalog, rng);
+  return { board: input.board, events, rngState: rng.getState(), hp: input.hp };
+}
 
-  // 1. Guaranteed minimum damage without crits (pure function, does NOT touch run.rngState)
-  const noCritEvents = simulateBattle({
-    board: deepBoard.map(r => r ? { ...r } : null),
-    hp, gold: run.gold, seed: stateSeed, tutorial: usesTutorial(run),
-    encounter, relics: run.relics, tileModifiers: run.tileModifiers, affix, shield: run.shield ?? 3,
-  }, catalog, () => 1.0);
-  const minResult = noCritEvents.at(-1);
-
-  // 2. Maximum ceiling damage with all crits landing (pure function)
-  const maxCritEvents = simulateBattle({
-    board: deepBoard.map(r => r ? { ...r } : null),
-    hp, gold: run.gold, seed: stateSeed, tutorial: usesTutorial(run),
-    encounter, relics: run.relics, tileModifiers: run.tileModifiers, affix, shield: run.shield ?? 3,
-  }, catalog, () => 0.0);
-  const maxResult = maxCritEvents.at(-1);
-
-  // 3. Expected deterministic simulation using independent mulberry32 PRNG (does NOT touch run.rngState)
-  const events = simulateBattle({
-    board: deepBoard.map(r => r ? { ...r } : null),
-    hp, gold: run.gold, seed: stateSeed, tutorial: usesTutorial(run),
-    encounter, relics: run.relics, tileModifiers: run.tileModifiers, affix, shield: run.shield ?? 3,
-  }, catalog, createMulberry32(stateSeed));
+export function planTurn(run: BattleSetup, catalog: Catalog) {
+  const { events, hp } = prepareBattle(run, catalog);
+  const minResult = simulateBattle(battleInput(run), catalog, () => 1).at(-1);
+  const maxResult = simulateBattle(battleInput(run), catalog, () => 0).at(-1);
   const result = events.at(-1);
   if (result?.type !== 'TURN_RESULT' || minResult?.type !== 'TURN_RESULT' || maxResult?.type !== 'TURN_RESULT') throw new Error('Missing battle result');
 
@@ -47,7 +37,7 @@ export function planTurn(run: Pick<Run, 'wave' | 'attempts' | 'board' | 'gold' |
   let verdict: 'win' | 'close' | 'gap' = 'gap';
   let verdictText = '伤害不足';
 
-  if (minDamage >= hp) {
+  if (minDamage >= hp && result.win) {
     verdict = 'win';
     verdictText = '可击杀';
   } else if (expectedDamage >= hp || maxDamage >= hp) {

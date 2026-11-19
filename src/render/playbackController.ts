@@ -37,6 +37,7 @@ export class PlaybackController {
         }
       }
       show(event);
+      if (event.type === 'DAMAGE' && event.breach && !this.skipped) await this.pause(240 / this.speed);
     }
     throw new Error('Missing battle result');
   }

@@ -93,6 +93,8 @@ export const BOSS_GLYPHS: Record<string, string> = {
   // 闭门王：双重帝王玄锁、天牢横栅与帝印符印
   regent:
     'M5 4H27V28H5ZM8 7H15V25H8ZM17 7H24V25H17ZM13 14A3 3 0 1 0 19 14A3 3 0 1 0 13 14M16 17V22M4 16H28',
+  last_gate:
+    'M3 27H29M5 27V8L16 3L27 8V27M9 25V12H14L16 9L18 12H23V25M14 16L18 19L15 22L18 26M11 7H21',
 };
 
 // 通用 UI 矢量图标

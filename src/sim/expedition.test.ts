@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { simulateBattle } from '../core/battleEngine';
 import { encounterAt, relicChoices } from '../core/expedition';
+import { readJournal } from '../core/journal';
 import { canArrange, chooseRelic, newRun, settleTurn } from '../core/shopEngine';
 import { planTurn, runeFootprint } from '../core/tactics';
-import type { BattleEvent, Rune, TurnResult } from '../core/types';
+import type { BattleEvent, Rune, Slots, TurnResult } from '../core/types';
 import { catalog } from '../data/catalog';
 
 const noCrit = () => .99;
@@ -31,6 +32,27 @@ describe('expedition', () => {
     expect(events.at(-1)).toMatchObject({ damage: 27, poison: 5 });
   });
 
+  it('breaches exactly at half health and applies the new multipliers from the next hit', () => {
+    const board: Slots = Array.from({ length: 16 }, (_, index) => index <= 4 || index === 8 ? rune('spark_orb') : null);
+    const events = simulateBattle({ board, gold: 10, hp: 60, poison: 10, encounter: 'last_gate' }, catalog, noCrit);
+    expect(damage(events)).toEqual([6, 6, 6, 12, 11, 18, 13]);
+    expect(events.filter(event => event.type === 'DAMAGE' && event.breach)).toEqual([
+      { type: 'DAMAGE', source: 3, amount: 12, hp: 30, crit: false, kind: 'rune', breach: true },
+    ]);
+    const journal = { wave: 20, board, gold: 10, events };
+    expect(readJournal(journal, catalog)).toEqual(journal);
+    expect(readJournal({ ...journal, wave: 19 }, catalog)).toBeUndefined();
+    expect(encounterAt(25)).toBe('regent');
+  });
+
+  it('lets a poison tick reach the breach without boosting itself, and omits a breach on instant defeat', () => {
+    const poisoned = simulateBattle({ board: [], gold: 0, hp: 60, poison: 34, encounter: 'last_gate' }, catalog, noCrit);
+    expect(poisoned[0]).toMatchObject({ type: 'DAMAGE', amount: 34, hp: 26, kind: 'poison', breach: true });
+    const instant = simulateBattle({ board: [{ configId: 'spark_orb', star: 3, bonusPower: 200 }], gold: 0, hp: 60, encounter: 'last_gate' }, catalog, noCrit);
+    expect(instant.some(event => event.type === 'DAMAGE' && event.breach)).toBe(false);
+    expect(instant.at(-1)).toMatchObject({ hp: 0, win: true });
+  });
+
   it('offers three distinct relics at milestones and saves the choice in run state', () => {
     const run = newRun(catalog, noCrit);
     run.wave = 4;
@@ -43,10 +65,10 @@ describe('expedition', () => {
     expect(chooseRelic(run, 'moss_bowl')).toBe(false);
     expect(run.relics).toEqual(['whetstone']);
     expect(canArrange(run)).toBe(true);
-    expect(planTurn(run, catalog).byCell[0].damage).toBeGreaterThanOrEqual(16);
+    expect(planTurn(run, catalog).byCell[0].damage).toBeGreaterThan(planTurn({ ...run, relics: [] }, catalog).byCell[0].damage);
     expect(relicChoices(16, ['whetstone', 'gate_tithe', 'copper_ledger'])).toEqual(['red_lens', 'moss_bowl', 'chain_ring']);
     expect(relicChoices(20, [])).toEqual([]);
-    expect(encounterAt(20)).toBe('regent');
+    expect(encounterAt(20)).toBe('last_gate');
     expect(encounterAt(21)).toBe('armor');
     expect(encounterAt(26)).toBe('armor');
   });

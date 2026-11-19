@@ -8,15 +8,22 @@ export const encounters = {
   flanks: { name: '石狮', hint: '外侧两列减伤三成，中间两列增伤一成。' },
   bell: { name: '回音钟', hint: '连锁伤害增四分之一，普通伤害少一成。' },
   regent: { name: '闭门王', hint: '前3次受击减半，连锁伤害增两成。' },
+  last_gate: { name: '闭门王', hint: '三层门甲。半血破门后，后两排符文和回合末剧毒更强。' },
 } as const;
 
 export type EncounterId = keyof typeof encounters;
 const campaign: readonly EncounterId[] = [
   'sentry', 'sentry', 'sentry', 'armor', 'sentry', 'cistern', 'armor', 'flanks', 'bell', 'sentry',
-  'flanks', 'cistern', 'armor', 'bell', 'flanks', 'armor', 'cistern', 'bell', 'flanks', 'regent',
+  'flanks', 'cistern', 'armor', 'bell', 'flanks', 'armor', 'cistern', 'bell', 'flanks', 'last_gate',
 ];
 const endless: readonly EncounterId[] = ['armor', 'cistern', 'flanks', 'bell', 'regent'];
 export const encounterAt = (wave: number): EncounterId => campaign[wave - 1] ?? endless[(wave - 21) % endless.length] ?? 'sentry';
+export const armorLayers = (encounter: EncounterId) => encounter === 'armor' ? 2 : encounter === 'regent' || encounter === 'last_gate' ? 3 : 0;
+
+export const lastGate = {
+  closed: '前 3 次符文命中伤害减半。连锁伤害提高 20%。',
+  breached: '前两排符文伤害降低 10%，后两排提高 45%，回合末剧毒提高 30%。',
+} as const;
 
 export function upcomingEncounter(currentWave: number, offset = 2): { wave: number; encounter: EncounterId; name: string; hint: string } {
   const targetWave = currentWave + offset;
@@ -71,7 +78,7 @@ export function relicChoices(waveCleared: number, owned: readonly RelicId[]): Re
 }
 
 export function damageModifiers(encounter: EncounterId, owned: readonly RelicId[], kind: 'rune' | 'poison' | 'tutorial',
-  source: number | null, isChain: boolean, crit: boolean, priorHits: number, affix?: string) {
+  source: number | null, isChain: boolean, crit: boolean, priorHits: number, affix?: string, breached = false) {
   let relic = 1;
   let enemy = 1;
   if (kind === 'rune' && source !== null) {
@@ -79,20 +86,19 @@ export function damageModifiers(encounter: EncounterId, owned: readonly RelicId[
     if (row === 0 && owned.includes('whetstone')) relic *= 1.3;
     if (isChain && owned.includes('chain_ring')) relic *= 1.22;
     if (crit && owned.includes('red_lens')) relic *= 1.2;
-    if (encounter === 'armor' && priorHits < 2) enemy *= .5;
+    if (!breached && priorHits < armorLayers(encounter)) enemy *= .5;
     if (encounter === 'cistern') enemy *= .9;
     if (encounter === 'flanks') enemy *= col === 0 || col === 3 ? .7 : 1.1;
     if (encounter === 'bell') enemy *= isChain ? 1.25 : .9;
-    if (encounter === 'regent') {
-      if (priorHits < 3) enemy *= .5;
-      if (isChain) enemy *= 1.2;
-    }
+    if (isChain && (encounter === 'regent' || (encounter === 'last_gate' && !breached))) enemy *= 1.2;
+    if (encounter === 'last_gate' && breached) enemy *= row >= 2 ? 1.45 : .9;
     if (affix === 'odd_row_frenzy' && row % 2 === 1) {
       enemy *= 1.6;
     }
   } else if (kind === 'poison') {
     if (owned.includes('moss_bowl')) relic *= 1.5;
     if (encounter === 'cistern') enemy *= 1.5;
+    if (encounter === 'last_gate' && breached) enemy *= 1.3;
     if (affix === 'decay_surge') enemy *= 1.4;
   }
   return { relic, enemy };
