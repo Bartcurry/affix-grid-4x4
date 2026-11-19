@@ -8,22 +8,24 @@ export interface Combat {
   hp: number;
   poison: number;
   gold: number;
+  shield: number;
   damage: number;
   combo: number;
   rng: Random;
   encounter: EncounterId;
   relics: readonly RelicId[];
   priorHits: number;
+  affix?: string;
   emit(event: BattleEvent): boolean;
   room(count?: number): boolean;
   activate(index: number, depth: number, from?: number, suppressCrit?: boolean): void;
-  notifyCrit(depth: number): void;
+  notifyCrit(depth: number, sourceIndex?: number): void;
 }
 
 export interface EffectContext { index: number; isChain: boolean; depth: number; suppressCrit: boolean }
 
 export function dealDamage(combat: Combat, source: number | null, value: number, kind: 'rune' | 'poison' | 'tutorial', crit = false, isChain = false) {
-  const { relic, enemy } = damageModifiers(combat.encounter, combat.relics, kind, source, isChain, crit, combat.priorHits);
+  const { relic, enemy } = damageModifiers(combat.encounter, combat.relics, kind, source, isChain, crit, combat.priorHits, combat.affix);
   const boosted = value * (crit ? 2 : 1) * relic;
   const amount = Math.ceil(boosted * enemy);
   const enemyDelta = amount - Math.ceil(boosted);
@@ -60,11 +62,25 @@ export function executeEffect(combat: Combat, rule: Effect, context: EffectConte
   const { value, target } = rule;
   const targets = target === 'BOSS' ? [] : resolveTargets(index, target);
   let base = value.base;
+  const bonusPower = fighter.rune.bonusPower ?? 0;
+  if (value.scaleBy !== 'PLAYER_GOLD') {
+    if (['MULTIPLY_POISON', 'ADD_TEMP_MULT'].includes(rule.effect)) {
+      base += bonusPower * 0.05;
+    } else if (!['RETRIGGER_TARGET', 'ADD_CHARGE'].includes(rule.effect)) {
+      base += bonusPower;
+    }
+  }
   switch (value.scaleBy) {
     case 'CHAIN_BONUS': if (isChain) base *= value.chainMult ?? 1; break;
-    case 'PLAYER_GOLD': base *= combat.gold; break;
+    case 'PLAYER_GOLD': base = (value.base * combat.gold) + bonusPower; break;
     case 'TOTAL_TRIGGERS_THIS_TURN': base *= combat.combo; break;
     case 'BOSS_POISON': base *= combat.poison; break;
+    case 'BOSS_POISON_TIER': {
+      const divisor = value.tierDivisor ?? 12;
+      const maxCap = value.maxCap ?? 6;
+      base = Math.min(maxCap, Math.floor(combat.poison / divisor));
+      break;
+    }
     case 'ADJACENT_TAG_COUNT': {
       for (const neighbor of resolveTargets(index, 'ADJACENT_4')) {
         if (combat.fighters[neighbor]?.config.tags.includes(value.matchTag ?? '')) base += value.bonusPerMatch ?? 0;
@@ -78,7 +94,7 @@ export function executeEffect(combat: Combat, rule: Effect, context: EffectConte
     const crit = canCrit && combat.rng() < fighter.state.tempCritChance;
     if (!dealDamage(combat, index, amount * fighter.state.tempMult, 'rune', crit, isChain)) return;
     afterHit?.();
-    if (crit && !suppressCrit) combat.notifyCrit(depth);
+    if (crit && !suppressCrit) combat.notifyCrit(depth, index);
   };
   switch (rule.effect) {
     case 'DEAL_DAMAGE': hit(scaled); break;
@@ -93,6 +109,28 @@ export function executeEffect(combat: Combat, rule: Effect, context: EffectConte
       if (combat.poison > 0) hit(combat.poison * [0, 2.5, 3.5, 5][star], false,
         () => setPoison(combat, index, Math.floor(combat.poison * (value.retainRatio ?? 0))));
       break;
+    case 'BURST_POISON':
+      if (isChain && combat.poison > 0) {
+        const burst = Math.floor(combat.poison * (value.burstPercent ?? 0.15));
+        if (burst > 0) hit(burst * (value.base ?? 2) * STAR_MULT[star], false);
+      }
+      break;
+    case 'AMPLIFY_POISON_PERCENT':
+      if (combat.poison > 0) {
+        const bonus = Math.ceil(combat.poison * (value.base ?? 0.25) * STAR_MULT[star]);
+        setPoison(combat, index, combat.poison + bonus);
+      }
+      break;
+    case 'SACRIFICE_SHIELD_BUFF':
+      if (fighter.state.triggersThisTurn === 1 && combat.shield >= 2) {
+        combat.shield -= 1;
+        for (const targetIndex of targets) {
+          const targetFighter = combat.fighters[targetIndex];
+          if (!targetFighter) continue;
+          changeState(combat, targetIndex, { tempMult: targetFighter.state.tempMult * 2 });
+        }
+      }
+      break;
     case 'GAIN_GOLD': setGold(combat, index, Math.ceil(scaled) + Number(scaled > 0 && combat.relics.includes('copper_ledger'))); break;
     case 'SPEND_GOLD_BUFF': {
       const cost = value.goldCost ?? 0;
@@ -105,9 +143,12 @@ export function executeEffect(combat: Combat, rule: Effect, context: EffectConte
     case 'ADD_TEMP_MULT':
     case 'ADD_TEMP_CRIT':
     case 'ADD_CHARGE':
+      if (value.minGoldThreshold !== undefined && combat.gold < value.minGoldThreshold) break;
       for (const targetIndex of targets) {
-        const state = combat.fighters[targetIndex]?.state;
-        if (!state) continue;
+        const targetFighter = combat.fighters[targetIndex];
+        if (!targetFighter) continue;
+        if (value.matchTag && !targetFighter.config.tags.includes(value.matchTag)) continue;
+        const state = targetFighter.state;
         if (rule.effect === 'ADD_TEMP_MULT') changeState(combat, targetIndex, { tempMult: state.tempMult + scaled });
         if (rule.effect === 'ADD_TEMP_CRIT') changeState(combat, targetIndex, { tempCritChance: Math.min(1, state.tempCritChance + scaled) });
         if (rule.effect === 'ADD_CHARGE') changeState(combat, targetIndex, { chargeStacks: state.chargeStacks + base });
@@ -117,12 +158,18 @@ export function executeEffect(combat: Combat, rule: Effect, context: EffectConte
       if (fighter.state.chargeStacks > 0) hit(fighter.state.chargeStacks * scaled, true,
         () => changeState(combat, index, { chargeStacks: 0 }));
       break;
-    case 'RETRIGGER_TARGET':
+    case 'RETRIGGER_TARGET': {
+      // Endless affix odd_row_frenzy check: odd row runes cannot trigger chain
+      if (combat.affix === 'odd_row_frenzy') {
+        const row = Math.floor(index / 4);
+        if (row % 2 === 1) break;
+      }
       for (const targetIndex of targets) {
         for (let repeat = 0; repeat < (value.repeatCount ?? 1) + Number(star === 3); repeat++) {
           combat.activate(targetIndex, depth + 1, index, suppressCrit);
         }
       }
       break;
+    }
   }
 }

@@ -1,12 +1,13 @@
 import './style.css';
 import { bossHealth } from './core/battleEngine';
-import { encounterAt, encounters, relics } from './core/expedition';
+import { affixAt, encounterAt, encounters, relics, upcomingEncounter } from './core/expedition';
 import { isOpening, openingIds, openings, updateRecords } from './core/openings';
+import { createMulberry32, decodeSeed, generateSeedCode } from './core/rng';
 import { planTurn, previewPlacement, runeFootprint, usesTutorial } from './core/tactics';
-import { buyRune, canArrange, chooseRelic, newRun, purchaseInfo, refreshShop, resolveLoss, runeAt, sellRune, sellValue, settleTurn, startEndless, swapRunes, toggleLock, victoryPayout } from './core/shopEngine';
+import { buyRune, canArrange, chooseRelic, newRun, purchaseInfo, refreshShop, resolveLoss, runeAt, sellRune, sellValue, settleTurn, startEndless, swapRunes, toggleLock, UndoStack, victoryPayout } from './core/shopEngine';
 import { STAR_MULT, initialRuneState, type BattleEvent, type OpeningId, type Rune, type RuneState, type Slot } from './core/types';
 import { catalog } from './data/catalog';
-import { CanvasRenderer, runeVectors } from './render/canvasRenderer';
+import { CanvasRenderer, formatNumber, runeVectors } from './render/canvasRenderer';
 import { bindDragDrop } from './render/dragDrop';
 import { PlaybackController } from './render/playbackController';
 import { SynthAudio } from './audio/synthAudio';
@@ -25,11 +26,13 @@ const audio = new SynthAudio();
 const player = new PlaybackController();
 const platform = new WebMockAdapter(catalog, element('ad'), element('ad-text'), button('cancel-ad'));
 const saved = platform.load();
-let run = saved?.run ?? newRun(catalog, Math.random);
+
+let run = saved?.run ?? newRun(catalog, createMulberry32(1));
 let records = saved?.records ?? {};
 let forecast: ReturnType<typeof planTurn> | null = null;
 let placement: ReturnType<typeof planTurn> | null = null;
 let skin = saved?.skin ?? false;
+let exactForecast = saved?.exactForecast ?? false;
 audio.muted = saved?.muted ?? false;
 player.speed = saved?.speed ?? 1;
 
@@ -41,14 +44,15 @@ let victoryTimer: ReturnType<typeof setTimeout>;
 let dialogDismissible = false;
 const states = new Map<number, RuneState>();
 const renderer = new CanvasRenderer(element('arena'), run, catalog);
+const undoStack = new UndoStack();
+
 const rarityLabel = { common: '普通', rare: '稀有', epic: '史诗' };
 const archetypeLabel = { chain: '连锁', poison: '剧毒', gold: '金币', amplify: '增幅' };
-const number = new Intl.NumberFormat('zh-CN');
-const format = (value: number) => value >= 1_000_000 ? value.toExponential(2) : number.format(value);
+
 const arranging = () => phase === 'ARRANGE' && canArrange(run);
 const persist = () => {
   records = updateRecords(records, run);
-  platform.save({ run, skin, muted: audio.muted, speed: player.speed, records });
+  platform.save({ schemaVersion: 2, run, skin, muted: audio.muted, speed: player.speed, exactForecast, records });
 };
 const tutorials = () => usesTutorial(run);
 const click = () => { audio.unlock(); audio.click(); };
@@ -81,12 +85,13 @@ function showArenaHint() {
   hint.dataset.preview = String(!!placement);
   if (placement && forecast) {
     const change = placement.result.damage - forecast.result.damage;
-    hint.textContent = `放置后 ${format(placement.result.damage)} 伤害 · ${change ? `${change > 0 ? '+' : '−'}${format(Math.abs(change))}` : '持平'}`;
+    hint.textContent = `放置后 ${formatNumber(placement.result.damage)} 伤害 · ${change ? `${change > 0 ? '+' : '−'}${formatNumber(Math.abs(change))}` : '持平'}`;
   } else if (arranging() && renderer.selection) {
     const rune = runeAt(run, renderer.selection);
-    hint.textContent = rune ? catalog[rune.configId].name : '点符文看作用，拖动换位';
+    hint.textContent = rune ? catalog[rune.configId].name : '点符文看作用，点击目标格交换';
+  } else {
+    hint.textContent = phase === 'PLAYBACK' ? '按顺序触发符文' : '点符文看作用，点击目标格交换';
   }
-  else hint.textContent = phase === 'PLAYBACK' ? '按顺序触发符文' : '点符文看作用，拖动换位';
 }
 
 function showForecast() {
@@ -96,11 +101,17 @@ function showForecast() {
   if (panel.hidden || !forecast) return;
   const { hp, result } = placement ?? forecast;
   const change = result.damage - forecast.result.damage;
-  panel.dataset.verdict = result.win ? 'win' : 'gap';
-  element('forecast-verdict').textContent = result.win ? '可击破' : `差 ${format(result.hp)} 伤害`;
+  panel.dataset.verdict = forecast.verdict;
+  element('forecast-verdict').textContent = forecast.verdictText;
   element('forecast-fill').style.width = `${Math.min(100, 100 * result.damage / hp)}%`;
-  const delta = change ? ` · ${change > 0 ? '+' : '−'}${format(Math.abs(change))} 伤害` : '';
-  element('forecast-readout').textContent = `${placement ? '放置后' : '预计伤害'} ${format(result.damage)} / ${format(hp)} · ${result.combo} 连击${delta}`;
+
+  if (exactForecast) {
+    const delta = change ? ` · ${change > 0 ? '+' : '−'}${formatNumber(Math.abs(change))} 伤害` : '';
+    element('forecast-readout').textContent = `${placement ? '放置后' : '预计伤害'} ${formatNumber(result.damage)} / ${formatNumber(hp)} · ${result.combo} 连击${delta}`;
+  } else {
+    const delta = change ? ` · ${change > 0 ? '+' : '−'}${formatNumber(Math.abs(change))}` : '';
+    element('forecast-readout').textContent = `${placement ? '放置后' : '战果预估'} ${formatNumber(forecast.minDamage)} ~ ${formatNumber(forecast.expectedDamage)} / ${formatNumber(hp)} · ${result.combo} 连击${delta}`;
+  }
   button('forecast-detail').disabled = !!placement;
 }
 
@@ -110,14 +121,14 @@ function updateHud() {
   const hp = phase === 'PLAYBACK' ? displayed.hp : showOutcomeState ? Math.max(0, maxHp - run.lastDamage) : maxHp;
   element('wave').textContent = run.endless ? `无尽 · 第 ${run.wave} 波` : `第 ${run.wave} / 20 波`;
   element('hp-fill').style.width = `${100 * hp / maxHp}%`;
-  element('hp-text').textContent = `${format(hp)} / ${format(maxHp)}`;
+  element('hp-text').textContent = `${formatNumber(hp)} / ${formatNumber(maxHp)}`;
   element('hp-meter').setAttribute('aria-valuemax', String(maxHp));
   element('hp-meter').setAttribute('aria-valuenow', String(hp));
   element('shield').textContent = `${run.shield}/3`;
   const poison = phase === 'PLAYBACK' ? displayed.poison : showOutcomeState ? run.lastPoison : 0;
   const gold = phase === 'PLAYBACK' ? displayed.gold : run.gold;
-  element('poison').textContent = format(poison);
-  element('gold').textContent = format(gold);
+  element('poison').textContent = formatNumber(poison);
+  element('gold').textContent = formatNumber(gold);
   element('phase').textContent = phase === 'PLAYBACK' ? `连锁中 · ${displayed.combo} 连击` : run.pendingRelics.length ? '挑选遗物' : run.pendingLoss ? '待结算护盾' :
     run.status !== 'active' ? '战斗结束' : '布阵';
 }
@@ -149,11 +160,20 @@ function inspect() {
   name.textContent = config?.name ?? (run.wave === 1 ? tutorials() ? '第一波可以直接打' : openings[run.opening].name : '先挑一枚符文');
   info.textContent = config?.desc ?? (run.wave === 1 ? openings[run.opening].note : '点棋盘或店里的一枚符文，就能看到它的作用。');
   const stats = config && rune ? [rarityLabel[config.rarity], `${'★'.repeat(rune.star)} · 星级 ×${STAR_MULT[rune.star]}`] : [];
+
+  if (slot?.zone === 'board') {
+    const mod = run.tileModifiers?.[slot.index];
+    if (mod === 'li_fire') stats.push('【离火位】额外触发 1 次');
+    if (mod === 'xuan_ice') stats.push('【玄冰位】暴击率 +45%');
+    if (mod === 'spirit_gathering') stats.push('【聚灵位】相邻激活永久威力 +2');
+    if (rune?.bonusPower) stats.push(`永久威力 +${rune.bonusPower}`);
+  }
+
   const legend = element('target-legend');
   legend.hidden = true;
   if (phase === 'ARRANGE' && config && selected && slot?.zone === 'board') {
     const contribution = forecast?.byCell[slot.index];
-    if (contribution?.damage) stats.push(`预计伤害 ${format(contribution.damage)}`);
+    if (contribution?.damage) stats.push(`预计伤害 ${formatNumber(contribution.damage)}`);
     const { links, effects } = runeFootprint(config, slot.index);
     const labels = [];
     if (links.size) labels.push('实线 · 连锁目标');
@@ -194,6 +214,7 @@ function syncControls() {
   button('skip').disabled = phase !== 'PLAYBACK';
   button('skip').hidden = phase !== 'PLAYBACK';
   button('market-jump').hidden = phase === 'PLAYBACK';
+  button('undo').disabled = !arranging() || undoStack.length === 0;
   button('battle').disabled = !arranging();
   button('battle').textContent = phase === 'PLAYBACK' ? '连锁结算中' : '启动法阵';
   button('refresh').textContent = run.shop.every(offer => offer?.locked) ? '商品已全锁定' :
@@ -206,7 +227,36 @@ function syncControls() {
   button('support').disabled = phase === 'PLAYBACK';
   button('help').disabled = phase === 'PLAYBACK';
   button('openings').disabled = !arranging();
+  const toggle = element<HTMLInputElement>('exact-toggle');
+  if (toggle) toggle.checked = exactForecast;
 }
+
+function doUndo() {
+  if (!arranging() || undoStack.length === 0) return;
+  if (undoStack.pop(run)) {
+    click();
+    select(null);
+    redraw();
+    notice('已撤销上一步');
+  }
+}
+
+button('undo').onclick = doUndo;
+window.addEventListener('keydown', event => {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !event.shiftKey) {
+    if (arranging() && undoStack.length > 0) {
+      event.preventDefault();
+      doUndo();
+    }
+  }
+});
+
+const exactCheckbox = element<HTMLInputElement>('exact-toggle');
+exactCheckbox.onchange = () => {
+  exactForecast = exactCheckbox.checked;
+  showForecast();
+  persist();
+};
 
 const offers = Array.from({ length: 3 }, (_, index) => {
   const card = document.createElement('div'); card.className = 'offer';
@@ -224,13 +274,19 @@ const offers = Array.from({ length: 3 }, (_, index) => {
     renderer.selection = null; shopInspect = index; inspect();
   };
   preview.addEventListener('click', () => { click(); look(); element('inspector').scrollIntoView({ block: 'nearest' }); });
-  lock.addEventListener('click', () => { if (toggleLock(run, index)) { click(); redraw(); } });
+  lock.addEventListener('click', () => {
+    if (toggleLock(run, index)) { click(); redraw(); }
+  });
   buy.addEventListener('click', () => {
     if (!arranging()) return;
     click(); look();
     const benchIndex = run.bench.indexOf(null);
+    undoStack.push(run);
     const merges = buyRune(run, index, catalog);
-    if (!merges) return;
+    if (!merges) {
+      undoStack.pop(run);
+      return;
+    }
     for (const merge of merges) renderer.flash(merge.slot, catalog[merge.rune.configId].color, true);
     if (merges.length) { audio.merge(); select(merges.at(-1)!.slot); }
     else {
@@ -249,14 +305,28 @@ function redraw(save = true) {
   const encounter = encounterAt(run.wave);
   const enemy = encounters[encounter];
   element('enemy-name').textContent = enemy.name;
-  element('enemy-hint').textContent = enemy.hint;
-  element('enemy-hint').hidden = !enemy.hint;
+
+  const affix = affixAt(run.wave);
+  if (affix) {
+    element('enemy-hint').textContent = `【${affix.name}】${affix.desc} · ${enemy.hint}`;
+    element('enemy-hint').hidden = false;
+  } else {
+    element('enemy-hint').textContent = enemy.hint;
+    element('enemy-hint').hidden = !enemy.hint;
+  }
+
+  // 2 waves advance boss preview
+  const upcoming = upcomingEncounter(run.wave, 2);
+  element('boss-intel-text').textContent = `${upcoming.wave}波后：${upcoming.name} · ${upcoming.hint}`;
+
   element('game').dataset.enemy = encounter;
   element('board-count').textContent = `已布阵 ${run.board.filter(Boolean).length}/16`;
   element('bench-count').textContent = `备战区 ${run.bench.filter(Boolean).length}/4`;
-  element('last-damage').textContent = run.bestCombo || run.lastDamage || run.attempts ? format(run.lastDamage) : '—';
+  element('last-damage').textContent = run.bestCombo || run.lastDamage || run.attempts ? formatNumber(run.lastDamage) : '—';
   element('best-combo').textContent = run.bestCombo ? String(run.bestCombo) : '—';
   element('run-opening').textContent = `${openings[run.opening].name} · ${openings[run.opening].label}开局`;
+  element('run-seed').textContent = `种子码：${run.seed}`;
+
   const list = element('relic-list');
   list.hidden = !run.relics.length;
   list.replaceChildren(...run.relics.map(id => {
@@ -292,15 +362,21 @@ function redraw(save = true) {
 
 function sellFrom(from: Slot) {
   if (!arranging()) return;
+  undoStack.push(run);
   const paid = sellRune(run, from, catalog);
   if (paid) { click(); select(null); redraw(); notice(`已回收 · +${paid} 金`); }
+  else { undoStack.pop(run); }
 }
 
 button('sell-selected').onclick = () => { if (renderer.selection) sellFrom(renderer.selection); };
 
 bindDragDrop(renderer, {
   enabled: arranging, hasRune: slot => !!runeAt(run, slot), select,
-  move(from, to) { if (swapRunes(run, from, to)) { click(); select(to); redraw(); } },
+  move(from, to) {
+    undoStack.push(run);
+    if (swapRunes(run, from, to)) { click(); select(to); redraw(); }
+    else { undoStack.pop(run); }
+  },
   sell: sellFrom,
   preview(from, to) {
     if (!arranging()) return;
@@ -362,20 +438,20 @@ button('forecast-detail').onclick = () => {
   if (poisonDamage) sources.push({ label: '回合末剧毒', detail: '持续伤害', damage: poisonDamage });
   if (tutorialDamage) sources.push({ label: '首波教学共鸣', detail: '仅首波生效', damage: tutorialDamage });
   sources.sort((left, right) => right.damage - left.damage);
-  const impact = enemyDelta ? `\n敌人的招式让伤害${enemyDelta > 0 ? '多' : '少'}了 ${format(Math.abs(enemyDelta))} 点，已计入总数。` : '';
-  element('forecast-summary').textContent = `预计 ${format(result.damage)} 伤害 / ${format(hp)} 生命 · ${result.combo} 连击\n${result.win ? '这套阵容能打过。' : `还差 ${format(result.hp)} 点。`}${impact}`;
+  const impact = enemyDelta ? `\n敌人的招式让伤害${enemyDelta > 0 ? '多' : '少'}了 ${formatNumber(Math.abs(enemyDelta))} 点，已计入总数。` : '';
+  element('forecast-summary').textContent = `预计 ${formatNumber(result.damage)} 伤害 / ${formatNumber(hp)} 生命 · ${result.combo} 连击\n${result.win ? '这套阵容能打过。' : `还差 ${formatNumber(result.hp)} 点。`}${impact}`;
   const payout = victoryPayout(run, result.gold);
   const deltaGold = result.gold - run.gold;
-  const combatGold = deltaGold < 0 ? `战斗花 ${format(-deltaGold)} 金` : `战斗赚 ${format(deltaGold)} 金`;
+  const combatGold = deltaGold < 0 ? `战斗花 ${formatNumber(-deltaGold)} 金` : `战斗赚 ${formatNumber(deltaGold)} 金`;
   element('forecast-gold').textContent = result.win
-    ? `${combatGold} · 过关 ${payout.base} 金${payout.interest ? ` · 利息 ${payout.interest} 金` : ''}${payout.relic ? ` · 遗物 ${payout.relic} 金` : ''}。结束时有 ${format(result.gold + payout.total)} 金。`
-    : `${combatGold}。打不过也会保留战斗后的 ${format(result.gold)} 金，但没有过关奖励。`;
+    ? `${combatGold} · 过关 ${payout.base} 金${payout.interest ? ` · 利息 ${payout.interest} 金` : ''}${payout.relic ? ` · 遗物 ${payout.relic} 金` : ''}。结束时有 ${formatNumber(result.gold + payout.total)} 金。`
+    : `${combatGold}。打不过也会保留战斗后的 ${formatNumber(result.gold)} 金，但没有过关奖励。`;
   element('forecast-sources').replaceChildren(...sources.map(source => {
     const item = document.createElement('li');
     const label = document.createElement('span');
     const detail = document.createElement('small');
     const amount = document.createElement('strong');
-    label.textContent = source.label; detail.textContent = source.detail; amount.textContent = format(source.damage);
+    label.textContent = source.label; detail.textContent = source.detail; amount.textContent = formatNumber(source.damage);
     label.append(detail); item.append(label, amount);
     return item;
   }));
@@ -408,10 +484,13 @@ function resetTimeline() {
 const openingDialog = element<HTMLDialogElement>('opening-dialog');
 let openingCandidate: OpeningId | null = null;
 
-function startOpening(id: OpeningId) {
+function startOpening(id: OpeningId, customSeed?: string) {
   if (openingDialog.open) openingDialog.close();
   if (dialog.open) dialog.close();
-  run = newRun(catalog, Math.random, id);
+  const seed = customSeed || element<HTMLInputElement>('opening-seed')?.value.trim() || undefined;
+  const initialPrng = createMulberry32(seed ? decodeSeed(seed) : 1);
+  run = newRun(catalog, initialPrng, id, seed);
+  undoStack.clear();
   renderer.setRun(run);
   renderer.cursor = null;
   resetTimeline();
@@ -436,6 +515,19 @@ function openOpenings(first = false) {
     : '四套阵都能直接打第一波，后面怎么摆由你。';
   button('opening-close').textContent = first ? '用借火开局' : '回到当前局';
   openingDialog.dataset.first = String(first);
+
+  const seedInput = element<HTMLInputElement>('opening-seed');
+  if (seedInput && !seedInput.value) {
+    seedInput.value = generateSeedCode().code;
+  }
+  const randomSeedBtn = button('random-seed');
+  if (randomSeedBtn) {
+    randomSeedBtn.onclick = () => {
+      click();
+      seedInput.value = generateSeedCode().code;
+    };
+  }
+
   element('opening-choices').replaceChildren(...openingIds.map(id => {
     const route = openings[id];
     const item = document.createElement('button');
@@ -490,7 +582,7 @@ function showOutcome() {
       if (run.status === 'defeat') showOutcome();
       else notice(protectedRetry ? '护盾保留。现在可以重新布阵。' : '护盾 −1，重新布阵后可再次挑战。');
     };
-    showPanel(`第 ${run.wave} 波没打过`, `你打了 ${format(run.lastDamage)} 点，还差 ${format(bossHealth(run.wave) - run.lastDamage)} 点。\n重来时${encounters[encounterAt(run.wave)].name}会回满血；看一次模拟广告可以保住护盾。`, [
+    showPanel(`第 ${run.wave} 波没打过`, `你打了 ${formatNumber(run.lastDamage)} 点，还差 ${formatNumber(bossHealth(run.wave) - run.lastDamage)} 点。\n重来时${encounters[encounterAt(run.wave)].name}会回满血；看一次模拟广告可以保住护盾。`, [
       { label: '看广告 · 无损改阵重打', primary: true, act: async () => { if (await platform.showRewardedVideo('retry')) after(true); } },
       { label: '扣除 1 点护盾', act: () => after(false) },
     ]);
@@ -498,13 +590,18 @@ function showOutcome() {
     const won = run.status === 'victory';
     const actions: Action[] = [
       { label: '导出战绩 PNG', act: async () => { if (!await platform.exportScore(run)) notice('战绩导出失败，请再试一次。'); } },
+      { label: '复制种子码', act: () => { void navigator.clipboard?.writeText(run.seed); notice(`已复制种子码：${run.seed}`); } },
       { label: '新开一局', act: () => openOpenings(), primary: !won },
     ];
     if (won) actions.unshift({ label: '继续无尽模式', primary: true, act: () => {
-      dialog.close(); startEndless(run, catalog, Math.random); resetTimeline(); redraw();
+      dialog.close();
+      const prng = createMulberry32(run.rngState);
+      startEndless(run, catalog, prng);
+      run.rngState = prng.getState();
+      resetTimeline(); redraw();
     } });
     showPanel(won ? '打完二十波了' : '护盾用完了',
-      `打到第 ${run.wave} 波，最高 ${run.bestCombo} 连击。\n最后一轮打了 ${format(run.lastDamage)} 点。`, actions);
+      `打到第 ${run.wave} 波，最高 ${run.bestCombo} 连击。\n最后一轮打了 ${formatNumber(run.lastDamage)} 点。\n本局种子码：${run.seed}`, actions);
   }
 }
 
@@ -523,20 +620,40 @@ function consume(event: BattleEvent) {
 button('battle').onclick = async () => {
   if (!arranging() || !forecast) return;
   const { events } = forecast;
+  undoStack.clear();
   click(); resetTimeline(); phase = 'PLAYBACK'; redraw(false);
-  const result = await player.play(events, consume);
+  const result = await player.play(events, consume, {
+    maxHp: bossHealth(run.wave),
+    onHitStop: () => {
+      renderer.pulseBorder();
+      audio.hitStopChord();
+    },
+  });
   phase = 'ARRANGE'; states.clear(); renderer.clearEffects(); audio.finish(result.win);
-  settleTurn(run, result, catalog, Math.random);
+  const prng = createMulberry32(run.rngState);
+  settleTurn(run, result, catalog, prng);
+  run.rngState = prng.getState();
   redraw();
   if (result.win && run.status === 'active' && !run.pendingRelics.length) {
     renderer.waveComplete = true; renderer.invalidate();
     victoryTimer = setTimeout(() => { renderer.waveComplete = false; renderer.invalidate(); }, 1500);
-    notice(`打过第 ${run.wave - 1} 波 · ${format(result.damage)} 伤害 · 过关 +${victoryPayout(run, result.gold).total} 金`);
+    notice(`打过第 ${run.wave - 1} 波 · ${formatNumber(result.damage)} 伤害 · 过关 +${victoryPayout(run, result.gold).total} 金`);
   }
   showOutcome();
 };
 
-button('refresh').onclick = () => { if (refreshShop(run, catalog, Math.random)) { click(); shopInspect = null; redraw(); } };
+button('refresh').onclick = () => {
+  if (!arranging()) return;
+  undoStack.push(run);
+  const prng = createMulberry32(run.rngState);
+  if (refreshShop(run, catalog, prng)) {
+    run.rngState = prng.getState();
+    click(); shopInspect = null; redraw();
+  } else {
+    undoStack.pop(run);
+  }
+};
+
 element<HTMLSelectElement>('shop-focus').onchange = event => {
   if (!arranging()) return;
   const value = (event.currentTarget as HTMLSelectElement).value;
@@ -545,6 +662,7 @@ element<HTMLSelectElement>('shop-focus').onchange = event => {
     persist();
   }
 };
+
 button('speed').onclick = () => { click(); player.speed = player.speed === 1 ? 2 : 1; syncControls(); persist(); };
 button('skip').onclick = () => { click(); player.skip(); };
 button('market-jump').onclick = () => { click(); element('market').focus(); };
@@ -562,7 +680,7 @@ button('support').onclick = async () => {
   }
 };
 button('help').onclick = () => {
-  click(); showPanel('怎么玩', '先把符文拖上棋盘。它们从左上角开始，逐行触发；比如折射镜会再触发右边那一枚。\n\n拖到新格子时，棋盘下方会显示换位后的伤害，松手才算数。实线标连锁，虚线标其他作用范围。\n\n三枚同名同星的符文会自动升一级。开局两枚先别挪，直接打就能过第一波。',
+  click(); showPanel('怎么玩', '先把符文放置在棋盘上。符文从左上角开始，逐行触发；比如折射镜会再触发右边那一枚。\n\n点击已选中的符文，再点击目标格即可快速交换（支持手机单手操作），拖拽换位时悬浮符文自动向上偏移防遮挡。\n\n棋盘中生成了【离火位】（额外触发1次）、【玄冰位】（暴击率+45%）和【聚灵位】（相邻激活永久威力+2）。\n\n三枚同名同星的符文会自动升一级。开局两枚先别挪，直接打就能过第一波。',
     [{ label: '知道了', primary: true, act: () => dialog.close() }], true);
 };
 

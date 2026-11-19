@@ -10,19 +10,33 @@ export class PlaybackController {
     this.release?.();
   }
 
-  async play(events: readonly BattleEvent[], show: (event: BattleEvent) => void): Promise<TurnResult> {
+  async play(
+    events: readonly BattleEvent[],
+    show: (event: BattleEvent) => void,
+    options?: { maxHp?: number; onHitStop?: () => void }
+  ): Promise<TurnResult> {
     this.skipped = false;
     let combo = 0;
+    const maxHp = options?.maxHp ?? Number.MAX_SAFE_INTEGER;
     for (const event of events) {
       if (event.type === 'TURN_RESULT') {
         if (!this.skipped && combo) await this.pause(440 / this.speed);
+        show(event);
         return event;
       }
       if (event.type === 'CELL_ACTIVATE') {
         if (combo && !this.skipped) await this.pause(Math.max(45, 220 - combo * 8) / this.speed);
         combo = event.combo;
       }
-      if (!this.skipped) show(event);
+      if (event.type === 'DAMAGE') {
+        const isMajorHit = event.amount >= maxHp * 0.25;
+        const isCritKill = event.crit && event.hp <= 0;
+        if (!this.skipped && (isMajorHit || isCritKill)) {
+          options?.onHitStop?.();
+          await this.pause(40 / this.speed);
+        }
+      }
+      show(event);
     }
     throw new Error('Missing battle result');
   }

@@ -1,6 +1,7 @@
 import { bossHealth, simulateBattle } from './battleEngine';
-import { encounterAt } from './expedition';
+import { affixAt, encounterAt } from './expedition';
 import { resolveTargets } from './grid';
+import { createMulberry32 } from './rng';
 import { runeAt } from './shopEngine';
 import type { Catalog, RuneConfig, Run, Scope, Slot } from './types';
 
@@ -8,13 +9,49 @@ export function usesTutorial(run: Pick<Run, 'wave' | 'board' | 'opening'>) {
   return run.opening === 'chain' && run.wave === 1 && run.board[0]?.configId === 'spark_orb' && run.board[1]?.configId === 'prism_right';
 }
 
-export function planTurn(run: Pick<Run, 'wave' | 'attempts' | 'board' | 'gold' | 'relics' | 'opening'>, catalog: Catalog) {
+export function planTurn(run: Pick<Run, 'wave' | 'attempts' | 'board' | 'gold' | 'relics' | 'opening' | 'tileModifiers' | 'shield' | 'rngState'>, catalog: Catalog) {
   const hp = bossHealth(run.wave);
   const seed = Math.imul(run.wave, 8191) ^ Math.imul(run.attempts + 1, 131071);
-  const events = simulateBattle({ board: run.board, hp, gold: run.gold, seed, tutorial: usesTutorial(run),
-    encounter: encounterAt(run.wave), relics: run.relics }, catalog);
+  const deepBoard = run.board.map(r => r ? { ...r } : null);
+  const encounter = encounterAt(run.wave);
+  const affix = affixAt(run.wave)?.id;
+
+  // 1. Guaranteed minimum damage without crits (pure function, does NOT touch run.rngState)
+  const noCritEvents = simulateBattle({
+    board: deepBoard.map(r => r ? { ...r } : null),
+    hp, gold: run.gold, seed, tutorial: usesTutorial(run),
+    encounter, relics: run.relics, tileModifiers: run.tileModifiers, affix, shield: run.shield ?? 3,
+  }, catalog, () => 1.0);
+  const minResult = noCritEvents.at(-1);
+
+  // 2. Expected deterministic simulation using independent mulberry32 PRNG (does NOT touch run.rngState)
+  const events = simulateBattle({
+    board: deepBoard.map(r => r ? { ...r } : null),
+    hp, gold: run.gold, seed, tutorial: usesTutorial(run),
+    encounter, relics: run.relics, tileModifiers: run.tileModifiers, affix, shield: run.shield ?? 3,
+  }, catalog, createMulberry32(seed));
   const result = events.at(-1);
-  if (result?.type !== 'TURN_RESULT') throw new Error('Missing battle result');
+  if (result?.type !== 'TURN_RESULT' || minResult?.type !== 'TURN_RESULT') throw new Error('Missing battle result');
+
+  const minDamage = minResult.damage;
+  const expectedDamage = result.damage;
+  let verdict: 'win' | 'close' | 'gap' = 'gap';
+  let verdictText = '伤害不足';
+
+  if (minDamage >= hp) {
+    verdict = 'win';
+    verdictText = '可击破';
+  } else if (expectedDamage >= hp) {
+    verdict = 'close';
+    verdictText = '接近斩杀(可暴击破)';
+  } else if (expectedDamage >= hp * 0.75) {
+    verdict = 'close';
+    verdictText = '接近斩杀';
+  } else {
+    verdict = 'gap';
+    verdictText = '伤害不足';
+  }
+
   const byCell = run.board.map(() => ({ damage: 0, activations: 0 }));
   let poisonDamage = 0;
   let tutorialDamage = 0;
@@ -27,7 +64,10 @@ export function planTurn(run: Pick<Run, 'wave' | 'attempts' | 'board' | 'gold' |
     else if (event.kind === 'tutorial') tutorialDamage += event.amount;
     else if (event.source !== null) byCell[event.source].damage += event.amount;
   }
-  return { hp, events, result, byCell, poisonDamage, tutorialDamage, enemyDelta };
+  return {
+    hp, events, result, byCell, poisonDamage, tutorialDamage, enemyDelta,
+    minDamage, expectedDamage, verdict, verdictText,
+  };
 }
 
 export function previewPlacement(run: Run, from: Slot, to: Slot) {
@@ -35,7 +75,7 @@ export function previewPlacement(run: Run, from: Slot, to: Slot) {
   if (!Number.isInteger(to.index) || to.index < 0 || to.index >= run[to.zone].length) return null;
   const moved = runeAt(run, from);
   if (!moved) return null;
-  const board = [...run.board];
+  const board = run.board.map(r => r ? { ...r } : null);
   if (from.zone === 'board') board[from.index] = runeAt(run, to);
   if (to.zone === 'board') board[to.index] = moved;
   return { ...run, board };
@@ -53,6 +93,7 @@ export function runeFootprint(config: RuneConfig, index: number) {
     if (rule.secondaryEffect) collect(rule.secondaryEffect.target, effects);
     if (rule.event === 'ON_ROW_COL_ACTIVATE') collect('ROW_COL', effects);
     if (rule.event === 'ON_NEIGHBOR_ACTIVATE' || rule.value.scaleBy === 'ADJACENT_TAG_COUNT') collect('ADJACENT_4', effects);
+    if (rule.event === 'ON_ROW_CRIT') collect('SAME_ROW', effects);
   }
   return { links, effects };
 }

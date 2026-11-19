@@ -1,7 +1,8 @@
 import { CELL_COUNT } from './grid';
 import { relicChoices } from './expedition';
 import { openings } from './openings';
-import type { Archetype, Catalog, Offer, OpeningId, Random, Rarity, RelicId, Run, Rune, Slot, Star, TurnResult } from './types';
+import { createMulberry32, decodeSeed, encodeSeed, type PRNG } from './rng';
+import type { Archetype, Catalog, Offer, OpeningId, Random, Rarity, RelicId, Run, Rune, Slot, Slots, Star, TileModifierMap, TurnResult } from './types';
 
 export const BENCH_SIZE = 4;
 export const SHOP_SIZE = 3;
@@ -27,17 +28,80 @@ function rollShop(run: Run, catalog: Catalog, rng: Random, options: { focus?: Ar
     const pool = focused.length ? focused : tier.length ? tier : configs;
     return pool.length ? { configId: pool[Math.floor(rng() * pool.length)].id, locked: false } : null;
   });
+  if (typeof (rng as any).getState === 'function') {
+    run.rngState = (rng as PRNG).getState();
+  }
 }
 
-export function newRun(catalog: Catalog, rng: Random, opening: OpeningId = 'chain'): Run {
+export function generateTileModifiers(rng: Random): TileModifierMap {
+  const indices: number[] = [];
+  let attempts = 0;
+  while (indices.length < 3 && attempts < 100) {
+    attempts++;
+    const roll = rng();
+    const candidate = Math.floor(roll * CELL_COUNT);
+    if (!indices.includes(candidate)) {
+      indices.push(candidate);
+    }
+  }
+  for (let i = 0; indices.length < 3 && i < CELL_COUNT; i++) {
+    const fallbackCell = 15 - i;
+    if (!indices.includes(fallbackCell)) indices.push(fallbackCell);
+  }
+  return {
+    [indices[0]]: 'li_fire',
+    [indices[1]]: 'xuan_ice',
+    [indices[2]]: 'spirit_gathering',
+  };
+}
+
+export function newRun(catalog: Catalog, rng: Random, opening: OpeningId = 'chain', seedInput?: string): Run {
+  let seedCode = seedInput;
+  let rngState = 1;
+  let effectiveRng: Random = rng;
+
+  if (typeof (rng as any)?.getState === 'function') {
+    rngState = (rng as PRNG).getState();
+    seedCode = seedCode || encodeSeed(rngState);
+  } else if (seedCode) {
+    rngState = decodeSeed(seedCode);
+    effectiveRng = createMulberry32(rngState);
+  } else {
+    rngState = 1337;
+    seedCode = encodeSeed(rngState);
+    effectiveRng = createMulberry32(rngState);
+  }
+
   const setup = openings[opening];
+  const tileModifiers = generateTileModifiers(effectiveRng);
   const run: Run = {
-    opening, shopFocus: opening, wave: 1, gold: setup.gold, shield: 3, board: Array<Rune | null>(CELL_COUNT).fill(null),
-    bench: Array<Rune | null>(BENCH_SIZE).fill(null), shop: [], freeRefreshes: 1, attempts: 0,
-    endless: false, status: 'active', lastDamage: 0, lastPoison: 0, bestCombo: 0, pendingLoss: false, relics: [], pendingRelics: [],
+    seed: seedCode,
+    rngState: typeof (effectiveRng as any)?.getState === 'function' ? (effectiveRng as PRNG).getState() : rngState,
+    tileModifiers,
+    opening,
+    shopFocus: opening,
+    wave: 1,
+    gold: setup.gold,
+    shield: 3,
+    board: Array<Rune | null>(CELL_COUNT).fill(null),
+    bench: Array<Rune | null>(BENCH_SIZE).fill(null),
+    shop: [],
+    freeRefreshes: 1,
+    attempts: 0,
+    endless: false,
+    status: 'active',
+    lastDamage: 0,
+    lastPoison: 0,
+    bestCombo: 0,
+    pendingLoss: false,
+    relics: [],
+    pendingRelics: [],
   };
   for (const [index, configId] of setup.pieces) run.board[index] = { configId, star: 1 };
-  rollShop(run, catalog, rng);
+  rollShop(run, catalog, effectiveRng);
+  if (typeof (effectiveRng as any)?.getState === 'function') {
+    run.rngState = (effectiveRng as PRNG).getState();
+  }
   return run;
 }
 
@@ -90,7 +154,11 @@ export function mergeRunes(run: Run): Merge[] {
     if (!trio) return merges;
     const [keep, ...consumed] = trio;
     const rune = runeAt(run, keep)!;
-    const upgraded: Rune = { configId: rune.configId, star: (rune.star + 1) as Star };
+    const upgraded: Rune = {
+      configId: rune.configId,
+      star: (rune.star + 1) as Star,
+      ...(rune.bonusPower ? { bonusPower: rune.bonusPower } : {}),
+    };
     run[keep.zone][keep.index] = upgraded;
     for (const slot of consumed) run[slot.zone][slot.index] = null;
     merges.push({ slot: keep, rune: upgraded });
@@ -102,17 +170,26 @@ export function purchaseInfo(run: Run, index: number, catalog: Catalog) {
   const config = offer && catalog[offer.configId];
   const copies = config ? [...run.board, ...run.bench].filter(rune => rune?.configId === config.id && rune.star === 1).length : 0;
   const willMerge = copies >= 2;
-  return { copies, willMerge, blocked: !config || !canArrange(run) ? 'unavailable' :
-    run.gold < config.cost ? 'gold' : !willMerge && !run.bench.includes(null) ? 'bench' : null };
+  const benchFull = !run.bench.includes(null);
+  let blocked: 'unavailable' | 'gold' | 'bench' | null = null;
+  if (!config || !canArrange(run)) blocked = 'unavailable';
+  else if (run.gold < config.cost) blocked = 'gold';
+  else if (benchFull && !willMerge) blocked = 'bench';
+  return { copies, willMerge, blocked };
 }
 
 export function buyRune(run: Run, index: number, catalog: Catalog): Merge[] | null {
-  if (purchaseInfo(run, index, catalog).blocked) return null;
-  const config = catalog[run.shop[index]!.configId];
+  const info = purchaseInfo(run, index, catalog);
+  if (info.blocked) return null;
+  const offer = run.shop[index];
+  if (!offer) return null;
+  const config = catalog[offer.configId];
+  if (!config) return null;
   const freeSlot = run.bench.indexOf(null);
   run.gold -= config.cost;
   run.shop[index] = null;
-  run.bench[freeSlot < 0 ? BENCH_SIZE : freeSlot] = { configId: config.id, star: 1 };
+  const targetBenchIndex = freeSlot < 0 ? BENCH_SIZE : freeSlot;
+  run.bench[targetBenchIndex] = { configId: config.id, star: 1 };
   const merges = mergeRunes(run);
   run.bench.length = BENCH_SIZE;
   return merges;
@@ -178,4 +255,62 @@ export function startEndless(run: Run, catalog: Catalog, rng: Random) {
   run.status = 'active';
   run.endless = true;
   advanceWave(run, catalog, rng);
+}
+
+// Undo Stack functionality
+export interface RunSnapshot {
+  board: Slots;
+  bench: Slots;
+  shop: (Offer | null)[];
+  gold: number;
+  freeRefreshes: number;
+  shopFocus: Archetype | 'any';
+  rngState: number;
+}
+
+export function createSnapshot(run: Run): RunSnapshot {
+  return {
+    board: run.board.map(r => r ? { ...r } : null),
+    bench: run.bench.map(r => r ? { ...r } : null),
+    shop: run.shop.map(o => o ? { ...o } : null),
+    gold: run.gold,
+    freeRefreshes: run.freeRefreshes,
+    shopFocus: run.shopFocus,
+    rngState: run.rngState,
+  };
+}
+
+export function restoreSnapshot(run: Run, snapshot: RunSnapshot): void {
+  run.board = snapshot.board.map((r: Rune | null) => r ? { ...r } : null);
+  run.bench = snapshot.bench.map((r: Rune | null) => r ? { ...r } : null);
+  run.shop = snapshot.shop.map((o: Offer | null) => o ? { ...o } : null);
+  run.gold = snapshot.gold;
+  run.freeRefreshes = snapshot.freeRefreshes;
+  run.shopFocus = snapshot.shopFocus;
+  run.rngState = snapshot.rngState;
+}
+
+export class UndoStack {
+  private readonly stack: RunSnapshot[] = [];
+  readonly max = 20;
+
+  push(run: Run) {
+    if (this.stack.length >= this.max) this.stack.shift();
+    this.stack.push(createSnapshot(run));
+  }
+
+  pop(run: Run): boolean {
+    const snapshot = this.stack.pop();
+    if (!snapshot) return false;
+    restoreSnapshot(run, snapshot);
+    return true;
+  }
+
+  clear() {
+    this.stack.length = 0;
+  }
+
+  get length() {
+    return this.stack.length;
+  }
 }

@@ -4,6 +4,22 @@ export class SynthAudio {
   muted = false;
   private context?: AudioContext;
 
+  constructor() {
+    if (typeof window !== 'undefined') {
+      const resume = () => {
+        this.unlock();
+        if (this.context && this.context.state === 'running') {
+          window.removeEventListener('pointerdown', resume, true);
+          window.removeEventListener('touchstart', resume, true);
+          window.removeEventListener('click', resume, true);
+        }
+      };
+      window.addEventListener('pointerdown', resume, { capture: true, passive: true });
+      window.addEventListener('touchstart', resume, { capture: true, passive: true });
+      window.addEventListener('click', resume, { capture: true, passive: true });
+    }
+  }
+
   unlock() {
     if (this.muted || typeof AudioContext === 'undefined') return;
     try {
@@ -19,6 +35,12 @@ export class SynthAudio {
     this.tone(261.63 * 2 ** ((pentatonic[step % 5] + 12 * Math.floor(step / 5)) / 12), .12, .075, 'sine');
   }
   crit() { this.tone(135, .25, .075, 'triangle', 0, 66); this.tone(880, .085, .044, 'sine'); }
+  hitStopChord() {
+    // Low frequency punchy chord: 55Hz (A1), 82.4Hz (E2), 110Hz (A2)
+    this.tone(55, .28, .12, 'sawtooth');
+    this.tone(82.4, .26, .09, 'triangle');
+    this.tone(110, .22, .075, 'triangle');
+  }
   finish(win: boolean) {
     (win ? [392, 494, 587, 784] : [330, 262, 220, 165]).forEach((note, index) => this.tone(note, .39, .065, 'triangle', index * .085));
   }

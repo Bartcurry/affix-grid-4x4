@@ -167,5 +167,58 @@
       { "event": "ON_ACTIVATE", "effect": "ADD_TEMP_CRIT", "target": "DOWN", "value": { "base": 0.3 } },
       { "event": "ON_ACTIVATE", "effect": "ADD_TEMP_MULT", "target": "DOWN", "value": { "base": 0.4 } }
     ]
+  },
+  {
+    "id": "toxic_fuse", "name": "毒火引信", "rarity": "rare", "archetype": "chain",
+    "tags": ["chain", "poison"], "cost": 5, "color": "#2DD4BF", "symbol": "🧨",
+    "desc": "自身被其他符文连锁触发时，立即引爆Boss 15%当前剧毒层数造成双倍伤害（不消耗毒层）。",
+    "triggers": [
+      { "event": "ON_ACTIVATE", "effect": "BURST_POISON", "target": "BOSS", "value": { "base": 2, "scaleBy": "BOSS_POISON", "burstPercent": 0.15, "retainRatio": 1.0 } }
+    ]
+  },
+  {
+    "id": "gilded_fang", "name": "淬金毒牙", "rarity": "rare", "archetype": "gold",
+    "tags": ["gold", "poison"], "cost": 5, "color": "#A3E635", "symbol": "🦷",
+    "desc": "施加4层剧毒；Boss当前每有12层剧毒，额外产出1枚金币（单次激活上限+6金币）。",
+    "triggers": [
+      { "event": "ON_ACTIVATE", "effect": "ADD_POISON", "target": "BOSS", "value": { "base": 4 } },
+      { "event": "ON_ACTIVATE", "effect": "GAIN_GOLD", "target": "SELF", "value": { "base": 0, "scaleBy": "BOSS_POISON_TIER", "tierDivisor": 12, "maxCap": 6 } }
+    ]
+  },
+  {
+    "id": "storm_gambler", "name": "雷霆赌徒", "rarity": "epic", "archetype": "chain",
+    "tags": ["chain", "crit"], "cost": 7, "color": "#38BDF8", "symbol": "🎲",
+    "desc": "自身基础暴击率+25%，造成16点伤害；同行每发生1次暴击，立即触发自身右侧相邻符文1次。",
+    "triggers": [
+      { "event": "ON_ACTIVATE", "effect": "DEAL_DAMAGE", "target": "BOSS", "value": { "base": 16 } },
+      { "event": "ON_ROW_CRIT", "effect": "RETRIGGER_TARGET", "target": "RIGHT", "value": { "base": 1, "repeatCount": 1 } }
+    ]
+  },
+  {
+    "id": "blood_prism", "name": "血祭棱镜", "rarity": "epic", "archetype": "amplify",
+    "tags": ["amplify", "chain"], "cost": 6, "color": "#F43F5E", "symbol": "🩸",
+    "desc": "造成20点伤害；若本波尚有至少2点护盾，开战首次激活时可消耗1点临时护盾能量使上下左右相邻符文本回合伤害倍率翻倍。",
+    "triggers": [
+      { "event": "ON_ACTIVATE", "effect": "DEAL_DAMAGE", "target": "BOSS", "value": { "base": 20 } },
+      { "event": "ON_ACTIVATE", "effect": "SACRIFICE_SHIELD_BUFF", "target": "ADJACENT_4", "value": { "base": 1 } }
+    ]
+  },
+  {
+    "id": "alchemy_bell", "name": "点金铃", "rarity": "rare", "archetype": "gold",
+    "tags": ["gold", "chain"], "cost": 5, "color": "#FBBF24", "symbol": "🔔",
+    "desc": "触发正下方符文1次；若当前持有金币≥25，额外使该目标本回合伤害倍率+50%。",
+    "triggers": [
+      { "event": "ON_ACTIVATE", "effect": "RETRIGGER_TARGET", "target": "DOWN", "value": { "base": 1, "repeatCount": 1 } },
+      { "event": "ON_ACTIVATE", "effect": "ADD_TEMP_MULT", "target": "DOWN", "value": { "base": 0.5, "minGoldThreshold": 25 } }
+    ]
+  },
+  {
+    "id": "plague_crown", "name": "瘟疫王冠", "rarity": "epic", "archetype": "poison",
+    "tags": ["poison", "amplify"], "cost": 7, "color": "#10B981", "symbol": "👑",
+    "desc": "激活时使同行所有剧毒标签符文获得+50%临时倍率，并使Boss当前剧毒层数+25%。",
+    "triggers": [
+      { "event": "ON_ACTIVATE", "effect": "ADD_TEMP_MULT", "target": "SAME_ROW", "value": { "base": 0.5, "matchTag": "poison" } },
+      { "event": "ON_ACTIVATE", "effect": "AMPLIFY_POISON_PERCENT", "target": "BOSS", "value": { "base": 0.25 } }
+    ]
   }
 ]

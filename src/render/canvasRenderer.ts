@@ -24,6 +24,21 @@ const pigment = {
   amplify: { stone: '#48323a', edge: '#aa7582', ink: '#f0b8be' },
 } as const;
 
+export function formatNumber(value: number): string {
+  if (!Number.isFinite(value)) return '0';
+  const sign = value < 0 ? '−' : '';
+  const abs = Math.abs(value);
+  if (abs < 10_000) return `${sign}${Math.round(abs).toLocaleString('zh-CN')}`;
+  if (abs < 100_000_000) {
+    const wan = abs / 10_000;
+    const formatted = wan >= 100 ? wan.toFixed(1) : wan.toFixed(2);
+    return `${sign}${parseFloat(formatted)}万`;
+  }
+  const yi = abs / 100_000_000;
+  const formatted = yi >= 100 ? yi.toFixed(1) : yi.toFixed(2);
+  return `${sign}${parseFloat(formatted)}亿`;
+}
+
 export const runeVectors: Record<string, string> = {
   spark_orb: 'M18 1L5 17h10l-2 14 14-18H17Z', prism_right: 'M8 4l19 12L8 28ZM2 8v16',
   relay_cross: 'M12 3h8v9h9v8h-9v9h-8v-9H3v-8h9Z', overclock_core: 'M16 4a12 12 0 1 0 .01 0ZM16 9v7l5 3M16 29v2M29 16h2M1 16h2',
@@ -41,6 +56,12 @@ export const runeVectors: Record<string, string> = {
   moss_brick: 'M3 10l13-6 13 6v13l-13 6-13-6Zm0 0 13 6 13-6m-13 6v13M8 8l13 6m-15 3 6 3m10-1 4-2',
   coin_mold: 'M4 4h24v24H4Zm19 12a7 7 0 1 0-14 0 7 7 0 1 0 14 0ZM14 14h4v4h-4Z',
   red_seal: 'M11 13V7a5 5 0 0 1 10 0v6l5 6v4H6v-4Zm-7 13h24v3H4Zm8-6 4-4 4 4',
+  toxic_fuse: 'M16 3l3 6 6 1-5 4 2 6-6-4-6 4 2-6-5-4 6-1ZM16 16v12M11 23h10',
+  gilded_fang: 'M9 5c3 0 14 6 14 19-4-1-10-4-12-9-1-3-2-6-2-10ZM16 23l-3 4 5 1',
+  storm_gambler: 'M6 6h20v20H6ZM11 11h2v2h-2Zm8 8h2v2h-2Zm-8 8h2v-2h-2Zm7-12 4 6h-3l2 4',
+  blood_prism: 'M16 3L5 15l11 14 11-14ZM16 8c2 4 4 6 4 9a4 4 0 0 1-8 0c0-3 2-5 4-9Z',
+  alchemy_bell: 'M16 4a7 7 0 0 0-7 7v7l-3 4h20l-3-4v-7a7 7 0 0 0-7-7Zm-3 18a3 3 0 0 0 6 0',
+  plague_crown: 'M5 25h22l-2-15-5 7-4-11-4 11-5-7ZM12 18h8M16 14v8',
 };
 
 interface Spark extends Point { vx: number; vy: number }
@@ -56,10 +77,11 @@ export class CanvasRenderer {
   private animations: Animation[] = [];
   private frame = 0;
   private shakeAt = -1000;
+  private pulseAt = -1000;
   private size = { x: 0, y: 0, scale: 1 };
   selection: Slot | null = null;
   cursor: Slot | null = null;
-  drag: { from: Slot; point: Point; target: Target } | null = null;
+  drag: { from: Slot; point: Point; target: Target; isTouch?: boolean } | null = null;
   sellLabel = '拖到此处回收符文';
   waveComplete = false;
 
@@ -89,12 +111,17 @@ export class CanvasRenderer {
     return slotList.find(slot => contains(cellRect(slot), point)) ?? null;
   }
 
-  clearEffects() { this.animations = []; this.states.clear(); this.shakeAt = -1000; this.invalidate(); }
+  clearEffects() { this.animations = []; this.states.clear(); this.shakeAt = -1000; this.pulseAt = -1000; this.invalidate(); }
 
   flash(slot: Slot, tone: string, merge = false) {
     const at = performance.now();
     this.animations.push({ kind: 'flash', at, life: merge ? 790 : 350, slot, tone });
     if (merge) this.animations.push({ kind: 'float', at, life: 860, anchor: center(cellRect(slot)), text: '升星！', tone, large: true });
+    this.invalidate();
+  }
+
+  pulseBorder() {
+    this.pulseAt = performance.now();
     this.invalidate();
   }
 
@@ -118,10 +145,10 @@ export class CanvasRenderer {
       case 'DAMAGE':
         if (event.crit) this.shakeAt = at;
         this.animations.push({ kind: 'float', at, life: 690, anchor: anchor(event.source),
-          text: event.crit ? `暴击 ${event.amount}` : `${event.kind === 'tutorial' ? '共鸣 ' : '−'}${event.amount}`,
+          text: event.crit ? `暴击 ${formatNumber(event.amount)}` : `${event.kind === 'tutorial' ? '共鸣 ' : '−'}${formatNumber(event.amount)}`,
           tone: event.crit ? '#ffb45e' : event.kind === 'poison' ? '#92ffac' : '#fbf6ff', large: event.crit });
         break;
-      case 'GOLD': this.animations.push({ kind: 'float', at, life: 650, anchor: anchor(event.source), text: `${event.delta >= 0 ? '+' : '−'}${Math.abs(event.delta)} 金`, tone: '#ffda7d', large: false }); break;
+      case 'GOLD': this.animations.push({ kind: 'float', at, life: 650, anchor: anchor(event.source), text: `${event.delta >= 0 ? '+' : '−'}${formatNumber(Math.abs(event.delta))} 金`, tone: '#ffda7d', large: false }); break;
       case 'RUNE_STATE': this.states.set(event.index, event.state); break;
     }
     this.invalidate();
@@ -144,7 +171,7 @@ export class CanvasRenderer {
     ctx.clearRect(0, 0, pxWidth, pxHeight);
     const shake = this.reducedMotion.matches ? 0 : 7 * Math.max(0, 1 - (now - this.shakeAt) / 240);
     ctx.setTransform(scale * dpr, 0, 0, scale * dpr, (this.size.x + Math.sin(now / 13) * shake) * dpr, (this.size.y + Math.cos(now / 10) * shake * .45) * dpr);
-    this.drawFrame();
+    this.drawFrame(now);
     this.text('备战区', 19, 374, 14, '#d6c29c', 'left');
     this.text(`${this.run.bench.filter(Boolean).length} / 4`, 359, 374, 13, '#c7b28d', 'right');
     const origin = this.drag ? this.drag.target !== 'sell' && this.drag.target?.zone === 'board' ? this.drag.target : null : this.selection;
@@ -159,9 +186,24 @@ export class CanvasRenderer {
       const hinted = slot.zone === 'board' && !!footprint?.effects.has(slot.index);
       const drop = this.drag?.target && this.drag.target !== 'sell' && sameSlot(this.drag.target, slot);
       const alternate = slot.zone === 'board' && (Math.floor(slot.index / 4) + slot.index % 4) % 2;
-      this.tile(bounds, hinted ? '#474331' : alternate ? '#2e3228' : '#282d24', selected ? '#f7d29c' : '#66614a', 3);
+      const tileMod = slot.zone === 'board' ? this.run.tileModifiers?.[slot.index] : undefined;
+
+      const baseFill = hinted ? '#474331' : alternate ? '#2e3228' : '#282d24';
+      const modBorder = tileMod === 'li_fire' ? '#ef4444' : tileMod === 'xuan_ice' ? '#0ea5e9' : tileMod === 'spirit_gathering' ? '#eab308' : selected ? '#f7d29c' : '#66614a';
+      this.tile(bounds, baseFill, modBorder, 3, tileMod ? 1.5 : 1);
+
       if (rune) this.drawRune(bounds, rune, this.drag && sameSlot(this.drag.from, slot) ? .31 : 1, slot.zone === 'board' ? this.states.get(slot.index) : undefined);
       else this.drawEmpty(bounds, slot);
+
+      // Tile Modifier Corner Badge
+      if (tileMod) {
+        ctx.save();
+        const badgeColor = tileMod === 'li_fire' ? '#f87171' : tileMod === 'xuan_ice' ? '#38bdf8' : '#fbbf24';
+        const badgeText = tileMod === 'li_fire' ? '离火' : tileMod === 'xuan_ice' ? '玄冰' : '聚灵';
+        this.text(badgeText, bounds.x + bounds.width - 13, bounds.y + 9, 8.5, badgeColor, 'right');
+        ctx.restore();
+      }
+
       if (linked || hinted || selected || sameSlot(this.cursor, slot) || drop) {
         ctx.save();
         if (hinted && !linked && !selected && !drop) ctx.setLineDash([4, 3]);
@@ -177,12 +219,14 @@ export class CanvasRenderer {
     for (const animation of this.animations) this.drawAnimation(animation, now);
     if (this.drag) {
       const rune = runeAt(this.run, this.drag.from);
-      if (rune) this.drawRune({ x: this.drag.point.x - 33, y: this.drag.point.y - 40, width: 66, height: 66 }, rune, .92);
+      const touchLift = this.drag.isTouch ? 45 / scale : 0;
+      if (rune) this.drawRune({ x: this.drag.point.x - 33, y: this.drag.point.y - 40 - touchLift, width: 66, height: 66 }, rune, .92);
     }
-    if (this.animations.length || shake > 0) this.invalidate();
+    const pulseActive = now - this.pulseAt < 320;
+    if (this.animations.length || shake > 0 || pulseActive) this.invalidate();
   };
 
-  private drawFrame() {
+  private drawFrame(now = 0) {
     const ctx = this.ctx;
     this.tile(BOARD, '#403c2c', this.waveComplete ? '#dfb16e' : '#9a8155', 5);
     this.tile({ x: 9, y: 9, width: 362, height: 341 }, '#22271e', '#746545', 3);
@@ -192,6 +236,20 @@ export class CanvasRenderer {
       ctx.beginPath();
       ctx.moveTo(x, y - 4); ctx.lineTo(x + 4, y); ctx.lineTo(x, y + 4); ctx.lineTo(x - 4, y); ctx.closePath();
       ctx.fillStyle = '#332919'; ctx.fill(); ctx.stroke();
+    }
+
+    // Hit-Stop pulse flash
+    const pulseProgress = Math.max(0, 1 - (now - this.pulseAt) / 320);
+    if (pulseProgress > 0) {
+      ctx.save();
+      ctx.strokeStyle = `rgba(255, 235, 170, ${pulseProgress * 0.95})`;
+      ctx.lineWidth = 3 + pulseProgress * 4;
+      ctx.shadowColor = '#ffeaa0';
+      ctx.shadowBlur = 20 * pulseProgress;
+      ctx.beginPath();
+      ctx.roundRect(BOARD.x - 2, BOARD.y - 2, BOARD.width + 4, BOARD.height + 4, 7);
+      ctx.stroke();
+      ctx.restore();
     }
   }
 
@@ -250,6 +308,7 @@ export class CanvasRenderer {
     }
     if (state?.chargeStacks) this.text(`${state.chargeStacks}⚡`, rect.x + 6, rect.y + rect.height - 9, 11, '#a3dbff', 'left');
     if (state && state.tempMult > 1) this.text(`×${+state.tempMult.toFixed(2)}`, rect.x + rect.width - 5, rect.y + rect.height - 9, 10, '#fed3a2', 'right');
+    if (rune.bonusPower) this.text(`+${rune.bonusPower}威`, rect.x + 6, rect.y + rect.height - 20, 9, '#fde047', 'left');
     ctx.restore();
   }
 

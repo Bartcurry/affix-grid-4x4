@@ -4,10 +4,14 @@ export type Archetype = 'chain' | 'poison' | 'gold' | 'amplify';
 export type RelicId = 'whetstone' | 'chain_ring' | 'moss_bowl' | 'red_lens' | 'copper_ledger' | 'gate_tithe';
 export type OpeningId = 'chain' | 'poison' | 'gold' | 'amplify';
 export type Scope = 'SELF' | 'RIGHT' | 'LEFT' | 'DOWN' | 'ADJACENT_4' | 'SAME_ROW' | 'SAME_COL' | 'ROW_COL' | 'ALL';
-export type Timing = 'ON_ACTIVATE' | 'ON_NEIGHBOR_ACTIVATE' | 'ON_ROW_COL_ACTIVATE' | 'ON_ANY_CRIT' | 'ON_TURN_END';
-export type Scale = 'NONE' | 'CHAIN_BONUS' | 'PLAYER_GOLD' | 'TOTAL_TRIGGERS_THIS_TURN' | 'ADJACENT_TAG_COUNT' | 'BOSS_POISON';
+export type Timing = 'ON_ACTIVATE' | 'ON_NEIGHBOR_ACTIVATE' | 'ON_ROW_COL_ACTIVATE' | 'ON_ANY_CRIT' | 'ON_ROW_CRIT' | 'ON_TURN_END';
+export type Scale = 'NONE' | 'CHAIN_BONUS' | 'PLAYER_GOLD' | 'TOTAL_TRIGGERS_THIS_TURN' | 'ADJACENT_TAG_COUNT' | 'BOSS_POISON' | 'BOSS_POISON_TIER';
 export type EffectName = 'DEAL_DAMAGE' | 'ADD_POISON' | 'MULTIPLY_POISON' | 'DETONATE_POISON' |
-  'GAIN_GOLD' | 'SPEND_GOLD_BUFF' | 'ADD_TEMP_MULT' | 'ADD_TEMP_CRIT' | 'ADD_CHARGE' | 'RELEASE_CHARGE_DMG' | 'RETRIGGER_TARGET';
+  'GAIN_GOLD' | 'SPEND_GOLD_BUFF' | 'ADD_TEMP_MULT' | 'ADD_TEMP_CRIT' | 'ADD_CHARGE' | 'RELEASE_CHARGE_DMG' | 'RETRIGGER_TARGET' |
+  'BURST_POISON' | 'SACRIFICE_SHIELD_BUFF' | 'AMPLIFY_POISON_PERCENT';
+
+export type TileModifier = 'li_fire' | 'xuan_ice' | 'spirit_gathering';
+export type TileModifierMap = Record<number, TileModifier>;
 
 export interface Effect {
   effect: EffectName;
@@ -21,6 +25,10 @@ export interface Effect {
     bonusPerMatch?: number;
     retainRatio?: number;
     goldCost?: number;
+    tierDivisor?: number;
+    maxCap?: number;
+    minGoldThreshold?: number;
+    burstPercent?: number;
   };
   secondaryEffect?: Effect;
 }
@@ -39,12 +47,15 @@ export interface RuneConfig {
   triggers: readonly Rule[];
 }
 
-export interface Rune { configId: string; star: Star }
+export interface Rune { configId: string; star: Star; bonusPower?: number }
 export type Slots = (Rune | null)[];
 export interface RuneState { triggersThisTurn: number; tempMult: number; tempCritChance: number; chargeStacks: number }
 export interface Slot { zone: 'board' | 'bench'; index: number }
 export interface Offer { configId: string; locked: boolean }
 export interface Run {
+  seed: string;
+  rngState: number;
+  tileModifiers: TileModifierMap;
   opening: OpeningId;
   shopFocus: Archetype | 'any';
   wave: number;

@@ -3,7 +3,7 @@ import type { CanvasRenderer, Point } from './canvasRenderer';
 
 const sameSlot = (left: Slot | null, right: Slot | null) => left?.zone === right?.zone && left?.index === right?.index;
 
-interface Position extends Point { id: number; from: Slot | null; moved: boolean }
+interface Position extends Point { id: number; from: Slot | null; moved: boolean; isTouch: boolean }
 
 export function bindDragDrop(renderer: CanvasRenderer, actions: {
   enabled(): boolean;
@@ -29,11 +29,11 @@ export function bindDragDrop(renderer: CanvasRenderer, actions: {
     const target = renderer.hit(renderer.point(event.clientX, event.clientY));
     const from = target && target !== 'sell' ? target : null;
     canvas.setPointerCapture(event.pointerId);
-    pointer = { x: event.clientX, y: event.clientY, id: event.pointerId, from, moved: false };
+    const isTouch = event.pointerType === 'touch';
+    pointer = { x: event.clientX, y: event.clientY, id: event.pointerId, from, moved: false, isTouch };
     if (keyboardPick) actions.preview(null, null);
     keyboardPick = null;
     renderer.cursor = null;
-    if (from && actions.hasRune(from)) actions.select(from);
     renderer.invalidate();
   });
 
@@ -46,7 +46,7 @@ export function bindDragDrop(renderer: CanvasRenderer, actions: {
     const previous = renderer.drag?.target;
     const nextSlot = target === 'sell' ? null : target;
     if (!sameSlot(previous && previous !== 'sell' ? previous : null, nextSlot)) actions.preview(pointer.from, nextSlot);
-    renderer.drag = { from: pointer.from, point, target };
+    renderer.drag = { from: pointer.from, point, target, isTouch: pointer.isTouch };
     renderer.invalidate();
   });
 
@@ -60,9 +60,21 @@ export function bindDragDrop(renderer: CanvasRenderer, actions: {
       if (target === 'sell') actions.sell(from);
       else if (target) actions.move(from, target);
     } else if (target && target !== 'sell') {
-      if (!actions.hasRune(target) && renderer.selection) actions.move(renderer.selection, target);
-      else actions.select(target);
-    } else if (target !== 'sell') actions.select(null);
+      // Tap-to-Swap Mode: if a rune was already selected, tapping another cell swaps them!
+      const currentSelection = renderer.selection;
+      if (currentSelection && actions.hasRune(currentSelection) && !sameSlot(currentSelection, target)) {
+        actions.move(currentSelection, target);
+        actions.select(null);
+      } else if (sameSlot(currentSelection, target)) {
+        actions.select(null);
+      } else if (actions.hasRune(target)) {
+        actions.select(target);
+      } else {
+        actions.select(null);
+      }
+    } else if (target !== 'sell') {
+      actions.select(null);
+    }
   });
 
   for (const type of ['pointercancel', 'lostpointercapture']) canvas.addEventListener(type, event => {
@@ -82,7 +94,6 @@ export function bindDragDrop(renderer: CanvasRenderer, actions: {
     const col = cursor.index % 4;
     let row = cursor.zone === 'bench' ? 4 : Math.floor(cursor.index / 4);
     let nextCol = col;
-    const pickedBefore = keyboardPick;
     switch (event.key) {
       case 'ArrowUp': row = Math.max(0, row - 1); break;
       case 'ArrowDown': row = Math.min(4, row + 1); break;
@@ -98,8 +109,6 @@ export function bindDragDrop(renderer: CanvasRenderer, actions: {
     }
     event.preventDefault();
     renderer.cursor = row === 4 ? { zone: 'bench', index: nextCol } : { zone: 'board', index: row * 4 + nextCol };
-    if (keyboardPick) actions.preview(keyboardPick, renderer.cursor);
-    else if (pickedBefore) actions.preview(null, null);
     renderer.invalidate();
   });
 }

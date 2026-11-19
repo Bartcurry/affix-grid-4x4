@@ -2,7 +2,7 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#191b16" />
     <meta name="description" content="在 4×4 法阵中摆放、合成并连锁触发符文，挑战 20 波守门核心。" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23191b16' d='M0 0h32v32H0z'/%3E%3Cpath fill='none' stroke='%23e3b578' stroke-width='1.5' d='M3 3h26v26H3zM16 7l9 9-9 9-9-9zm0 4v10m-5-5h10'/%3E%3C/svg%3E" />
@@ -18,6 +18,7 @@
         <div class="utility"><button id="openings" type="button">换开局</button><button id="sound" type="button" aria-pressed="false"></button><button id="help" type="button" aria-label="玩法说明">玩法</button></div>
       </header>
       <section class="boss panel" aria-label="战斗状态">
+        <div class="boss-intel" id="boss-intel"><span class="boss-intel-badge">前方敌情</span><span id="boss-intel-text" class="boss-intel-text">加载中...</span></div>
         <div class="boss-plate">
           <svg class="gate-mask" viewBox="0 0 220 166" aria-hidden="true">
             <defs>
@@ -54,11 +55,15 @@
           <div class="arena-foot"><span id="board-count"></span><span id="arena-hint">点符文看作用，拖动换位</span><button id="inspect-jump" type="button" hidden>看词条</button></div>
         </section>
         <footer class="controls">
-          <button type="button" id="speed" aria-label="切换播放速度">1×</button><button type="button" id="battle" class="primary">启动法阵</button><button type="button" id="market-jump">商店</button><button type="button" id="skip" hidden disabled>跳过</button>
+          <button type="button" id="speed" aria-label="切换播放速度">1×</button><button type="button" id="undo" aria-label="撤销上一步 (Ctrl+Z)" disabled>撤销</button><button type="button" id="battle" class="primary">启动法阵</button><button type="button" id="market-jump">商店</button><button type="button" id="skip" hidden disabled>跳过</button>
         </footer>
       </div>
       <section class="forecast panel" id="forecast" aria-label="战斗推演">
-        <div class="forecast-head"><h2>开战前</h2><span id="forecast-verdict" class="forecast-verdict"></span></div>
+        <div class="forecast-head">
+          <h2>开战前</h2>
+          <label class="forecast-toggle" title="切换模糊战果与精确数值"><input type="checkbox" id="exact-toggle"><span>精确</span></label>
+          <span id="forecast-verdict" class="forecast-verdict"></span>
+        </div>
         <div class="forecast-gauge" aria-hidden="true"><span id="forecast-fill"></span></div>
         <p id="forecast-readout" class="forecast-readout"></p>
         <button id="forecast-detail" type="button">战斗明细</button>
@@ -74,7 +79,7 @@
         <div class="market-foot"><span id="bench-count"></span><button type="button" id="reward">看广告换两次刷新</button><button type="button" id="board-jump">回棋盘</button></div>
       </section>
       <section class="report panel" aria-label="战斗记录">
-        <div><h2>本局</h2><p id="run-opening" class="run-opening"></p></div><dl><div><dt>上轮伤害</dt><dd id="last-damage">—</dd></div><div><dt>最高连击</dt><dd id="best-combo">—</dd></div></dl>
+        <div><h2>本局</h2><p id="run-opening" class="run-opening"></p><small id="run-seed" class="run-seed"></small></div><dl><div><dt>上轮伤害</dt><dd id="last-damage">—</dd></div><div><dt>最高连击</dt><dd id="best-combo">—</dd></div></dl>
         <div id="relic-list" class="relic-list" hidden></div>
       </section>
       <button id="support" type="button" title="请作者喝可乐（自愿支持）">请作者喝可乐</button>
@@ -85,6 +90,11 @@
       <dialog id="relic-bag" aria-labelledby="relic-bag-title"><div class="dialog-content"><h2 id="relic-bag-title">这局拿到的遗物</h2><ul id="relic-inventory" class="relic-inventory"></ul><div class="dialog-actions"><button id="relic-bag-close" class="primary" type="button">回去布阵</button></div></div></dialog>
       <dialog id="opening-dialog" aria-labelledby="opening-title"><div class="dialog-content">
         <h2 id="opening-title">选个开局</h2><p id="opening-note"></p>
+        <div class="seed-input-row">
+          <label for="opening-seed">种子码：</label>
+          <input type="text" id="opening-seed" placeholder="可选，如 A7K9-M2P4" maxlength="12" spellcheck="false" autocomplete="off" />
+          <button type="button" id="random-seed">随机</button>
+        </div>
         <div id="opening-choices" class="opening-choices"></div>
         <div id="opening-confirm" class="opening-confirm" hidden>
           <p id="opening-warning" role="status"></p>
