@@ -8,6 +8,7 @@ import { buyRune, canArrange, chooseRelic, newRun, purchaseInfo, refreshShop, re
 import { STAR_MULT, initialRuneState, type BattleEvent, type OpeningId, type Rune, type RuneState, type Slot } from './core/types';
 import { catalog } from './data/catalog';
 import { CanvasRenderer, formatNumber, runeVectors } from './render/canvasRenderer';
+import { getBossSvgPath } from './render/glyphs';
 import { bindDragDrop } from './render/dragDrop';
 import { PlaybackController } from './render/playbackController';
 import { SynthAudio } from './audio/synthAudio';
@@ -42,10 +43,20 @@ let displayed = { hp: bossHealth(run.wave), poison: 0, gold: run.gold, combo: 0 
 let shopInspect: number | null = null;
 let noticeTimer: ReturnType<typeof setTimeout>;
 let victoryTimer: ReturnType<typeof setTimeout>;
+let ghostTimer: ReturnType<typeof setTimeout>;
 let dialogDismissible = false;
 const states = new Map<number, RuneState>();
 const renderer = new CanvasRenderer(element('arena'), run, catalog);
 const undoStack = new UndoStack();
+
+const bossColors: Record<string, string> = {
+  sentry: '#fde047',
+  armor: '#94a3b8',
+  cistern: '#34d399',
+  flanks: '#f59e0b',
+  bell: '#38bdf8',
+  regent: '#f43f5e',
+};
 
 const rarityLabel = { common: '普通', rare: '稀有', epic: '史诗' };
 const archetypeLabel = { chain: '连锁', poison: '剧毒', gold: '金币', amplify: '增幅' };
@@ -120,8 +131,18 @@ function updateHud() {
   const maxHp = bossHealth(run.wave);
   const showOutcomeState = run.pendingLoss || run.status !== 'active';
   const hp = phase === 'PLAYBACK' ? displayed.hp : showOutcomeState ? Math.max(0, maxHp - run.lastDamage) : maxHp;
+  const pct = Math.max(0, Math.min(100, (100 * hp) / maxHp));
+
   element('wave').textContent = run.endless ? `无尽 · 第 ${run.wave} 波` : `第 ${run.wave} / 20 波`;
-  element('hp-fill').style.width = `${100 * hp / maxHp}%`;
+  element('hp-fill').style.width = `${pct}%`;
+
+  // 双层延迟残影血条：实际瞬扣，残影条平滑追平
+  clearTimeout(ghostTimer);
+  ghostTimer = setTimeout(() => {
+    const ghost = document.getElementById('hp-ghost');
+    if (ghost) ghost.style.width = `${pct}%`;
+  }, 280);
+
   element('hp-text').textContent = `${formatNumber(hp)} / ${formatNumber(maxHp)}`;
   element('hp-meter').setAttribute('aria-valuemax', String(maxHp));
   element('hp-meter').setAttribute('aria-valuenow', String(hp));
@@ -212,6 +233,8 @@ function inspect() {
   sell.textContent = `回收 +${price} 金`;
   sell.setAttribute('aria-label', selected ? `回收 ${config?.name}，获得 ${price} 金` : '回收符文');
   showArenaHint();
+  const hasSelection = Boolean(selected || offer || emptyTileMod);
+  element('inspector').dataset.visible = String(hasSelection);
   renderer.sellLabel = selected ? `拖到此处回收 · +${price} 金` : '拖到此处回收符文';
   for (const [index, card] of offers.entries()) card.card.dataset.selected = String(index === shopInspect);
   renderer.invalidate();
@@ -321,6 +344,11 @@ function redraw(save = true) {
   const enemy = encounters[encounter];
   element('enemy-name').textContent = enemy.name;
 
+  const bossPath = document.getElementById('boss-emblem-path');
+  if (bossPath) bossPath.setAttribute('d', getBossSvgPath(encounter));
+  const emblemWrap = document.getElementById('boss-emblem-wrap');
+  if (emblemWrap) emblemWrap.style.color = bossColors[encounter] ?? '#d4af37';
+
   const affix = affixAt(run.wave);
   if (affix) {
     element('enemy-hint').textContent = `【${affix.name}】${affix.desc} · ${enemy.hint}`;
@@ -384,6 +412,8 @@ function sellFrom(from: Slot) {
 }
 
 button('sell-selected').onclick = () => { if (renderer.selection) sellFrom(renderer.selection); };
+const inspectClose = document.getElementById('inspect-close');
+if (inspectClose) inspectClose.onclick = () => select(null);
 
 bindDragDrop(renderer, {
   enabled: arranging, hasRune: slot => !!runeAt(run, slot), select,
@@ -492,8 +522,15 @@ dialog.setAttribute('aria-labelledby', 'panel-title');
 element('ad').setAttribute('aria-label', '模拟激励视频');
 
 function resetTimeline() {
-  clearTimeout(victoryTimer); renderer.waveComplete = false;
-  states.clear(); renderer.clearEffects(); displayed = { hp: bossHealth(run.wave), poison: 0, gold: run.gold, combo: 0 };
+  clearTimeout(victoryTimer);
+  clearTimeout(ghostTimer);
+  renderer.waveComplete = false;
+  renderer.setCombo(0);
+  states.clear();
+  renderer.clearEffects();
+  displayed = { hp: bossHealth(run.wave), poison: 0, gold: run.gold, combo: 0 };
+  const ghost = document.getElementById('hp-ghost');
+  if (ghost) ghost.style.width = '100%';
 }
 
 const openingDialog = element<HTMLDialogElement>('opening-dialog');
@@ -623,8 +660,23 @@ function showOutcome() {
 function consume(event: BattleEvent) {
   renderer.play(event);
   switch (event.type) {
-    case 'CELL_ACTIVATE': displayed.combo = event.combo; audio.combo(event.combo); break;
-    case 'DAMAGE': displayed.hp = event.hp; if (event.crit) audio.crit(); break;
+    case 'CELL_ACTIVATE':
+      displayed.combo = event.combo;
+      audio.combo(event.combo);
+      renderer.setCombo(event.combo);
+      break;
+    case 'DAMAGE':
+      displayed.hp = event.hp;
+      if (event.crit) audio.crit();
+      if (event.crit || event.amount >= bossHealth(run.wave) * 0.15) {
+        const emblem = document.getElementById('boss-emblem-wrap');
+        if (emblem) {
+          emblem.classList.remove('boss-hit');
+          void emblem.offsetWidth;
+          emblem.classList.add('boss-hit');
+        }
+      }
+      break;
     case 'POISON': displayed.poison = event.poison; break;
     case 'GOLD': displayed.gold = event.gold; break;
     case 'RUNE_STATE': states.set(event.index, event.state); if (renderer.selection?.zone === 'board' && renderer.selection.index === event.index) inspect(); break;
