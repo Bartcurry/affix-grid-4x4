@@ -26,8 +26,12 @@ export interface EffectContext { index: number; isChain: boolean; depth: number;
 
 export function dealDamage(combat: Combat, source: number | null, value: number, kind: 'rune' | 'poison' | 'tutorial', crit = false, isChain = false) {
   const { relic, enemy } = damageModifiers(combat.encounter, combat.relics, kind, source, isChain, crit, combat.priorHits, combat.affix);
+  let finalEnemy = enemy;
+  if (combat.affix === 'shield_tax' && combat.gold < 10) {
+    finalEnemy *= 0.8;
+  }
   const boosted = value * (crit ? 2 : 1) * relic;
-  const amount = Math.ceil(boosted * enemy);
+  const amount = Math.ceil(boosted * finalEnemy);
   const enemyDelta = amount - Math.ceil(boosted);
   const hp = Math.max(0, combat.hp - amount);
   if (combat.emit({ type: 'DAMAGE', source, amount, crit, hp, kind, ...(enemyDelta ? { enemyDelta } : {}) })) {

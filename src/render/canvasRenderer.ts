@@ -93,6 +93,8 @@ export class CanvasRenderer {
     this.invalidate();
   }
 
+  get currentRun(): Run { return this.run; }
+
   setRun(run: Run) { this.run = run; this.invalidate(); }
 
   point(clientX: number, clientY: number): Point {

@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { bossHealth, simulateBattle } from '../core/battleEngine';
 import { MAX_CELL_TRIGGERS } from '../core/eventBus';
 import { createMulberry32, decodeSeed, encodeSeed } from '../core/rng';
-import { buyRune, newRun, purchaseInfo, refreshShop, swapRunes, UndoStack } from '../core/shopEngine';
-import type { BattleEvent, Rune, Star } from '../core/types';
+import { buyRune, newRun, purchaseInfo, refreshShop, settleTurn, swapRunes, UndoStack } from '../core/shopEngine';
+import { planTurn } from '../core/tactics';
+import type { BattleEvent, Rune, Star, TurnResult } from '../core/types';
 import { catalog } from '../data/catalog';
 import { migrateSave } from '../platform/webMockAdapter';
 
@@ -108,6 +109,11 @@ describe('Module 1: Seeded PRNG Determinism & Save Migration', () => {
     expect(recoveredPartial.schemaVersion).toBe(2);
     expect(recoveredPartial.records.chain).toEqual({ cleared: 18, combo: 22 });
     expect(recoveredPartial.run.wave).toBe(1);
+
+    // Call migrateSave with 1 argument only
+    const oneArg = migrateSave(corruptedString);
+    expect(oneArg.schemaVersion).toBe(2);
+    expect(oneArg.run.wave).toBe(1);
   });
 });
 
@@ -346,5 +352,70 @@ describe('Module 4: Tile Modifiers & 6 Dual-Tag Bridge Runes', () => {
     // 40 poison + 25% = 50 poison. Then venom_drop adds 7 -> 57.
     const poisonEvents = events.filter(e => e.type === 'POISON');
     expect(poisonEvents.some(e => e.poison >= 50)).toBe(true);
+  });
+
+  it('verifies shield_tax endless affix reduces damage by 20% when gold < 10', () => {
+    // Cell 0 deals 12 base damage
+    const boardLowGold = [rune('spark_orb')];
+    const eventsLow = simulateBattle({
+      board: boardLowGold,
+      hp: 5000,
+      gold: 5,
+      affix: 'shield_tax',
+    }, catalog, () => 0.99);
+    const hitLow = eventsLow.find((e): e is Extract<BattleEvent, { type: 'DAMAGE' }> => e.type === 'DAMAGE' && e.source === 0);
+    // 12 * 0.8 = 9.6 -> ceil(9.6) = 10
+    expect(hitLow?.amount).toBe(10);
+
+    const boardHighGold = [rune('spark_orb')];
+    const eventsHigh = simulateBattle({
+      board: boardHighGold,
+      hp: 5000,
+      gold: 15,
+      affix: 'shield_tax',
+    }, catalog, () => 0.99);
+    const hitHigh = eventsHigh.find((e): e is Extract<BattleEvent, { type: 'DAMAGE' }> => e.type === 'DAMAGE' && e.source === 0);
+    // 12 * 1.0 = 12
+    expect(hitHigh?.amount).toBe(12);
+  });
+
+  it('retains bonusPower on the board across waves and increases rune damage accordingly', () => {
+    const rng = createMulberry32(777);
+    const run = newRun(catalog, rng, 'chain');
+    run.board[0] = rune('copper_mine');
+    run.board[1] = rune('spark_orb');
+    run.tileModifiers = { 1: 'spirit_gathering' };
+
+    // Simulate wave 1 combat on actual board
+    const events = simulateBattle({
+      board: run.board,
+      hp: 10,
+      gold: run.gold,
+      tileModifiers: run.tileModifiers,
+    }, catalog, rng);
+
+    expect(run.board[1]?.bonusPower).toBe(2);
+
+    const turnResult = events.find(e => e.type === 'TURN_RESULT') as TurnResult;
+    settleTurn(run, turnResult, catalog, rng);
+
+    // Wave 2: bonusPower should still be 2 on the board
+    expect(run.board[1]?.bonusPower).toBe(2);
+  });
+
+  it('planTurn provides deterministic forecasts without mutating run.rngState', () => {
+    const rng = createMulberry32(12345);
+    const run = newRun(catalog, rng, 'chain');
+    const stateBefore = run.rngState;
+
+    const forecast1 = planTurn(run, catalog);
+    expect(run.rngState).toBe(stateBefore);
+
+    const forecast2 = planTurn(run, catalog);
+    expect(run.rngState).toBe(stateBefore);
+
+    expect(forecast1.expectedDamage).toBe(forecast2.expectedDamage);
+    expect(forecast1.minDamage).toBe(forecast2.minDamage);
+    expect(['可击杀', '接近斩杀', '伤害不足']).toContain(forecast1.verdictText);
   });
 });

@@ -1,5 +1,5 @@
 import './style.css';
-import { bossHealth } from './core/battleEngine';
+import { bossHealth, simulateBattle } from './core/battleEngine';
 import { affixAt, encounterAt, encounters, relics, upcomingEncounter } from './core/expedition';
 import { isOpening, openingIds, openings, updateRecords } from './core/openings';
 import { createMulberry32, decodeSeed, generateSeedCode } from './core/rng';
@@ -27,7 +27,8 @@ const player = new PlaybackController();
 const platform = new WebMockAdapter(catalog, element('ad'), element('ad-text'), button('cancel-ad'));
 const saved = platform.load();
 
-let run = saved?.run ?? newRun(catalog, createMulberry32(1));
+const initialSeed = generateSeedCode();
+let run = saved?.run ?? newRun(catalog, createMulberry32(initialSeed.seed), 'chain', initialSeed.code);
 let records = saved?.records ?? {};
 let forecast: ReturnType<typeof planTurn> | null = null;
 let placement: ReturnType<typeof planTurn> | null = null;
@@ -157,9 +158,23 @@ function inspect() {
   element('inspector').style.setProperty('--accent', config?.color ?? 'var(--gold)');
   iconPath(icon, rune ? runeVectors[rune.configId] : emptyIcon);
   element('rune-context').textContent = config ? `${offer ? '店内' : slot?.zone === 'board' ? '棋盘' : '备战区'} · ${archetypeLabel[config.archetype]}` : '';
-  name.textContent = config?.name ?? (run.wave === 1 ? tutorials() ? '第一波可以直接打' : openings[run.opening].name : '先挑一枚符文');
-  info.textContent = config?.desc ?? (run.wave === 1 ? openings[run.opening].note : '点棋盘或店里的一枚符文，就能看到它的作用。');
-  const stats = config && rune ? [rarityLabel[config.rarity], `${'★'.repeat(rune.star)} · 星级 ×${STAR_MULT[rune.star]}`] : [];
+  const emptyTileMod = !config && slot?.zone === 'board' ? run.tileModifiers?.[slot.index] : undefined;
+  if (emptyTileMod) {
+    if (emptyTileMod === 'li_fire') {
+      name.textContent = '法阵阵眼 · 离火位';
+      info.textContent = '位于此格的符文每次被激活时，额外再触发 1 次（计入单格触发上限）。';
+    } else if (emptyTileMod === 'xuan_ice') {
+      name.textContent = '法阵阵眼 · 玄冰位';
+      info.textContent = '位于此格的符文基础暴击率 +45%。';
+    } else if (emptyTileMod === 'spirit_gathering') {
+      name.textContent = '法阵阵眼 · 聚灵位';
+      info.textContent = '每当上下左右相邻格子激活时，位于此格的符文获得 +2 永久基础威力（跨波保留）。';
+    }
+  } else {
+    name.textContent = config?.name ?? (run.wave === 1 ? tutorials() ? '第一波可以直接打' : openings[run.opening].name : '先挑一枚符文');
+    info.textContent = config?.desc ?? (run.wave === 1 ? openings[run.opening].note : '点棋盘或店里的一枚符文，就能看到它的作用。');
+  }
+  const stats = config && rune ? [rarityLabel[config.rarity], `${'★'.repeat(rune.star)} · 星级 ×${STAR_MULT[rune.star]}`] : emptyTileMod ? ['特殊阵眼', `格 ${slot!.index + 1}`] : [];
 
   if (slot?.zone === 'board') {
     const mod = run.tileModifiers?.[slot.index];
@@ -317,7 +332,7 @@ function redraw(save = true) {
 
   // 2 waves advance boss preview
   const upcoming = upcomingEncounter(run.wave, 2);
-  element('boss-intel-text').textContent = `${upcoming.wave}波后：${upcoming.name} · ${upcoming.hint}`;
+  element('boss-intel-text').textContent = `2波后：${upcoming.name} · ${upcoming.hint}`;
 
   element('game').dataset.enemy = encounter;
   element('board-count').textContent = `已布阵 ${run.board.filter(Boolean).length}/16`;
@@ -618,10 +633,25 @@ function consume(event: BattleEvent) {
 }
 
 button('battle').onclick = async () => {
-  if (!arranging() || !forecast) return;
-  const { events } = forecast;
+  if (!arranging()) return;
   undoStack.clear();
   click(); resetTimeline(); phase = 'PLAYBACK'; redraw(false);
+  const battlePrng = createMulberry32(run.rngState);
+  const events = simulateBattle({
+    board: run.board,
+    hp: bossHealth(run.wave),
+    gold: run.gold,
+    poison: 0,
+    seed: battlePrng.getState(),
+    tutorial: usesTutorial(run),
+    encounter: encounterAt(run.wave),
+    relics: run.relics,
+    tileModifiers: run.tileModifiers,
+    affix: affixAt(run.wave)?.id,
+    shield: run.shield,
+  }, catalog, battlePrng);
+  run.rngState = battlePrng.getState();
+
   const result = await player.play(events, consume, {
     maxHp: bossHealth(run.wave),
     onHitStop: () => {

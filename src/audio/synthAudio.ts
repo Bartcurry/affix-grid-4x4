@@ -8,10 +8,20 @@ export class SynthAudio {
     if (typeof window !== 'undefined') {
       const resume = () => {
         this.unlock();
-        if (this.context && this.context.state === 'running') {
-          window.removeEventListener('pointerdown', resume, true);
-          window.removeEventListener('touchstart', resume, true);
-          window.removeEventListener('click', resume, true);
+        if (this.context) {
+          if (this.context.state === 'running') {
+            window.removeEventListener('pointerdown', resume, true);
+            window.removeEventListener('touchstart', resume, true);
+            window.removeEventListener('click', resume, true);
+          } else {
+            void this.context.resume().then(() => {
+              if (this.context?.state === 'running') {
+                window.removeEventListener('pointerdown', resume, true);
+                window.removeEventListener('touchstart', resume, true);
+                window.removeEventListener('click', resume, true);
+              }
+            }).catch(() => undefined);
+          }
         }
       };
       window.addEventListener('pointerdown', resume, { capture: true, passive: true });
@@ -21,7 +31,7 @@ export class SynthAudio {
   }
 
   unlock() {
-    if (this.muted || typeof AudioContext === 'undefined') return;
+    if (typeof AudioContext === 'undefined') return;
     try {
       this.context ??= new AudioContext();
       if (this.context.state === 'suspended') void this.context.resume().catch(() => undefined);

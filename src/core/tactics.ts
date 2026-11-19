@@ -11,39 +11,48 @@ export function usesTutorial(run: Pick<Run, 'wave' | 'board' | 'opening'>) {
 
 export function planTurn(run: Pick<Run, 'wave' | 'attempts' | 'board' | 'gold' | 'relics' | 'opening' | 'tileModifiers' | 'shield' | 'rngState'>, catalog: Catalog) {
   const hp = bossHealth(run.wave);
-  const seed = Math.imul(run.wave, 8191) ^ Math.imul(run.attempts + 1, 131071);
   const deepBoard = run.board.map(r => r ? { ...r } : null);
   const encounter = encounterAt(run.wave);
   const affix = affixAt(run.wave)?.id;
+  const stateSeed = typeof run.rngState === 'number' && Number.isSafeInteger(run.rngState) && run.rngState > 0 ? run.rngState : 1;
 
   // 1. Guaranteed minimum damage without crits (pure function, does NOT touch run.rngState)
   const noCritEvents = simulateBattle({
     board: deepBoard.map(r => r ? { ...r } : null),
-    hp, gold: run.gold, seed, tutorial: usesTutorial(run),
+    hp, gold: run.gold, seed: stateSeed, tutorial: usesTutorial(run),
     encounter, relics: run.relics, tileModifiers: run.tileModifiers, affix, shield: run.shield ?? 3,
   }, catalog, () => 1.0);
   const minResult = noCritEvents.at(-1);
 
-  // 2. Expected deterministic simulation using independent mulberry32 PRNG (does NOT touch run.rngState)
+  // 2. Maximum ceiling damage with all crits landing (pure function)
+  const maxCritEvents = simulateBattle({
+    board: deepBoard.map(r => r ? { ...r } : null),
+    hp, gold: run.gold, seed: stateSeed, tutorial: usesTutorial(run),
+    encounter, relics: run.relics, tileModifiers: run.tileModifiers, affix, shield: run.shield ?? 3,
+  }, catalog, () => 0.0);
+  const maxResult = maxCritEvents.at(-1);
+
+  // 3. Expected deterministic simulation using independent mulberry32 PRNG (does NOT touch run.rngState)
   const events = simulateBattle({
     board: deepBoard.map(r => r ? { ...r } : null),
-    hp, gold: run.gold, seed, tutorial: usesTutorial(run),
+    hp, gold: run.gold, seed: stateSeed, tutorial: usesTutorial(run),
     encounter, relics: run.relics, tileModifiers: run.tileModifiers, affix, shield: run.shield ?? 3,
-  }, catalog, createMulberry32(seed));
+  }, catalog, createMulberry32(stateSeed));
   const result = events.at(-1);
-  if (result?.type !== 'TURN_RESULT' || minResult?.type !== 'TURN_RESULT') throw new Error('Missing battle result');
+  if (result?.type !== 'TURN_RESULT' || minResult?.type !== 'TURN_RESULT' || maxResult?.type !== 'TURN_RESULT') throw new Error('Missing battle result');
 
   const minDamage = minResult.damage;
+  const maxDamage = maxResult.damage;
   const expectedDamage = result.damage;
   let verdict: 'win' | 'close' | 'gap' = 'gap';
   let verdictText = '伤害不足';
 
   if (minDamage >= hp) {
     verdict = 'win';
-    verdictText = '可击破';
-  } else if (expectedDamage >= hp) {
+    verdictText = '可击杀';
+  } else if (expectedDamage >= hp || maxDamage >= hp) {
     verdict = 'close';
-    verdictText = '接近斩杀(可暴击破)';
+    verdictText = '接近斩杀';
   } else if (expectedDamage >= hp * 0.75) {
     verdict = 'close';
     verdictText = '接近斩杀';

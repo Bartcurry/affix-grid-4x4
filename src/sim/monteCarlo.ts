@@ -28,7 +28,7 @@ const RELIC_PREFERENCES: Record<OpeningId, string[]> = {
   chain: ['chain_ring', 'whetstone', 'red_lens', 'gate_tithe', 'copper_ledger', 'moss_bowl'],
   poison: ['moss_bowl', 'gate_tithe', 'whetstone', 'chain_ring', 'copper_ledger', 'red_lens'],
   gold: ['copper_ledger', 'gate_tithe', 'chain_ring', 'whetstone', 'red_lens', 'moss_bowl'],
-  amplify: ['red_lens', 'whetstone', 'chain_ring', 'gate_tithe', 'copper_ledger', 'moss_bowl'],
+  amplify: ['whetstone', 'chain_ring', 'gate_tithe', 'red_lens', 'copper_ledger', 'moss_bowl'],
 };
 
 function scoreRune(run: Run, configId: string): number {
@@ -62,8 +62,8 @@ function scoreRune(run: Run, configId: string): number {
       if (tags.includes('amplify')) score += 35;
       if (tags.includes('crit')) score += 20;
       if (tags.includes('chain')) score += 15;
-      if (['blood_prism', 'plague_crown', 'storm_gambler'].includes(configId)) score += 15;
-      if (['combo_finisher', 'spark_orb', 'overclock_core', 'blood_altar'].includes(configId)) score += 30;
+      if (['blood_prism', 'plague_crown', 'storm_gambler'].includes(configId)) score += 25;
+      if (['combo_finisher', 'spark_orb', 'overclock_core', 'blood_altar'].includes(configId)) score += 40;
       break;
   }
 
@@ -144,7 +144,7 @@ function simulateBotRun(opening: OpeningId, seed: number, runeStats: Record<stri
       let currentPlan = planTurn(run, catalog);
       const occupiedIndices = run.board.map((r, i) => (r ? i : -1)).filter(i => i >= 0);
       if (occupiedIndices.length >= 2) {
-        for (let step = 0; step < 12; step++) {
+        for (let step = 0; step < 24; step++) {
           const i1 = occupiedIndices[Math.floor(rng() * occupiedIndices.length)];
           const i2 = occupiedIndices[Math.floor(rng() * occupiedIndices.length)];
           if (i1 === i2) continue;

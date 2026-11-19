@@ -38,7 +38,21 @@ export function bindDragDrop(renderer: CanvasRenderer, actions: {
   });
 
   canvas.addEventListener('pointermove', event => {
-    if (!pointer || pointer.id !== event.pointerId || !pointer.from || !actions.hasRune(pointer.from)) return;
+    if (!pointer) {
+      const point = renderer.point(event.clientX, event.clientY);
+      const target = renderer.hit(point);
+      if (target && target !== 'sell' && target.zone === 'board') {
+        const mod = renderer.currentRun.tileModifiers?.[target.index];
+        if (mod === 'li_fire') canvas.title = '【离火位】位于此格的符文每次被激活时，额外再触发 1 次（计入单格触发上限）';
+        else if (mod === 'xuan_ice') canvas.title = '【玄冰位】位于此格的符文基础暴击率 +45%';
+        else if (mod === 'spirit_gathering') canvas.title = '【聚灵位】每当上下左右相邻格子激活时，位于此格的符文获得 +2 永久基础威力（跨波保留）';
+        else canvas.title = '';
+      } else {
+        canvas.title = '';
+      }
+      return;
+    }
+    if (pointer.id !== event.pointerId || !pointer.from || !actions.hasRune(pointer.from)) return;
     if (Math.hypot(event.clientX - pointer.x, event.clientY - pointer.y) > 5) pointer.moved = true;
     if (!pointer.moved) return;
     const point = renderer.point(event.clientX, event.clientY);
@@ -49,6 +63,8 @@ export function bindDragDrop(renderer: CanvasRenderer, actions: {
     renderer.drag = { from: pointer.from, point, target, isTouch: pointer.isTouch };
     renderer.invalidate();
   });
+
+  canvas.addEventListener('pointerleave', () => { canvas.title = ''; });
 
   canvas.addEventListener('pointerup', event => {
     if (!pointer || pointer.id !== event.pointerId) return;
@@ -67,7 +83,7 @@ export function bindDragDrop(renderer: CanvasRenderer, actions: {
         actions.select(null);
       } else if (sameSlot(currentSelection, target)) {
         actions.select(null);
-      } else if (actions.hasRune(target)) {
+      } else if (actions.hasRune(target) || (target.zone === 'board' && Boolean(renderer.currentRun.tileModifiers?.[target.index]))) {
         actions.select(target);
       } else {
         actions.select(null);

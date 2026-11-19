@@ -4,6 +4,8 @@ import { relics } from '../core/expedition';
 import { isOpening, openingIds, openings, type RunRecords } from '../core/openings';
 import { createMulberry32, decodeSeed, generateSeedCode } from '../core/rng';
 import type { Catalog, OpeningId, Run, Slots, TileModifierMap } from '../core/types';
+import { catalog as defaultCatalog } from '../data/catalog';
+import { formatNumber } from '../render/canvasRenderer';
 import type { PlatformAdapter, Reward, SaveData } from './adapter';
 
 const SAVE_KEY_V2 = 'affix-grid-4x4.v2';
@@ -21,7 +23,7 @@ export function readRecords(value: unknown): RunRecords {
   }));
 }
 
-export function migrateSave(raw: unknown, catalog: Catalog): SaveData {
+export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): SaveData {
   let parsed: any = raw;
   if (typeof raw === 'string') {
     try {
@@ -32,6 +34,12 @@ export function migrateSave(raw: unknown, catalog: Catalog): SaveData {
   }
 
   const defaultRecords = readRecords(parsed?.records);
+  if (parsed?.run && isOpening(parsed.run.opening) && natural(parsed.run.wave) && parsed.run.wave > 1) {
+    const op: OpeningId = parsed.run.opening;
+    if (!defaultRecords[op]) {
+      defaultRecords[op] = { cleared: parsed.run.wave - 1, combo: natural(parsed.run.bestCombo) ? parsed.run.bestCombo : 0 };
+    }
+  }
   const fallback = (): SaveData => ({
     schemaVersion: 2,
     run: newRun(catalog, createMulberry32(1), 'chain'),
@@ -189,7 +197,7 @@ export class WebMockAdapter implements PlatformAdapter {
     print('词条法阵', 161, 70, '#f3e9cf');
     print(`${openings[run.opening].name} · ${openings[run.opening].label}开局`, 244, 33, '#e2bf87');
     print(`打过第 ${run.wave - Number(run.status !== 'victory')} 波`, 390, 44, '#ffdc85');
-    print(`本轮伤害 ${run.lastDamage.toLocaleString('zh-CN')}`, 512, 33, '#f0dec1');
+    print(`本轮伤害 ${formatNumber(run.lastDamage)}`, 512, 33, '#f0dec1');
     print(`最高连击 ${run.bestCombo}`, 582, 33, '#f0dec1');
     print(`种子码 ${run.seed}`, 652, 26, '#e2bf87');
     print(run.endless ? '无尽战绩' : '本局战绩', 749, 28, '#e2bf87');
