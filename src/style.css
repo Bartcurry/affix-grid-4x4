@@ -1416,6 +1416,7 @@ dialog::backdrop {
 .shared-board-actions { display: flex; flex-wrap: wrap; gap: .38rem; }
 .shared-board-actions button { min-height: 2.55rem; }
 .shared-board-actions .primary { flex: 1; background: #e9b970; border-color: #f1cb8f; color: #201710; font-weight: 750; }
+.shared-board-actions .primary:hover { background: #f4c98b; color: #201710; }
 .shared-board-link { display: flex; gap: .3rem; }
 .shared-board-link input { min-width: 0; flex: 1; border: 1px solid #64523e; background: #181b23; color: #efdab9; padding: .36rem; }
 .shared-board-link button { flex: none; min-height: 2rem; }
