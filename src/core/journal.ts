@@ -6,15 +6,20 @@ import type { BattleEvent, BattleJournal, Catalog } from './types';
 
 export type JournalFilter = 'all' | 'chain' | 'damage' | 'economy' | 'support';
 
-export function damageLeaders(journal: BattleJournal) {
+export function damageBySource(events: readonly BattleEvent[]) {
   const breakdown = new Map<number | 'poison' | 'tutorial', number>();
   let total = 0;
-  for (const event of journal.events) {
+  for (const event of events) {
     if (event.type !== 'DAMAGE' || !event.amount) continue;
     const source = event.kind === 'rune' ? event.source : event.kind;
     total += event.amount;
     if (source !== null) breakdown.set(source, (breakdown.get(source) ?? 0) + event.amount);
   }
+  return { breakdown, total };
+}
+
+export function damageLeaders(journal: BattleJournal) {
+  const { breakdown, total } = damageBySource(journal.events);
   return [...breakdown.entries()].sort((left, right) => right[1] - left[1]).slice(0, 3)
     .map(([source, amount]) => ({ source, amount, share: amount / total }));
 }

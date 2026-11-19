@@ -246,8 +246,14 @@
           <div class="shared-board-scores"><div><span>原阵伤害</span><strong id="shared-board-original"></strong></div><div><span>你的最高伤害</span><strong id="shared-board-best">—</strong></div></div>
           <p id="shared-board-rules"></p>
           <div id="shared-board-grid" class="daily-board shared-board-grid" role="group" aria-label="试阵棋盘"></div>
+          <p id="shared-board-inspect" class="shared-board-inspect" hidden></p>
           <p id="shared-board-result" class="daily-result" role="status"></p>
-          <div class="shared-board-actions"><button id="shared-board-check" class="primary" type="button">试打</button><button id="shared-board-reset" type="button">恢复原阵</button><button id="shared-board-journal" type="button" hidden>看复盘</button></div>
+          <div class="shared-board-actions"><button id="shared-board-check" class="primary" type="button">试打</button><button id="shared-board-undo" type="button" disabled>撤销</button><button id="shared-board-reset" type="button">恢复原阵</button><button id="shared-board-journal" type="button" hidden>看复盘</button></div>
+          <details id="shared-board-compare" class="shared-board-compare" hidden>
+            <summary>伤害和连锁变化</summary>
+            <ul id="shared-board-damage-diff"></ul>
+            <ul id="shared-board-chain-diff"></ul>
+          </details>
           <details id="shared-board-share" class="invite-details" hidden>
             <summary>分享改好的阵容</summary>
             <div class="shared-board-link"><input id="shared-board-link" type="url" readonly aria-label="改阵挑战链接" /><button id="shared-board-copy" type="button">复制</button></div>

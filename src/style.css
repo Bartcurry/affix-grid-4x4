@@ -1407,12 +1407,23 @@ dialog::backdrop {
 .shared-board-scores { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .38rem; }
 .shared-board-scores > div { display: grid; gap: .22rem; padding: .47rem .62rem; border: 1px solid #695638; background: #27211f; color: #d4ba96; font-size: .77rem; }
 .shared-board-scores > div:last-child { border-color: #497475; background: #1a292c; color: #acd9cf; }
-.shared-board-scores strong { color: #f8e7bd; font: 750 1.2rem var(--mono-font); }
+.shared-board-scores strong { color: #f8e7bd; font: 750 1.2rem var(--mono-font); overflow-wrap: anywhere; }
+.shared-board-grid.daily-board > button { aspect-ratio: 1.22; }
 .shared-board-grid button[data-empty=true] { background: #202228; border-style: dashed; color: #657486; }
 .shared-board-grid button[data-empty=true] span { color: #657486; }
 .shared-board-grid button[aria-pressed=true] { outline-color: #ffd28b; }
 .shared-board-grid button[data-modifier=xuan_ice] small { color: #84cced; }
 .shared-board-grid button[data-modifier=spirit_gathering] small { color: #f4cb7e; }
+.shared-board-grid button[data-reach=chain] { border-color: #65c9de; background: #1e3541; }
+.shared-board-grid button[data-reach=effect] { border-color: #a688d1; }
+.dialog-content > .shared-board-inspect { font-size: .78rem; color: #b8d7dc; }
+.shared-board-dialog .daily-result { min-height: 1.5em; }
+.shared-board-compare { padding: .42rem .54rem; border: 1px solid #64523e; background: #23212a; color: #e2c9a4; font-size: .82rem; }
+.shared-board-compare summary { cursor: pointer; }
+.shared-board-compare ul { display: grid; gap: .33rem; list-style: none; padding: 0; margin: .4rem 0 0; }
+.shared-board-compare li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .16rem .38rem; padding-top: .28rem; border-top: 1px solid #4c4142; font-size: .76rem; }
+.shared-board-compare li strong { font: 650 .75rem var(--mono-font); color: #f2ac8f; }
+.shared-board-compare li strong[data-gain=true] { color: #bfe2a8; }
 .shared-board-actions { display: flex; flex-wrap: wrap; gap: .38rem; }
 .shared-board-actions button { min-height: 2.55rem; }
 .shared-board-actions .primary { flex: 1; background: #e9b970; border-color: #f1cb8f; color: #201710; font-weight: 750; }
