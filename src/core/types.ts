@@ -1,4 +1,5 @@
 export type Star = 1 | 2 | 3;
+export type PlaybackSpeed = 0 | 1 | 2;
 export type Rarity = 'common' | 'rare' | 'epic';
 export type Archetype = 'chain' | 'poison' | 'gold' | 'amplify';
 export type RelicId = 'whetstone' | 'chain_ring' | 'moss_bowl' | 'red_lens' | 'copper_ledger' | 'gate_tithe';

@@ -527,6 +527,7 @@ canvas {
   font-family: var(--mono-font);
   color: var(--gold-bright);
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .arena-hint-text {
@@ -557,6 +558,13 @@ canvas {
   border-color: #f97316;
   box-shadow: 0 0 6px rgba(249, 115, 22, 0.4);
 }
+
+.battle-timeline { display: flex; width: 100%; gap: .5rem; align-items: center; color: #e5d1ac; font: .75rem var(--mono-font); }
+#battle-progress { appearance: none; flex: 1; min-width: 0; margin: 0; height: .34rem; border: 0; border-radius: 1rem; overflow: hidden; background: #34303a; }
+#battle-progress::-webkit-progress-bar { background: #34303a; }
+#battle-progress::-webkit-progress-value { background: linear-gradient(90deg, #d98950, #f5cb75); }
+#battle-progress::-moz-progress-bar { background: linear-gradient(90deg, #d98950, #f5cb75); }
+#battle-steps { white-space: nowrap; }
 
 /* ─── 悬浮半透明磨砂暗金词条卡片 ─── */
 .inspector.floating-card {
@@ -997,6 +1005,9 @@ canvas {
   gap: 0.35rem;
   align-items: stretch;
 }
+
+.deck-controls #skip { color: var(--gold-bright); border-color: #ae8049; }
+.game[data-phase=playback] #battle::after { display: none; }
 
 .ctrl-btn {
   width: 3.2rem;

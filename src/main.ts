@@ -53,10 +53,11 @@ audio.muted = saved?.muted ?? false;
 player.speed = saved?.speed ?? 1;
 
 let phase: 'ARRANGE' | 'PLAYBACK' = 'ARRANGE';
-let displayed = { hp: target().hp, poison: 0, gold: run.gold, combo: 0 };
+let displayed = { hp: target().hp, poison: 0, gold: run.gold };
 let noticeTimer: ReturnType<typeof setTimeout>;
 let victoryTimer: ReturnType<typeof setTimeout>;
 let ghostTimer: ReturnType<typeof setTimeout>;
+let ghostTarget = 100;
 let dialogDismissible = false;
 let bossArmorHits = 0;
 let gateBreached = false;
@@ -150,9 +151,13 @@ function showArenaHint() {
 
 function showForecast() {
   const panel = element('forecast');
-  panel.hidden = !forecast || !arranging();
+  const playing = phase === 'PLAYBACK';
+  panel.hidden = !playing && (!forecast || !arranging());
+  element('forecast-main').hidden = playing;
+  element('forecast-actions').hidden = playing;
+  element('battle-timeline').hidden = !playing;
   showArenaHint();
-  if (panel.hidden || !forecast) return;
+  if (playing || panel.hidden || !forecast) return;
   const preview = placement ?? forecast;
   const { hp, result } = preview;
   const change = result.damage - forecast.result.damage;
@@ -205,11 +210,11 @@ function updateHud() {
   element('hp-fill').style.width = `${pct}%`;
 
   // 双层延迟残影血条：实际瞬扣，残影条平滑追平
-  clearTimeout(ghostTimer);
-  ghostTimer = setTimeout(() => {
-    const ghost = document.getElementById('hp-ghost');
-    if (ghost) ghost.style.width = `${pct}%`;
-  }, 280);
+  if (pct !== ghostTarget) {
+    ghostTarget = pct;
+    clearTimeout(ghostTimer);
+    ghostTimer = setTimeout(() => { element('hp-ghost').style.width = `${pct}%`; }, 280);
+  }
 
   element('hp-text').textContent = `${formatNumber(hp)} / ${formatNumber(maxHp)}`;
   element('hp-meter').setAttribute('aria-valuemax', String(maxHp));
@@ -227,7 +232,7 @@ function updateHud() {
     poisonText.textContent = formatNumber(poison);
   }
 
-  element('phase').textContent = phase === 'PLAYBACK' ? `连锁中 · ${displayed.combo} 连击` : run.pendingRelics.length ? '挑选遗物' : run.pendingLoss ? '待结算护盾' :
+  element('phase').textContent = phase === 'PLAYBACK' ? '回放中' : run.pendingRelics.length ? '挑选遗物' : run.pendingLoss ? '待结算护盾' :
     run.status !== 'active' ? '战斗结束' : '布阵';
 }
 
@@ -324,11 +329,14 @@ function syncControls() {
   game.dataset.phase = phase.toLowerCase();
   button('sound').setAttribute('aria-pressed', String(!audio.muted));
   button('sound').textContent = audio.muted ? '静音' : '音效';
-  button('speed').textContent = `${player.speed}×`;
-  button('speed').setAttribute('aria-label', `播放速度 ${player.speed} 倍，点击切换`);
+  const speed = player.speed === 0 ? '即结' : `${player.speed}×`;
+  button('speed').textContent = speed;
+  button('speed').setAttribute('aria-label', `播放方式 ${player.speed === 0 ? '立即结算' : speed}，点击切换`);
   button('skip').disabled = phase !== 'PLAYBACK';
   button('skip').hidden = phase !== 'PLAYBACK';
+  button('undo').hidden = phase === 'PLAYBACK';
   button('undo').disabled = !arranging() || undoStack.length === 0;
+  element('arena-hint').hidden = phase === 'PLAYBACK';
   button('battle').disabled = !arranging();
   button('battle').textContent = phase === 'PLAYBACK' ? '连锁结算中' : '启动法阵';
   button('refresh').textContent = run.shop.every(offer => offer?.locked) ? '商品已全锁定' :
@@ -487,7 +495,7 @@ function redraw(save = true) {
   element('boss-intel-text').textContent = run.wave === 20 ? '终局 · 闭门王' : `下波 · ${upcoming.name}`;
 
   element('game').dataset.enemy = encounter;
-  element('board-count').textContent = `已布阵 ${run.board.filter(Boolean).length}/16`;
+  element('board-count').textContent = phase === 'PLAYBACK' ? '准备扫阵' : `已布阵 ${run.board.filter(Boolean).length}/16`;
   element('bench-count').textContent = `备战区 ${run.bench.filter(Boolean).length}/4`;
   element('last-damage').textContent = run.bestCombo || run.lastDamage || run.attempts ? formatNumber(run.lastDamage) : '—';
   element('best-combo').textContent = run.bestCombo ? String(run.bestCombo) : '—';
@@ -662,7 +670,8 @@ function resetTimeline() {
   bossArmorHits = 0;
   gateBreached = false;
   updateBossArmorUi(0);
-  displayed = { hp: target().hp, poison: 0, gold: run.gold, combo: 0 };
+  displayed = { hp: target().hp, poison: 0, gold: run.gold };
+  ghostTarget = 100;
   const ghost = document.getElementById('hp-ghost');
   if (ghost) ghost.style.width = '100%';
 }
@@ -806,14 +815,20 @@ function showOutcome() {
   }
 }
 
-function consume(event: BattleEvent) {
-  renderer.play(event);
+function playbackProgress(value: number) {
+  const progress = element<HTMLProgressElement>('battle-progress');
+  progress.value = value;
+  element('battle-steps').textContent = `${value} / ${progress.max} 次触发`;
+}
+
+function consume(event: BattleEvent, maxHp: number) {
+  renderer.play(event, maxHp);
   switch (event.type) {
     case 'CELL_ACTIVATE':
-      displayed.combo = event.combo;
       audio.combo(event.combo);
-      renderer.setCombo(event.combo);
-      break;
+      playbackProgress(event.combo);
+      if (!event.isChain) element('board-count').textContent = `扫到第 ${event.index + 1} 格`;
+      return;
     case 'DAMAGE': {
       displayed.hp = event.hp;
       if (event.crit) audio.crit();
@@ -828,7 +843,7 @@ function consume(event: BattleEvent) {
         updateGateUi();
         renderer.pulseBorder();
       }
-      if (event.crit || event.breach || event.amount >= boss.hp * 0.15) {
+      if (event.crit || event.breach || event.amount >= maxHp * 0.15) {
         const emblem = document.getElementById('boss-emblem-wrap');
         if (emblem) {
           emblem.classList.remove('boss-hit');
@@ -840,19 +855,24 @@ function consume(event: BattleEvent) {
     }
     case 'POISON': displayed.poison = event.poison; break;
     case 'GOLD': displayed.gold = event.gold; break;
-    case 'RUNE_STATE': states.set(event.index, event.state); if (renderer.selection?.zone === 'board' && renderer.selection.index === event.index) inspect(); break;
+    case 'RUNE_STATE': states.set(event.index, event.state); if (renderer.selection?.zone === 'board' && renderer.selection.index === event.index) inspect(); return;
+    default: return;
   }
   updateHud();
 }
 
-button('battle').onclick = async () => {
-  if (!arranging()) return;
-  undoStack.clear();
-  click(); resetTimeline(); phase = 'PLAYBACK'; redraw(false);
+button('battle').onclick = async event => {
+  if (!arranging() || event.detail > 1) return;
   const startingBoard = run.board.map(rune => rune ? { ...rune } : null);
   const startingGold = run.gold;
   const prepared = prepareBattle(run, catalog);
   const { events } = prepared;
+  const panel = element('forecast');
+  panel.style.minHeight = `${panel.offsetHeight}px`;
+  element<HTMLProgressElement>('battle-progress').max = Math.max(1, events.filter(entry => entry.type === 'CELL_ACTIVATE').length);
+  playbackProgress(0);
+  undoStack.clear();
+  click(); resetTimeline(); phase = 'PLAYBACK'; redraw(false);
 
   const result = await player.play(events, consume, {
     maxHp: prepared.hp,
@@ -861,7 +881,7 @@ button('battle').onclick = async () => {
       audio.hitStopChord();
     },
   });
-  phase = 'ARRANGE'; states.clear(); renderer.clearEffects(); audio.finish(result.win);
+  phase = 'ARRANGE'; panel.style.minHeight = ''; states.clear(); renderer.clearEffects(); audio.finish(result.win);
   run.lastJournal = { wave: run.wave, trialWave: run.trialWave, gold: startingGold, board: startingBoard, events };
   const payout = victoryPayout(run, result.gold);
   run.board = prepared.board;
@@ -898,7 +918,12 @@ element<HTMLSelectElement>('shop-focus').onchange = event => {
   }
 };
 
-button('speed').onclick = () => { click(); player.speed = player.speed === 1 ? 2 : 1; syncControls(); persist(); };
+button('speed').onclick = () => {
+  click();
+  player.speed = player.speed === 1 ? 2 : player.speed === 2 ? 0 : 1;
+  if (phase === 'PLAYBACK' && player.speed === 0) player.skip();
+  syncControls(); persist();
+};
 button('skip').onclick = () => { click(); player.skip(); };
 button('inspect-jump').onclick = () => { click(); element('inspector').focus(); };
 button('board-jump').onclick = () => { click(); element('arena').focus(); };

@@ -127,14 +127,18 @@
       <div class="deck-station">
         <!-- 紧凑单行战况推演条 -->
         <section class="forecast-strip panel" id="forecast" aria-label="战斗推演">
-          <div class="forecast-main">
+          <div class="forecast-main" id="forecast-main">
             <span id="forecast-verdict" class="forecast-verdict-pill"></span>
             <div class="forecast-gauge" aria-hidden="true"><span id="forecast-fill"></span></div>
             <span id="forecast-readout" class="forecast-readout-text"></span>
           </div>
-          <div class="forecast-actions">
+          <div class="forecast-actions" id="forecast-actions">
             <label class="forecast-toggle" title="切换模糊战果与精确数值"><input type="checkbox" id="exact-toggle"><span>精确</span></label>
             <button id="forecast-detail" type="button" class="btn-subtle">明细</button>
+          </div>
+          <div id="battle-timeline" class="battle-timeline" hidden>
+            <progress id="battle-progress" aria-label="战斗回放进度" max="1" value="0"></progress>
+            <span id="battle-steps"></span>
           </div>
           <div id="field-tip" class="field-tip" hidden><span id="field-tip-text"></span><button id="field-tip-action" type="button" hidden>看看</button></div>
         </section>
@@ -170,9 +174,9 @@
         <!-- 主控操作栏：撤销、启动法阵、倍速、跳过 -->
         <footer class="deck-controls">
           <button type="button" id="undo" class="ctrl-btn" aria-label="撤销上一步 (Ctrl+Z)" disabled>撤销</button>
+          <button type="button" id="skip" class="ctrl-btn" hidden disabled>跳过</button>
           <button type="button" id="battle" class="primary battle-btn">启动法阵</button>
           <button type="button" id="speed" class="ctrl-btn" aria-label="切换播放速度">1×</button>
-          <button type="button" id="skip" class="ctrl-btn" hidden disabled>跳过</button>
         </footer>
       </div>
 

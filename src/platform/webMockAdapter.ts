@@ -137,7 +137,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       run: migratedRun,
       muted: !!parsed.muted,
       skin: !!parsed.skin,
-      speed: parsed.speed === 2 ? 2 : 1,
+      speed: parsed.speed === 0 || parsed.speed === 2 ? parsed.speed : 1,
       exactForecast: !!parsed.exactForecast,
       records: defaultRecords,
     };
