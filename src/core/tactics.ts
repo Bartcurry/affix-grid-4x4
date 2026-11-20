@@ -9,17 +9,19 @@ export function usesTutorial(run: Pick<Run, 'wave' | 'board' | 'opening'>) {
   return run.opening === 'chain' && run.wave === 1 && run.board[0]?.configId === 'spark_orb' && run.board[1]?.configId === 'prism_right';
 }
 
-export function planTurn(run: Pick<Run, 'wave' | 'attempts' | 'board' | 'gold' | 'relics' | 'opening' | 'tileModifiers' | 'shield' | 'rngState'> & { enableSynergies?: boolean }, catalog: Catalog) {
+export function planTurn(run: Pick<Run, 'wave' | 'attempts' | 'board' | 'gold' | 'relics' | 'opening' | 'tileModifiers' | 'shield' | 'rngState'> & { bench?: Run['bench']; enableSynergies?: boolean }, catalog: Catalog) {
   const hp = bossHealth(run.wave);
   const deepBoard = run.board.map(r => r ? { ...r } : null);
   const encounter = encounterAt(run.wave);
   const affix = affixAt(run.wave)?.id;
   const stateSeed = typeof run.rngState === 'number' && Number.isSafeInteger(run.rngState) && run.rngState > 0 ? run.rngState : 1;
   const enableSynergies = run.enableSynergies ?? true;
+  const bench = run.bench;
 
   // 1. Guaranteed minimum damage without crits (pure function, does NOT touch run.rngState)
   const noCritEvents = simulateBattle({
     board: deepBoard.map(r => r ? { ...r } : null),
+    bench,
     hp, gold: run.gold, seed: stateSeed, tutorial: usesTutorial(run),
     encounter, relics: run.relics, tileModifiers: run.tileModifiers, affix, shield: run.shield ?? 3,
     enableSynergies,
@@ -29,6 +31,7 @@ export function planTurn(run: Pick<Run, 'wave' | 'attempts' | 'board' | 'gold' |
   // 2. Maximum ceiling damage with all crits landing (pure function)
   const maxCritEvents = simulateBattle({
     board: deepBoard.map(r => r ? { ...r } : null),
+    bench,
     hp, gold: run.gold, seed: stateSeed, tutorial: usesTutorial(run),
     encounter, relics: run.relics, tileModifiers: run.tileModifiers, affix, shield: run.shield ?? 3,
     enableSynergies,
@@ -38,6 +41,7 @@ export function planTurn(run: Pick<Run, 'wave' | 'attempts' | 'board' | 'gold' |
   // 3. Expected deterministic simulation using independent mulberry32 PRNG (does NOT touch run.rngState)
   const events = simulateBattle({
     board: deepBoard.map(r => r ? { ...r } : null),
+    bench,
     hp, gold: run.gold, seed: stateSeed, tutorial: usesTutorial(run),
     encounter, relics: run.relics, tileModifiers: run.tileModifiers, affix, shield: run.shield ?? 3,
     enableSynergies,
@@ -89,9 +93,12 @@ export function previewPlacement(run: Run, from: Slot, to: Slot) {
   const moved = runeAt(run, from);
   if (!moved) return null;
   const board = run.board.map(r => r ? { ...r } : null);
+  const bench = run.bench.map(r => r ? { ...r } : null);
   if (from.zone === 'board') board[from.index] = runeAt(run, to);
+  else if (from.zone === 'bench') bench[from.index] = runeAt(run, to);
   if (to.zone === 'board') board[to.index] = moved;
-  return { ...run, board };
+  else if (to.zone === 'bench') bench[to.index] = moved;
+  return { ...run, board, bench };
 }
 
 export function runeFootprint(config: RuneConfig, index: number) {

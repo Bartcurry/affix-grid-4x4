@@ -9,7 +9,7 @@ export const MAX_DEPTH = 24;
 export const MAX_EVENTS = 300;
 
 export function createEventBus(board: Readonly<Slots>, catalog: Catalog, hp: number, gold: number, poison: number, rng: Random,
-  tutorial: boolean, encounter: EncounterId, relics: readonly RelicId[], tileModifiers?: TileModifierMap, affix?: string, shield = 3, enableSynergies = false) {
+  tutorial: boolean, encounter: EncounterId, relics: readonly RelicId[], tileModifiers?: TileModifierMap, affix?: string, shield = 3, enableSynergies = false, benchCount = 0) {
   const events: BattleEvent[] = [];
   const maxCellTriggers = affix === 'limit_triggers' ? 6 : MAX_CELL_TRIGGERS;
   const activeModifiers = tutorial ? undefined : tileModifiers;
@@ -29,7 +29,7 @@ export function createEventBus(board: Readonly<Slots>, catalog: Catalog, hp: num
   let tutorialPending = tutorial && fighters[0]?.rune.configId === 'spark_orb' && fighters[1]?.rune.configId === 'prism_right';
 
   const combat: Combat = {
-    fighters, hp, gold, poison, shield, rng, encounter, relics, priorHits: 0, damage: 0, combo: 0, affix, synergies,
+    fighters, hp, gold, poison, shield, rng, encounter, relics, priorHits: 0, damage: 0, combo: 0, affix, synergies, benchCount, spiritGourdTriggered: false,
     emit(event) {
       if (!combat.room()) return false;
       events.push(event);
@@ -44,6 +44,16 @@ export function createEventBus(board: Readonly<Slots>, catalog: Catalog, hp: num
       if (from !== undefined) combat.emit({ type: 'CHAIN_LINK', from, to: index });
       fighter.state.triggersThisTurn++;
       combat.emit({ type: 'CELL_ACTIVATE', index, depth, isChain: from !== undefined, combo: ++combat.combo });
+
+      if (combat.combo >= 5 && !combat.spiritGourdTriggered && relics.includes('spirit_gourd') && combat.room()) {
+        combat.spiritGourdTriggered = true;
+        combat.gold++;
+        combat.emit({ type: 'GOLD', source: index, delta: 1, gold: combat.gold });
+        if (synergies && synergies.gold.tier === 2 && combat.room()) {
+          dealDamage(combat, index, 5, 'rune', false);
+        }
+      }
+
       dispatch(index, 'ON_ACTIVATE', from !== undefined, depth, suppressCrit);
 
       if (index === 1 && tutorialPending && events.length + 2 <= limit) {

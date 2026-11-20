@@ -80,6 +80,7 @@ export interface Run {
   relics: RelicId[];
   pendingRelics: RelicId[];
   enableSynergies?: boolean;
+  lastCellDamage?: number[];
 }
 
 export type BattleEvent =

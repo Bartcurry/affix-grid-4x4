@@ -101,12 +101,14 @@ export class SynthAudio {
   private tone(frequency: number, length: number, peak: number, shape: OscillatorType, delay = 0, endFrequency = frequency) {
     const audio = this.context;
     if (this.muted || !audio || audio.state !== 'running') return;
-    const when = audio.currentTime + delay;
+    const when = Math.max(audio.currentTime, audio.currentTime + delay);
+    const startFreq = Math.max(1, frequency);
+    const targetFreq = Math.max(1, endFrequency);
     const voice = audio.createOscillator();
     const gain = audio.createGain();
     voice.type = shape;
-    voice.frequency.setValueAtTime(frequency, when);
-    voice.frequency.exponentialRampToValueAtTime(endFrequency, when + length);
+    voice.frequency.setValueAtTime(startFreq, when);
+    voice.frequency.exponentialRampToValueAtTime(targetFreq, when + length);
     gain.gain.setValueAtTime(.001, when);
     gain.gain.exponentialRampToValueAtTime(peak, when + .014);
     gain.gain.exponentialRampToValueAtTime(.001, when + length);

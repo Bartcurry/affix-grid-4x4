@@ -99,12 +99,13 @@ export function damageModifiers(encounter: EncounterId, owned: readonly RelicId[
     if (crit && owned.includes('taixu_needle')) relic *= 1.25;
     if (owned.includes('qiankun_pouch') && benchCount > 0) relic *= (1 + Math.min(4, benchCount) * 0.06);
 
-    if (encounter === 'armor' && priorHits < 2) enemy *= .5;
+    const hasPierce = crit && owned.includes('taixu_needle');
+    if (encounter === 'armor' && priorHits < 2 && !hasPierce) enemy *= .5;
     if (encounter === 'cistern') enemy *= .9;
     if (encounter === 'flanks') enemy *= col === 0 || col === 3 ? .7 : 1.1;
     if (encounter === 'bell') enemy *= isChain ? 1.25 : .9;
     if (encounter === 'regent') {
-      if (priorHits < 3) enemy *= .5;
+      if (priorHits < 3 && !hasPierce) enemy *= .5;
       if (isChain) enemy *= 1.2;
     }
     if (affix === 'odd_row_frenzy' && row % 2 === 1) {

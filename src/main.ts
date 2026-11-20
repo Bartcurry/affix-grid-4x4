@@ -194,10 +194,33 @@ function spawnGoldParticles(sourceEl: HTMLElement) {
   }
 }
 
+const lastSynergyTiers: Record<string, number> = { chain: 0, poison: 0, gold: 0, amplify: 0 };
+
 function updateSynergiesUi() {
   const container = document.getElementById('hud-synergies');
   if (!container) return;
   const synergies = countSynergies(run.board, catalog);
+  let newTierUnlocked = false;
+  let unlockedName = '';
+  let unlockedDesc = '';
+
+  for (const type of ['chain', 'poison', 'gold', 'amplify'] as const) {
+    const syn = synergies[type];
+    const prevTier = lastSynergyTiers[type] ?? 0;
+    if (syn.tier > prevTier && arranging()) {
+      newTierUnlocked = true;
+      unlockedName = syn.name;
+      unlockedDesc = syn.activeDesc;
+    }
+    lastSynergyTiers[type] = syn.tier;
+  }
+
+  if (newTierUnlocked) {
+    audio.unlock();
+    audio.synergyChime();
+    notice(`【${unlockedName}】共鸣激活！${unlockedDesc}`);
+  }
+
   const items = (['chain', 'poison', 'gold', 'amplify'] as const).map(type => {
     const syn = synergies[type];
     const chip = document.createElement('button');
@@ -220,7 +243,8 @@ function updateSynergiesUi() {
 
     chip.append(icon, name, count);
     chip.onclick = () => {
-      click();
+      audio.unlock();
+      audio.synergyChime();
       notice(`【${syn.name}】已布阵 ${syn.count} 件 · ${syn.activeDesc}`);
     };
     return chip;
@@ -600,7 +624,7 @@ button('forecast-detail').onclick = () => {
   sources.sort((left, right) => right.damage - left.damage);
   const impact = enemyDelta ? `\n敌人的招式让伤害${enemyDelta > 0 ? '多' : '少'}了 ${formatNumber(Math.abs(enemyDelta))} 点，已计入总数。` : '';
   element('forecast-summary').textContent = `预计 ${formatNumber(result.damage)} 伤害 / ${formatNumber(hp)} 生命 · ${result.combo} 连击\n${result.win ? '这套阵容能打过。' : `还差 ${formatNumber(result.hp)} 点。`}${impact}`;
-  const payout = victoryPayout(run, result.gold);
+  const payout = victoryPayout(run, result.gold, catalog);
   const deltaGold = result.gold - run.gold;
   const combatGold = deltaGold < 0 ? `战斗花 ${formatNumber(-deltaGold)} 金` : `战斗赚 ${formatNumber(deltaGold)} 金`;
   element('forecast-gold').textContent = result.win
@@ -633,6 +657,7 @@ function showPanel(title: string, text: string, actions: Action[], dismissible =
       void stampWrap.offsetWidth;
       stampWrap.classList.add('stamp-slam');
       audio.stampSlam();
+      try { navigator.vibrate?.([40, 50, 70]); } catch {}
     }
   }
 
@@ -683,6 +708,7 @@ function startOpening(id: OpeningId, customSeed?: string) {
   renderer.cursor = null;
   resetTimeline();
   select(null);
+  for (const k of ['chain', 'poison', 'gold', 'amplify']) lastSynergyTiers[k] = 0;
   redraw();
   element('battle').focus({ preventScroll: true });
   window.scrollTo({ top: 0 });
@@ -811,24 +837,26 @@ function showOutcome() {
   } else if (run.status !== 'active') {
     const won = run.status === 'victory';
     let mvpHtml = '';
-    if (forecast?.byCell) {
+    const cellDamages = run.lastCellDamage ?? (forecast?.byCell ? forecast.byCell.map(c => c.damage) : null);
+    if (cellDamages) {
       let maxDmg = -1;
       let mvpIdx = -1;
-      forecast.byCell.forEach((c, idx) => {
-        if (c.damage > maxDmg && run.board[idx]) {
-          maxDmg = c.damage;
+      cellDamages.forEach((dmg, idx) => {
+        if (dmg > maxDmg && run.board[idx]) {
+          maxDmg = dmg;
           mvpIdx = idx;
         }
       });
       if (mvpIdx >= 0 && run.board[mvpIdx] && maxDmg > 0) {
         const r = run.board[mvpIdx]!;
         const c = catalog[r.configId];
-        const pct = run.lastDamage > 0 ? Math.round((maxDmg / run.lastDamage) * 100) : 100;
+        const totalDmg = run.lastDamage > 0 ? run.lastDamage : maxDmg;
+        const pct = Math.min(100, Math.round((maxDmg / totalDmg) * 100));
         mvpHtml = `
           <div class="mvp-label">功勋阵眼 · 本局 MVP 符文</div>
           <div class="mvp-card-body">
             <span class="mvp-rune-name" style="color: ${c.color}">【${c.name}】${'★'.repeat(r.star)}</span>
-            <span class="mvp-rune-stat">输出 ${formatNumber(maxDmg)} · 战损占比 ${pct}% · 第 ${mvpIdx + 1} 格</span>
+            <span class="mvp-rune-stat">倾泻输出 ${formatNumber(maxDmg)} · 战损占比 ${pct}% · 第 ${mvpIdx + 1} 格</span>
           </div>
         `;
       }
@@ -888,6 +916,7 @@ button('battle').onclick = async () => {
   const battlePrng = createMulberry32(run.rngState);
   const events = simulateBattle({
     board: run.board,
+    bench: run.bench,
     hp: bossHealth(run.wave),
     gold: run.gold,
     poison: 0,
@@ -901,6 +930,14 @@ button('battle').onclick = async () => {
     enableSynergies: run.enableSynergies ?? true,
   }, catalog, battlePrng);
   run.rngState = battlePrng.getState();
+
+  const cellDamage = Array(16).fill(0);
+  for (const ev of events) {
+    if (ev.type === 'DAMAGE' && ev.source !== null && ev.source >= 0 && ev.source < 16) {
+      cellDamage[ev.source] += ev.amount;
+    }
+  }
+  run.lastCellDamage = cellDamage;
 
   const result = await player.play(events, consume, {
     maxHp: bossHealth(run.wave),

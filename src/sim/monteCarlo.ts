@@ -180,6 +180,7 @@ function simulateBotRun(opening: OpeningId, seed: number, runeStats: Record<stri
 
       const battleInput = {
         board: run.board,
+        bench: run.bench,
         hp: bossHealth(run.wave),
         gold: run.gold,
         seed: rng(),

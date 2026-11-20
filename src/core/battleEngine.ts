@@ -20,6 +20,7 @@ export function seededRandom(seed: number): Random {
 
 export function simulateBattle(input: {
   board: Readonly<Slots>;
+  bench?: Readonly<Slots> | number;
   hp: number;
   gold: number;
   poison?: number;
@@ -34,10 +35,14 @@ export function simulateBattle(input: {
 }, catalog: Catalog, rng?: Random) {
   const seedNum = typeof input.seed === 'string' ? decodeSeed(input.seed) : (input.seed ?? 1);
   const effectiveRng = rng ?? seededRandom(seedNum);
+  const benchCount = typeof input.bench === 'number'
+    ? input.bench
+    : (input.bench ? input.bench.filter(Boolean).length : 0);
   const bus = createEventBus(
     input.board, catalog, input.hp, input.gold, input.poison ?? 0, effectiveRng,
     input.tutorial ?? false, input.encounter ?? 'sentry', input.relics ?? [],
-    input.tileModifiers, input.affix, input.shield ?? 3, input.enableSynergies
+    input.tileModifiers, input.affix, input.shield ?? 3, input.enableSynergies,
+    benchCount
   );
   for (let index = 0; index < CELL_COUNT; index++) bus.activate(index, 0);
   return bus.finish();

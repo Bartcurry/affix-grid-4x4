@@ -1,4 +1,4 @@
-import { resolveTargets } from './grid';
+import { resolveTargets, toCoords } from './grid';
 import { damageModifiers, type EncounterId } from './expedition';
 import type { SynergyMap } from './synergy';
 import { STAR_MULT, type BattleEvent, type Effect, type Random, type RelicId, type Rune, type RuneConfig, type RuneState } from './types';
@@ -18,6 +18,8 @@ export interface Combat {
   priorHits: number;
   affix?: string;
   synergies?: SynergyMap;
+  benchCount: number;
+  spiritGourdTriggered?: boolean;
   emit(event: BattleEvent): boolean;
   room(count?: number): boolean;
   activate(index: number, depth: number, from?: number, suppressCrit?: boolean): void;
@@ -27,7 +29,7 @@ export interface Combat {
 export interface EffectContext { index: number; isChain: boolean; depth: number; suppressCrit: boolean }
 
 export function dealDamage(combat: Combat, source: number | null, value: number, kind: 'rune' | 'poison' | 'tutorial', crit = false, isChain = false) {
-  const { relic, enemy } = damageModifiers(combat.encounter, combat.relics, kind, source, isChain, crit, combat.priorHits, combat.affix);
+  const { relic, enemy } = damageModifiers(combat.encounter, combat.relics, kind, source, isChain, crit, combat.priorHits, combat.affix, combat.benchCount);
   let finalEnemy = enemy;
   if (combat.affix === 'shield_tax' && combat.gold < 10) {
     finalEnemy *= 0.8;
@@ -43,8 +45,8 @@ export function dealDamage(combat: Combat, source: number | null, value: number,
     else if (combat.synergies.chain.tier === 1) chainSynergyMult = 1.35;
   }
   let jadeAbacusMult = 1;
-  if (kind === 'rune' && source === 0 && combat.relics.includes('jade_abacus') && combat.priorHits === 0) {
-    jadeAbacusMult = 1 + Math.min(0.60, Math.floor(combat.gold / 5) * 0.10);
+  if (kind === 'rune' && source !== null && toCoords(source).row === 0 && combat.relics.includes('jade_abacus') && combat.priorHits === 0) {
+    jadeAbacusMult = 1 + Math.min(0.90, Math.floor(combat.gold / 5) * 0.15);
   }
 
   const boosted = value * critMult * relic * chainSynergyMult * jadeAbacusMult;

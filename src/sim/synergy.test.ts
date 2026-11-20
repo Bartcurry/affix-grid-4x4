@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { catalog } from '../data/catalog';
 import { countSynergies } from '../core/synergy';
 import { simulateBattle } from '../core/battleEngine';
-import { chooseRelic, newRun, settleTurn, victoryPayout } from '../core/shopEngine';
+import { chooseRelic, mergeRunes, newRun, refreshShop, settleTurn, victoryPayout } from '../core/shopEngine';
 import { relics } from '../core/expedition';
 import type { BattleEvent, Rune, Star, TurnResult } from '../core/types';
 
@@ -175,6 +175,33 @@ describe('Synergy Resonance & Expanded Relic System', () => {
     chooseRelic(run, 'tianji_compass');
     expect(run.gold).toBe(initialGold + 6);
     expect(run.relics).toContain('tianji_compass');
+
+    // Spirit Gourd yields +1 gold on reaching 5 combo in battle
+    const combo5Board = [rune('relay_cross'), rune('relay_cross')];
+    const eventsWithoutGourd = simulateBattle({ board: combo5Board, hp: 5000, gold: 10 }, catalog, noCrit);
+    const eventsWithGourd = simulateBattle({ board: combo5Board, hp: 5000, gold: 10, relics: ['spirit_gourd'] }, catalog, noCrit);
+    expect(resultOf(eventsWithGourd).gold).toBe(resultOf(eventsWithoutGourd).gold + 1);
+
+    // Qiankun Pouch increases damage based on bench runes (6% per bench rune)
+    const boardSingle = [rune('spark_orb')];
+    const noBenchDamage = resultOf(simulateBattle({ board: boardSingle, bench: 0, hp: 5000, gold: 0, relics: ['qiankun_pouch'] }, catalog, noCrit)).damage;
+    const bench3Damage = resultOf(simulateBattle({ board: boardSingle, bench: 3, hp: 5000, gold: 0, relics: ['qiankun_pouch'] }, catalog, noCrit)).damage;
+    // 3 bench runes = +18% damage
+    expect(bench3Damage).toBe(Math.ceil(noBenchDamage * 1.18));
+
+    // Jade Abacus scales row 0 first hit damage (+15% per 5 gold, up to +90%), works even when cell 0 is empty
+    const row0Cell1Board = [null, rune('spark_orb')];
+    const noAbacusDamage = resultOf(simulateBattle({ board: row0Cell1Board, hp: 5000, gold: 20 }, catalog, noCrit)).damage;
+    const withAbacusDamage = resultOf(simulateBattle({ board: row0Cell1Board, hp: 5000, gold: 20, relics: ['jade_abacus'] }, catalog, noCrit)).damage;
+    // 20 gold = 4 * 15% = +60% damage
+    expect(withAbacusDamage).toBe(Math.ceil(noAbacusDamage * 1.60));
+
+    // Taixu Needle crits pierce armor damage reduction
+    const armorEventsWithoutNeedle = simulateBattle({ board: [rune('spark_orb')], hp: 5000, gold: 0, encounter: 'armor' }, catalog, alwaysCrit);
+    const armorEventsWithNeedle = simulateBattle({ board: [rune('spark_orb')], hp: 5000, gold: 0, encounter: 'armor', relics: ['taixu_needle'] }, catalog, alwaysCrit);
+    // Without needle: base * 2 (crit) * 0.5 (armor) = base
+    // With needle: base * 2 (crit) * 1.25 (needle) * 1.0 (armor pierced!) = 2.5 * base
+    expect(resultOf(armorEventsWithNeedle).damage).toBeGreaterThan(resultOf(armorEventsWithoutNeedle).damage * 2);
   });
 
   it('rewards milestone bonuses every 5 waves in endless mode', () => {
@@ -190,5 +217,36 @@ describe('Synergy Resonance & Expanded Relic System', () => {
     // Shield repaired by +1, received +10 bonus gold & free refreshes!
     expect(run.shield).toBe(2);
     expect(run.freeRefreshes).toBeGreaterThanOrEqual(2);
+  });
+
+  it('preserves combined bonusPower from spirit_gathering upon 3-rune merge', () => {
+    const run = newRun(catalog, noCrit);
+    run.board.fill(null);
+    run.bench.fill(null);
+    // 3 spark_orbs with bonusPower 4, 6, 2
+    run.board[0] = { configId: 'spark_orb', star: 1, bonusPower: 4 };
+    run.board[1] = { configId: 'spark_orb', star: 1, bonusPower: 6 };
+    run.bench[0] = { configId: 'spark_orb', star: 1, bonusPower: 2 };
+
+    const merges = mergeRunes(run);
+    expect(merges).toHaveLength(1);
+    expect(merges[0].rune.star).toBe(2);
+    // Preserves sum of accumulated bonusPower: 4 + 6 + 2 = 12!
+    expect(merges[0].rune.bonusPower).toBe(12);
+  });
+
+  it('causes shop to heavily offer primary archetype runes when Tianji Compass is owned', () => {
+    const run = newRun(catalog, noCrit, 'poison');
+    run.relics = ['tianji_compass'];
+    run.freeRefreshes = 5;
+
+    // Refresh shop with compass owned
+    expect(refreshShop(run, catalog, () => 0.05)).toBe(true);
+    // Unlocked shop offers should all be poison runes!
+    const offeredConfigIds = run.shop.filter(Boolean).map(o => o!.configId);
+    for (const id of offeredConfigIds) {
+      const cfg = catalog[id];
+      expect(cfg.archetype === 'poison' || cfg.tags.includes('poison')).toBe(true);
+    }
   });
 });

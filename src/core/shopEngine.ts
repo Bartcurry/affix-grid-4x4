@@ -19,13 +19,18 @@ function rollShop(run: Run, catalog: Catalog, rng: Random, options: { focus?: Ar
   const odds = rarityOdds(run.wave);
   const configs = Object.values(catalog);
   const guided = Array.from({ length: SHOP_SIZE }, (_, index) => index).find(index => !run.shop[index]?.locked);
+  const hasCompass = run.relics.includes('tianji_compass');
+  const targetArchetype: Archetype | undefined = options.focus ?? (run.shopFocus !== 'any' ? run.shopFocus : run.opening);
+
   run.shop = Array.from({ length: SHOP_SIZE }, (_, index): Offer | null => {
     if (run.shop[index]?.locked) return run.shop[index];
     if (index === guided && options.supply && catalog[options.supply]) return { configId: options.supply, locked: false };
     const roll = rng();
     const rarity = roll < odds.common ? 'common' : roll < odds.common + odds.rare ? 'rare' : 'epic';
     const tier = configs.filter(config => config.rarity === rarity);
-    const focused = index === guided && options.focus ? tier.filter(config => config.archetype === options.focus) : [];
+    const preferFocus = hasCompass ? Boolean(targetArchetype) : (index === guided && Boolean(options.focus));
+    const filterType = hasCompass ? targetArchetype : options.focus;
+    const focused = preferFocus && filterType ? tier.filter(config => config.archetype === filterType || (hasCompass && config.tags.includes(filterType))) : [];
     const pool = focused.length ? focused : tier.length ? tier : configs;
     return pool.length ? { configId: pool[Math.floor(rng() * pool.length)].id, locked: false } : null;
   });
@@ -156,10 +161,11 @@ export function mergeRunes(run: Run): Merge[] {
     if (!trio) return merges;
     const [keep, ...consumed] = trio;
     const rune = runeAt(run, keep)!;
+    const totalBonus = trio.reduce((sum, slot) => sum + (runeAt(run, slot)?.bonusPower ?? 0), 0);
     const upgraded: Rune = {
       configId: rune.configId,
       star: (rune.star + 1) as Star,
-      ...(rune.bonusPower ? { bonusPower: rune.bonusPower } : {}),
+      ...(totalBonus > 0 ? { bonusPower: totalBonus } : {}),
     };
     run[keep.zone][keep.index] = upgraded;
     for (const slot of consumed) run[slot.zone][slot.index] = null;
@@ -286,6 +292,7 @@ export interface RunSnapshot {
   shopFocus: Archetype | 'any';
   rngState: number;
   enableSynergies?: boolean;
+  lastCellDamage?: number[];
 }
 
 export function createSnapshot(run: Run): RunSnapshot {
@@ -298,6 +305,7 @@ export function createSnapshot(run: Run): RunSnapshot {
     shopFocus: run.shopFocus,
     rngState: run.rngState,
     enableSynergies: run.enableSynergies,
+    lastCellDamage: run.lastCellDamage ? [...run.lastCellDamage] : undefined,
   };
 }
 
@@ -310,6 +318,7 @@ export function restoreSnapshot(run: Run, snapshot: RunSnapshot): void {
   run.shopFocus = snapshot.shopFocus;
   run.rngState = snapshot.rngState;
   run.enableSynergies = snapshot.enableSynergies;
+  run.lastCellDamage = snapshot.lastCellDamage ? [...snapshot.lastCellDamage] : undefined;
 }
 
 export class UndoStack {
