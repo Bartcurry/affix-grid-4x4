@@ -20,6 +20,7 @@ import { bindBattleJournal } from './render/battleJournal';
 import { bindChallengeRoom, bindInviteRoom } from './render/challengeRoom';
 import { bindTrialRoom } from './render/trialRoom';
 import { bindMarketPreview } from './render/marketPreviewRoom';
+import { renderOpeningPreview } from './render/openingPreview';
 import { openSharedBoard } from './render/sharedBoardRoom';
 import { bindRouteRoom } from './render/routeRoom';
 import { PlaybackController } from './render/playbackController';
@@ -701,12 +702,15 @@ function resetTimeline() {
 }
 
 const openingDialog = element<HTMLDialogElement>('opening-dialog');
-let openingCandidate: OpeningId | null = null;
+const openingSeed = element<HTMLInputElement>('opening-seed');
+let openingCandidate: OpeningId = 'chain';
+let replacingOpening = false;
+const selectedOpeningSeed = () => openingSeed.value.trim() || initialSeed;
 
 function startOpening(id: OpeningId, customSeed?: string) {
   if (openingDialog.open) openingDialog.close();
   if (dialog.open) dialog.close();
-  const seed = customSeed || element<HTMLInputElement>('opening-seed')?.value.trim() || undefined;
+  const seed = customSeed || selectedOpeningSeed();
   run = createOpeningRun(id, seed);
   undoStack.clear();
   renderer.setRun(run);
@@ -718,65 +722,46 @@ function startOpening(id: OpeningId, customSeed?: string) {
   window.scrollTo({ top: 0 });
 }
 
-function resetOpeningChoice() {
-  openingCandidate = null;
-  element('opening-confirm').hidden = true;
-  element('opening-choices').hidden = false;
-  element('opening-close').hidden = false;
+const openingChoices = openingIds.map(id => {
+  const route = openings[id];
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.className = `opening-option opening-${id}`;
+  item.setAttribute('aria-label', `${route.name} · ${route.label}`);
+  const title = document.createElement('strong');
+  title.textContent = route.name;
+  const style = document.createElement('span');
+  style.textContent = route.label;
+  item.append(title, style);
+  item.onclick = () => { click(); openingCandidate = id; previewOpening(); };
+  return item;
+});
+element('opening-choices').replaceChildren(...openingChoices);
+
+function previewOpening() {
+  const name = openings[openingCandidate].name;
+  openingChoices.forEach((item, index) => item.setAttribute('aria-pressed', String(openingIds[index] === openingCandidate)));
+  const first = openingDialog.dataset.first === 'true';
+  button('opening-close').textContent = first ? `用${name}开局` : '回到当前局';
+  button('opening-play').textContent = replacingOpening ? `用${name}重开` : `用${name}开局`;
+  renderOpeningPreview(element('opening-preview'), createOpeningRun(openingCandidate, selectedOpeningSeed()), catalog,
+    records[openingCandidate], (owner, id) => iconPath(owner, runeVectors[id] ?? emptyIcon), formatNumber, click);
 }
 
 function openOpenings(first = false) {
-  button('opening-daily').hidden = !first;
-  resetOpeningChoice();
-  const replacing = run.status === 'active' && !first;
-  element('opening-note').textContent = replacing
-    ? '换开局会另开一局。现在这局的最高纪录会保留。'
-    : first && (invalidChallenge || invalidBoard) ? '这条游戏邀请无法读取。可以先选一套阵开始主线。' : '四套阵都能直接打第一波，后面怎么摆由你。';
-  button('opening-close').textContent = first ? '用借火开局' : '回到当前局';
+  openingCandidate = first ? 'chain' : run.opening;
+  replacingOpening = run.status === 'active' && !first;
   openingDialog.dataset.first = String(first);
-
-  const seedInput = element<HTMLInputElement>('opening-seed');
-  if (seedInput && !seedInput.value) {
-    seedInput.value = generateSeedCode().code;
-  }
-  const randomSeedBtn = button('random-seed');
-  if (randomSeedBtn) {
-    randomSeedBtn.onclick = () => {
-      click();
-      seedInput.value = generateSeedCode().code;
-    };
-  }
-
-  element('opening-choices').replaceChildren(...openingIds.map(id => {
-    const route = openings[id];
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.className = `opening-option opening-${id}`;
-    const title = document.createElement('strong');
-    title.textContent = `${route.name} · ${route.label}`;
-    const pieces = document.createElement('span');
-    pieces.textContent = `${route.pieces.map(([, configId]) => catalog[configId].name).join('、')} / ${route.gold} 金`;
-    const record = records[id];
-    const note = document.createElement('span');
-    note.textContent = route.note;
-    item.append(title, pieces, note);
-    if (record) {
-      const history = document.createElement('small');
-      history.textContent = `最多打过 ${record.cleared} 波 · 最高 ${record.combo} 连击`;
-      item.append(history);
-    }
-    item.onclick = () => {
-      click();
-      if (!replacing) { startOpening(id); return; }
-      openingCandidate = id;
-      element('opening-warning').textContent = `要用「${route.name}」重开吗？现在这局的阵容、金币和遗物不会带过去。`;
-      element('opening-choices').hidden = true;
-      element('opening-close').hidden = true;
-      element('opening-confirm').hidden = false;
-      button('opening-back').focus();
-    };
-    return item;
-  }));
+  element('opening-confirm').hidden = true;
+  element('opening-setup').hidden = false;
+  button('opening-close').classList.toggle('primary', first);
+  button('opening-play').hidden = first;
+  button('opening-daily').hidden = !first;
+  element('opening-note').textContent = first && (invalidChallenge || invalidBoard)
+    ? '邀请链接无法读取，可以从这里开一局。' : '点亮着的符文，看看它第一波怎么打。';
+  if (!openingSeed.value) openingSeed.value = initialSeed;
+  element<HTMLDetailsElement>('opening-seed-options').open = false;
+  previewOpening();
   openingDialog.showModal();
 }
 
@@ -786,16 +771,32 @@ button('openings').onclick = () => {
   if (challenge) challengeRoom(challenge, run);
   else openOpenings();
 };
-button('opening-start').onclick = () => { if (openingCandidate) { click(); startOpening(openingCandidate); } };
-button('opening-back').onclick = () => { click(); resetOpeningChoice(); element('opening-choices').querySelector('button')?.focus(); };
+openingSeed.oninput = previewOpening;
+button('random-seed').onclick = () => { click(); openingSeed.value = generateSeedCode().code; previewOpening(); };
+button('opening-play').onclick = () => {
+  click();
+  if (!replacingOpening) { startOpening(openingCandidate); return; }
+  element('opening-warning').textContent = `要用「${openings[openingCandidate].name}」重开吗？这局的阵容、金币和遗物不会带过去，最高纪录会保留。`;
+  element('opening-setup').hidden = true;
+  element('opening-confirm').hidden = false;
+  button('opening-back').focus();
+};
+button('opening-start').onclick = () => { click(); startOpening(openingCandidate); };
+button('opening-back').onclick = () => {
+  click();
+  element('opening-confirm').hidden = true;
+  element('opening-setup').hidden = false;
+  button('opening-play').focus();
+};
 button('opening-close').onclick = () => {
-  if (openingDialog.dataset.first === 'true') startOpening('chain');
+  click();
+  if (openingDialog.dataset.first === 'true') startOpening(openingCandidate);
   else openingDialog.close();
 };
 openingDialog.addEventListener('cancel', event => {
   if (openingDialog.dataset.first !== 'true') return;
   event.preventDefault();
-  startOpening('chain');
+  button('opening-close').focus();
 });
 
 function showOutcome() {
@@ -962,7 +963,7 @@ button('support').onclick = async () => {
   }
 };
 button('help').onclick = () => {
-  click(); showPanel('怎么玩', '先把符文放置在棋盘上。符文从左上角开始，逐行触发；比如折射镜会再触发右边那一枚。\n\n点击已选中的符文，再点击目标格即可快速交换（支持手机单手操作），拖拽换位时悬浮符文自动向上偏移防遮挡。\n\n棋盘中生成了【离火位】（额外触发1次）、【玄冰位】（暴击率+45%）和【聚灵位】（相邻激活永久威力+2）。\n\n三枚同名同星的符文会自动升一级。开局两枚先别挪，直接打就能过第一波。',
+  click(); showPanel('怎么玩', '符文从左上角开始，逐行触发。折射镜会让右边的符文当场再触发一次。起手阵都已经摆好，可以直接打第一波。\n\n拖动符文可以换位，也可以先点符文，再点目标格。三枚同名同星的符文会自动升一星。\n\n离火位多触发一次。玄冰位增加 45% 暴击率。聚灵位上的符文在相邻符文激活时，永久威力 +2。',
     [{ label: '知道了', primary: true, act: () => dialog.close() }], true);
 };
 

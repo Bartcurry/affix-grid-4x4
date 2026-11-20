@@ -1255,6 +1255,7 @@ dialog::backdrop {
 
 .seed-input-row input {
   flex: 1;
+  min-width: 0;
   padding: 0.3rem 0.5rem;
   font-family: var(--mono-font);
   font-size: 0.82rem;
@@ -1264,41 +1265,50 @@ dialog::backdrop {
   border-radius: 4px;
 }
 
-.opening-choices {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
+#opening-dialog { width: min(27rem, calc(100% - 1.25rem)); }
+#opening-dialog .dialog-content { padding: clamp(.7rem, 4vw, 1.1rem); }
+.opening-setup { display: grid; gap: .58rem; }
+.opening-choices { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .33rem; }
+.opening-option, .opening-preview { --route-ink: #83d8fc; }
+.opening-poison, .opening-preview[data-opening=poison] { --route-ink: #7cdeae; }
+.opening-gold, .opening-preview[data-opening=gold] { --route-ink: #f3c473; }
+.opening-amplify, .opening-preview[data-opening=amplify] { --route-ink: #f1a9bf; }
+.opening-option { display: grid; gap: .1rem; place-items: center; border-color: #414b5a; padding: .43rem .18rem; }
+.opening-option strong { color: var(--route-ink); font: 750 .95rem var(--display-font); }
+.opening-option span { color: #c0c9d5; font-size: .69rem; }
+.opening-option[aria-pressed=true], .opening-option[aria-pressed=true]:hover {
+  border-color: var(--route-ink);
+  background: color-mix(in srgb, var(--route-ink) 12%, var(--bg-recessed));
+  box-shadow: inset 0 -2px var(--route-ink);
 }
-
-.opening-option {
-  --route-ink: #38bdf8;
-  display: flex;
-  flex-direction: column;
-  text-align: left;
-  gap: 0.18rem;
-  border-left: 3px solid var(--route-ink);
-  padding: 0.5rem 0.65rem;
-  background: var(--bg-card);
-}
-
-.opening-poison { --route-ink: var(--color-poison); }
-.opening-gold { --route-ink: var(--color-gold); }
-.opening-amplify { --route-ink: var(--color-amplify); }
-
-.opening-option strong {
-  color: var(--route-ink);
-  font-size: 0.88rem;
-}
-
-.opening-option span {
-  font-size: 0.76rem;
-  color: #cbd5e1;
-}
-
-.opening-option small {
-  color: var(--gold-bright);
-  font-size: 0.7rem;
-}
+.opening-preview { padding: .64rem; border: 1px solid #445365; background: #10141c; }
+.opening-preview-main { display: grid; grid-template-columns: minmax(0, 1.36fr) minmax(0, 1fr); gap: .64rem; align-items: center; }
+.opening-board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .17rem; padding: .22rem; border: 1px solid #4b596a; background: #161e2a; }
+.opening-board > * { min-width: 0; aspect-ratio: 1; border: 1px solid #293545; background: #121925; }
+.opening-board button { display: grid; place-items: center; padding: 0; background: #202d3b; color: var(--opening-glyph); border-color: #5f7388; }
+.opening-board button svg { width: min(80%, 1.72rem); height: min(80%, 1.72rem); }
+.opening-board button[aria-pressed=true], .opening-board button[data-opening-link] { color: var(--opening-glyph); border-color: var(--route-ink); background: #2b3c4c; }
+.opening-board button[aria-pressed=true] { outline: 1px solid var(--route-ink); outline-offset: -3px; }
+.opening-preview-stats { display: grid; align-self: stretch; grid-template-rows: repeat(3, 1fr); }
+.opening-preview-stats div { display: grid; align-content: center; gap: .12rem; padding-block: .22rem; border-bottom: 1px solid #303a48; }
+.opening-preview-stats div:last-child { border-bottom: 0; }
+.opening-preview-stats dt { color: #b8c5d4; font-size: .69rem; }
+.opening-preview-stats dd { color: #f2e4c8; font: 750 clamp(.86rem, 4.6vw, 1.12rem) / 1.12 var(--mono-font); }
+.opening-preview-stats dd[data-win=true] { color: #bfe5a8; }
+.opening-rune { min-height: 2.8em; margin-top: .52rem; font-size: .79rem; line-height: 1.4; color: #ced6e2; }
+.opening-rune strong { color: var(--route-ink); }
+.opening-supply { margin-top: .42rem; border-top: 1px solid #333e4b; padding-top: .42rem; display: flex; align-items: baseline; flex-wrap: wrap; gap: .23rem .42rem; color: #aebdcd; font-size: .73rem; }
+.opening-supply strong { color: var(--route-ink); }
+.opening-supply small { color: #cbbda8; font-size: .70rem; }
+.opening-setup > button { min-height: 2.55rem; }
+.opening-setup > button.primary { background: #f2c683; border-color: #fbd8a6; color: #24180f; font-weight: 750; }
+.opening-setup > button.primary:not(:disabled):hover { background: #ffdb9d; color: #24180f; }
+.opening-extra { display: flex; align-items: start; flex-wrap: wrap; gap: .25rem .5rem; color: #bdc9d8; font-size: .76rem; }
+.opening-extra button, .opening-extra summary { min-height: 2rem; }
+#opening-daily { background: none; border-color: #414b5a; }
+.opening-extra details { flex: 1; }
+.opening-extra details[open] { flex-basis: 100%; }
+.opening-extra summary { cursor: pointer; padding: .36rem .25rem; }
 
 .forecast-sources {
   list-style: none;
@@ -1324,12 +1334,6 @@ dialog::backdrop {
 .forecast-sources strong {
   font-family: var(--mono-font);
   color: var(--gold-bright);
-}
-
-.btn-subtle-close {
-  background: transparent;
-  color: var(--text-sub);
-  border: 0;
 }
 
 /* ─── 宽屏桌面端适配 (Dual Column Deck) ─── */

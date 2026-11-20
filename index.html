@@ -345,23 +345,42 @@
       <!-- 弹窗：挑选开局法阵 -->
       <dialog id="opening-dialog" aria-labelledby="opening-title">
         <div class="dialog-content">
-          <h2 id="opening-title">选择开局法阵</h2>
+          <h2 id="opening-title">选一套起手阵</h2>
           <p id="opening-note" class="dialog-desc"></p>
-          <div class="seed-input-row">
-            <label for="opening-seed">种子码：</label>
-            <input type="text" id="opening-seed" placeholder="可选，如 A7K9-M2P4" maxlength="12" spellcheck="false" autocomplete="off" />
-            <button type="button" id="random-seed">随机</button>
+          <div id="opening-setup" class="opening-setup">
+            <div id="opening-choices" class="opening-choices" role="group" aria-label="起手流派"></div>
+            <section class="opening-preview" id="opening-preview" aria-label="首波预览">
+              <div class="opening-preview-main">
+                <div id="opening-board" class="opening-board" role="group" aria-label="起手阵，点符文看首波表现"></div>
+                <dl class="opening-preview-stats">
+                  <div><dt>首波伤害 / 敌人生命</dt><dd id="opening-damage"></dd></div>
+                  <div><dt>首波连击</dt><dd id="opening-combo"></dd></div>
+                  <div><dt>起手金币</dt><dd id="opening-gold"></dd></div>
+                </dl>
+              </div>
+              <p id="opening-rune" class="opening-rune" aria-live="polite"></p>
+              <p class="opening-supply"><span>第 2 波补货</span><strong id="opening-supply"></strong><small id="opening-record" hidden></small></p>
+            </section>
+            <button id="opening-play" class="primary" type="button" hidden>重开这套阵</button>
+            <button id="opening-close" type="button">回到当前局</button>
+            <div class="opening-extra">
+              <button id="opening-daily" type="button" hidden>先试一盘每日残局</button>
+              <details id="opening-seed-options">
+                <summary>种子码</summary>
+                <div class="seed-input-row">
+                  <input type="text" id="opening-seed" aria-label="开局种子码" placeholder="如 A7K9-M2P4" maxlength="12" spellcheck="false" autocomplete="off" />
+                  <button type="button" id="random-seed">随机</button>
+                </div>
+              </details>
+            </div>
           </div>
-          <div id="opening-choices" class="opening-choices"></div>
           <div id="opening-confirm" class="opening-confirm" hidden>
             <p id="opening-warning" role="status"></p>
             <div class="dialog-actions">
               <button id="opening-start" class="primary" type="button">开始新局</button>
-              <button id="opening-back" type="button">再挑挑</button>
+              <button id="opening-back" type="button">返回挑选</button>
             </div>
           </div>
-          <button id="opening-daily" type="button" class="btn-subtle-close" hidden>先试一盘每日残局</button>
-          <button id="opening-close" type="button" class="btn-subtle-close">回到当前局</button>
         </div>
       </dialog>
 
