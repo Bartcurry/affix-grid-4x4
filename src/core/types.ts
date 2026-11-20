@@ -6,6 +6,7 @@ export type RelicId =
   | 'jade_abacus' | 'taixu_needle' | 'li_fire_token' | 'huagong_powder' | 'bagua_mirror'
   | 'spirit_gourd' | 'tianji_compass' | 'xuanbing_silk' | 'qiankun_pouch';
 export type OpeningId = 'chain' | 'poison' | 'gold' | 'amplify';
+export type PlaybackSpeed = 0 | 1 | 2;
 export type BountyRoute = 'standard' | 'alternate';
 export type Scope = 'SELF' | 'RIGHT' | 'LEFT' | 'DOWN' | 'ADJACENT_4' | 'SAME_ROW' | 'SAME_COL' | 'ROW_COL' | 'ALL';
 export type Timing = 'ON_ACTIVATE' | 'ON_NEIGHBOR_ACTIVATE' | 'ON_ROW_COL_ACTIVATE' | 'ON_ANY_CRIT' | 'ON_ROW_CRIT' | 'ON_TURN_END';

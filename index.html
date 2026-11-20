@@ -159,6 +159,12 @@
           </div>
         </section>
 
+        <section id="battle-timeline" class="forecast-strip battle-timeline" aria-label="战斗进度" hidden>
+          <strong id="battle-moment">开始扫描</strong>
+          <progress id="battle-progress" aria-label="符文触发进度" max="1" value="0"></progress>
+          <span id="battle-steps"></span>
+        </section>
+
         <!-- 符文铺（3张实体小牌横排展示） -->
         <section class="market panel" id="market" tabindex="-1" aria-label="符文商店">
           <div class="market-bar">
@@ -196,7 +202,7 @@
           <button type="button" id="undo" class="ctrl-btn" aria-label="撤销上一步 (Ctrl+Z)" disabled>撤销</button>
           <button type="button" id="battle" class="primary battle-btn">启动法阵</button>
           <button type="button" id="speed" class="ctrl-btn" aria-label="切换播放速度">1×</button>
-          <button type="button" id="skip" class="ctrl-btn" hidden disabled>跳过</button>
+          <button type="button" id="skip" class="ctrl-btn" aria-label="跳过演出，结算本波" hidden disabled>跳过</button>
           <button type="button" id="market-jump" hidden>商店</button>
         </footer>
       </div>

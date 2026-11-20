@@ -30,7 +30,7 @@ import { bindBountyRoom } from './render/bountyRoom';
 import { bindEndlessCampRoom } from './render/endlessCampRoom';
 import { bindRelicRoom } from './render/relicRoom';
 import { renderOpeningPreview } from './render/openingPreview';
-import { PlaybackController } from './render/playbackController';
+import { PlaybackController, type PlaybackBeat } from './render/playbackController';
 import { SynthAudio } from './audio/synthAudio';
 import { WebMockAdapter } from './platform/webMockAdapter';
 import { runePlacement } from './data/tacticalTips';
@@ -54,6 +54,7 @@ const game = element('game');
 const dialog = element<HTMLDialogElement>('panel');
 const audio = new SynthAudio();
 const player = new PlaybackController();
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const params = new URLSearchParams(location.search);
 const invite = params.get(challengeParam);
 const boardRequest = params.get(boardShareParam);
@@ -95,6 +96,7 @@ let ghostTimer: ReturnType<typeof setTimeout>;
 let dialogDismissible = false;
 let bossArmorHits = 0;
 let firstClearPayout: number | undefined;
+let lastBattleAt = -Infinity;
 const states = new Map<number, RuneState>();
 const renderer = new CanvasRenderer(element('arena'), run, catalog);
 const undoStack = new UndoStack();
@@ -233,7 +235,8 @@ function showArenaHint() {
     const rune = runeAt(run, renderer.selection);
     hint.textContent = rune ? catalog[rune.configId].name : '点符文看作用，点击目标格交换';
   } else {
-    hint.textContent = phase === 'PLAYBACK' ? '按顺序触发符文' : challenge
+    const scanning = renderer.currentScanSlot && runeAt(run, renderer.currentScanSlot);
+    hint.textContent = phase === 'PLAYBACK' ? (scanning ? catalog[scanning.configId].name : '按顺序触发符文') : challenge
       ? `同局 · 已过 ${formatNumber(runScore(run).cleared)} / ${formatNumber(challenge.cleared)} 波`
       : '点符文看作用，点击目标格交换';
   }
@@ -309,9 +312,8 @@ function updateHud() {
     poisonText.textContent = formatNumber(poison);
   }
 
-  element('phase').textContent = phase === 'PLAYBACK' ? `连锁中 · ${displayed.combo} 连击` : run.pendingRelics.length ? '挑选遗物' : run.pendingLoss ? '待结算护盾' :
+  element('phase').textContent = phase === 'PLAYBACK' ? '连锁中' : run.pendingRelics.length ? '挑选遗物' : run.pendingLoss ? '待结算护盾' :
     run.pendingCamp ? '营地补给' : run.status !== 'active' ? '战斗结束' : '布阵';
-  updateSynergiesUi();
 }
 
 function spawnGoldParticles(sourceEl: HTMLElement) {
@@ -487,10 +489,12 @@ function syncControls() {
   button('ambient').textContent = audio.ambientMuted ? '雅乐·静' : '雅乐';
   button('ambient').disabled = phase === 'PLAYBACK';
   button('codex').disabled = phase === 'PLAYBACK';
-  button('speed').textContent = `${player.speed}×`;
-  button('speed').setAttribute('aria-label', `播放速度 ${player.speed} 倍，点击切换`);
+  button('speed').textContent = player.speed === 0 ? '即结' : `${player.speed}×`;
+  button('speed').setAttribute('aria-label', player.speed === 0 ? '立即结算，点击切回一倍速' : `播放速度 ${player.speed} 倍，点击切换`);
+  button('undo').hidden = phase === 'PLAYBACK';
   button('skip').disabled = phase !== 'PLAYBACK';
   button('skip').hidden = phase !== 'PLAYBACK';
+  element('battle-timeline').hidden = phase !== 'PLAYBACK' || player.speed === 0 || reducedMotion.matches;
   button('market-jump').hidden = phase === 'PLAYBACK';
   button('undo').disabled = !arranging() || undoStack.length === 0;
   button('battle').disabled = !arranging();
@@ -629,7 +633,7 @@ button('first-clear-close').onclick = () => {
 function redraw(save = true) {
   if (arranging()) forecast = planTurn(run, catalog);
   placement = null;
-  updateHud(); markWaves(); syncControls(); showForecast(); inspect();
+  updateHud(); updateSynergiesUi(); markWaves(); syncControls(); showForecast(); inspect();
   const { encounter, bounty } = currentTarget();
   const enemy = encounters[encounter];
   element('enemy-name').textContent = enemy.name;
@@ -929,6 +933,7 @@ function startOpening(id: OpeningId, customSeed?: string, quick = false, archive
   if (!challenge && archived && !archived.endlessRule) delete run.endlessRule;
   trackedUpgrade = undefined;
   firstClearPayout = undefined;
+  lastBattleAt = -Infinity;
   undoStack.clear();
   renderer.setRun(run);
   renderer.cursor = null;
@@ -1097,48 +1102,94 @@ function showOutcome(archive = true) {
   }
 }
 
-function consume(event: BattleEvent) {
-  renderer.play(event);
-  switch (event.type) {
-    case 'CELL_ACTIVATE':
-      displayed.combo = event.combo;
-      audio.combo(event.combo);
-      renderer.setCombo(event.combo);
-      break;
-    case 'DAMAGE':
-      displayed.hp = event.hp;
-      if (event.crit) audio.crit();
-      if (isArmorHit(event) && bossArmorHits < armorHitsFor(currentTarget().encounter)) {
-        bossArmorHits++;
-        updateBossArmorUi(bossArmorHits, true);
-        renderer.spawnBronzeShatter({ x: 190, y: 55 });
-      }
-      if (event.crit || event.amount >= currentTarget().hp * 0.15) {
-        const emblem = document.getElementById('boss-emblem-wrap');
-        if (emblem) {
-          emblem.classList.remove('boss-hit');
-          void emblem.offsetWidth;
-          emblem.classList.add('boss-hit');
-        }
-      }
-      break;
-    case 'POISON': displayed.poison = event.poison; break;
-    case 'GOLD': displayed.gold = event.gold; break;
-    case 'RUNE_STATE': states.set(event.index, event.state); if (renderer.selection?.zone === 'board' && renderer.selection.index === event.index) inspect(); break;
+function consume(beat: PlaybackBeat, total: number) {
+  let activation: Extract<BattleEvent, { type: 'CELL_ACTIVATE' }> | undefined;
+  let link: Extract<BattleEvent, { type: 'CHAIN_LINK' }> | undefined;
+  let pendingLink: typeof link;
+  let tutorialLink: typeof link;
+  let hit: Extract<BattleEvent, { type: 'DAMAGE' }> | undefined;
+  let gold: Extract<BattleEvent, { type: 'GOLD' }> | undefined;
+  let refreshInspect = false;
+  const armor = armorHitsFor(currentTarget().encounter);
+  const oldArmorHits = bossArmorHits;
+  for (const event of beat.events) {
+    switch (event.type) {
+      case 'CELL_ACTIVATE':
+        activation = event;
+        displayed.combo = event.combo;
+        link = pendingLink?.to === event.index ? pendingLink : undefined;
+        pendingLink = undefined;
+        break;
+      case 'CHAIN_LINK':
+        if (event.tutorial) tutorialLink = event;
+        else pendingLink = event;
+        break;
+      case 'DAMAGE':
+        displayed.hp = event.hp;
+        if (!hit || hit.amount < event.amount) hit = event;
+        if (isArmorHit(event) && bossArmorHits < armor) bossArmorHits++;
+        break;
+      case 'POISON': displayed.poison = event.poison; break;
+      case 'GOLD': gold = event; displayed.gold = event.gold; break;
+      case 'RUNE_STATE':
+        states.set(event.index, event.state);
+        renderer.play(event);
+        if (renderer.selection?.zone === 'board' && renderer.selection.index === event.index) refreshInspect = true;
+        break;
+    }
   }
+  if (activation) {
+    renderer.play(activation);
+    if (!beat.featured) audio.combo(activation.combo);
+    element('board-count').textContent = `扫到第 ${activation.index + 1} 格`;
+  }
+  const visibleLink = tutorialLink ?? link;
+  if (visibleLink) renderer.play(visibleLink);
+  if (gold) renderer.play(gold);
+  const impact = beat.featured ?? hit;
+  if (impact) {
+    renderer.play(impact);
+    if (impact.crit && !beat.featured) audio.crit();
+  }
+  if (bossArmorHits !== oldArmorHits) {
+    updateBossArmorUi(bossArmorHits, true);
+    renderer.spawnBronzeShatter({ x: 190, y: 55 });
+  }
+  const moment = element('battle-moment');
+  moment.dataset.featured = String(!!beat.featured);
+  if (beat.featured) {
+    moment.textContent = `${beat.finishing ? '击破' : '重击'} · ${formatNumber(beat.featured.amount)}`;
+    const emblem = element('boss-emblem-wrap');
+    emblem.classList.remove('boss-hit');
+    void emblem.offsetWidth;
+    emblem.classList.add('boss-hit');
+    renderer.pulseBorder();
+    audio.hitStopChord();
+  } else if (activation) {
+    moment.textContent = activation.isChain ? '连锁触发' : '扫描法阵';
+  }
+  element<HTMLProgressElement>('battle-progress').value = displayed.combo;
+  element('battle-steps').textContent = `${displayed.combo} / ${total} 次触发`;
+  if (refreshInspect) inspect();
+  else if (activation) showArenaHint();
   updateHud();
 }
 
 async function startBattle(quick = false) {
-  if (!arranging()) return;
+  if (!arranging() || (!quick && performance.now() - lastBattleAt < 300)) return;
+  lastBattleAt = performance.now();
   if (run.wave !== 1) firstClearPayout = undefined;
+  clearTimeout(noticeTimer);
+  element('notice').textContent = '';
   undoStack.clear();
   click(); resetTimeline(); phase = 'PLAYBACK'; redraw(false);
   const formation = encodeBoardToken(run);
   const { hp: maxHp, encounter } = currentTarget();
   const battlePrng = createMulberry32(run.rngState);
+  // Keep the saved formation intact while playback preferences can still be changed.
+  const simulatedBoard = run.board.map(rune => rune ? { ...rune } : null);
   const events = simulateBattle({
-    board: run.board,
+    board: simulatedBoard,
     bench: run.bench,
     hp: maxHp,
     gold: run.gold,
@@ -1152,24 +1203,26 @@ async function startBattle(quick = false) {
     shield: run.shield,
     enableSynergies: run.enableSynergies ?? true,
   }, catalog, battlePrng);
-  run.rngState = battlePrng.getState();
-
   const cellDamage = Array(16).fill(0);
   for (const ev of events) {
     if (ev.type === 'DAMAGE' && ev.source !== null && ev.source >= 0 && ev.source < 16) {
       cellDamage[ev.source] += ev.amount;
     }
   }
-  run.lastCellDamage = cellDamage;
-
-  const result = await player.play(events, consume, {
-    maxHp,
-    onHitStop: () => {
-      renderer.pulseBorder();
-      audio.hitStopChord();
-    },
-  });
+  const final = events.at(-1);
+  const total = final?.type === 'TURN_RESULT' ? final.combo : 0;
+  const progress = element<HTMLProgressElement>('battle-progress');
+  progress.max = Math.max(1, total);
+  progress.value = 0;
+  element('battle-moment').textContent = '开始扫描';
+  element('battle-moment').dataset.featured = 'false';
+  element('battle-steps').textContent = `0 / ${total} 次触发`;
+  const result = await player.play(events, beat => consume(beat, total), reducedMotion.matches);
   phase = 'ARRANGE'; states.clear(); renderer.clearEffects(); audio.finish(result.win);
+  element('boss-emblem-wrap').classList.remove('boss-hit');
+  run.board = simulatedBoard;
+  run.rngState = battlePrng.getState();
+  run.lastCellDamage = cellDamage;
   run.lastJournal = formation ? { formation, maxHp, events } : undefined;
   const payout = victoryPayout(run, result.gold, catalog);
   const prng = createMulberry32(run.rngState);
@@ -1219,8 +1272,8 @@ element<HTMLSelectElement>('shop-focus').onchange = event => {
   }
 };
 
-button('speed').onclick = () => { click(); player.speed = player.speed === 1 ? 2 : 1; syncControls(); persist(); };
-button('skip').onclick = () => { click(); player.skip(); };
+button('speed').onclick = () => { click(); player.speed = player.speed === 1 ? 2 : player.speed === 2 ? 0 : 1; syncControls(); persist(); };
+button('skip').onclick = () => { if (player.skip()) click(); };
 button('market-jump').onclick = () => { click(); element('market').focus(); };
 button('inspect-jump').onclick = () => { click(); element('inspector').focus(); };
 button('board-jump').onclick = () => { click(); element('arena').focus(); };

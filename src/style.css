@@ -689,12 +689,45 @@ canvas {
   align-items: center;
   justify-content: space-between;
   gap: 0.35rem;
+  min-height: 2.15rem;
   padding: 0.16rem 0.45rem;
   background: var(--bg-panel);
   border: 1px solid var(--gold-dark);
   border-radius: 4px;
   font-size: 0.68rem;
 }
+
+.battle-timeline {
+  display: grid;
+  grid-template-columns: minmax(5.4rem, 1fr) minmax(1.5rem, .7fr) auto;
+  gap: .4rem;
+  color: #e7d1ab;
+  background: #211e22;
+  border-color: #99774e;
+}
+#battle-moment {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: .72rem;
+}
+#battle-moment[data-featured=true] { color: #ffd78d; }
+#battle-steps { color: #d8c3a2; white-space: nowrap; font-variant-numeric: tabular-nums; }
+#battle-progress {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: .28rem;
+  overflow: hidden;
+  appearance: none;
+  border: 0;
+  border-radius: 1rem;
+  background: #353031;
+  accent-color: #dfab6b;
+}
+#battle-progress::-webkit-progress-bar { background: #353031; }
+#battle-progress::-webkit-progress-value { background: #dfab6b; }
+#battle-progress::-moz-progress-bar { background: #dfab6b; }
 
 .forecast-main {
   display: flex;
@@ -1122,10 +1155,15 @@ canvas {
 
 /* 主控操作栏 */
 .deck-controls {
-  display: flex;
+  display: grid;
+  grid-template-columns: 2.8rem minmax(0, 1fr) 2.8rem;
+  grid-template-areas: "undo battle speed";
   gap: 0.25rem;
   align-items: stretch;
 }
+#undo, #skip { grid-area: undo; }
+#battle { grid-area: battle; }
+#speed { grid-area: speed; }
 
 .ctrl-btn {
   width: 2.8rem;
@@ -1138,7 +1176,6 @@ canvas {
 
 /* 鎏金朱砂立体主按钮 */
 .primary.battle-btn {
-  flex: 1;
   min-width: 0;
   min-height: 2.2rem;
   background: linear-gradient(135deg, #b91c1c 0%, #991b1b 50%, #7f1d1d 100%);
@@ -2065,7 +2102,7 @@ dialog::backdrop {
 
 @media (prefers-reduced-motion: reduce) {
   .hp-fill, .hp-ghost, #forecast-fill { transition: none !important; }
-  .primary.battle-btn::after { animation: none !important; }
+  .primary.battle-btn::after, .stamp-slam { animation: none !important; }
 }
 
 /* ─── 流派共鸣羁绊徽条 (Synergy Resonance Strip) ─── */

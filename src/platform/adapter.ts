@@ -1,4 +1,4 @@
-import type { OpeningId, Run } from '../core/types';
+import type { OpeningId, PlaybackSpeed, Run } from '../core/types';
 import type { RunRecords } from '../core/openings';
 
 export interface RunArchive {
@@ -23,7 +23,7 @@ export interface SaveData {
   run: Run;
   muted: boolean;
   skin: boolean;
-  speed: 1 | 2;
+  speed: PlaybackSpeed;
   exactForecast?: boolean;
   trackedUpgrade?: string;
   records: RunRecords;
