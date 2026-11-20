@@ -9,7 +9,7 @@ export function usesTutorial(run: Pick<Run, 'wave' | 'board' | 'opening'>) {
   return run.opening === 'chain' && run.wave === 1 && run.board[0]?.configId === 'spark_orb' && run.board[1]?.configId === 'prism_right';
 }
 
-export function planTurn(run: Pick<Run, 'wave' | 'attempts' | 'board' | 'gold' | 'relics' | 'opening' | 'tileModifiers' | 'shield' | 'rngState'> & { bench?: Run['bench']; enableSynergies?: boolean }, catalog: Catalog) {
+export function planTurn(run: Pick<Run, 'wave' | 'board' | 'gold' | 'relics' | 'opening' | 'tileModifiers' | 'shield' | 'rngState'> & { bench?: Run['bench']; enableSynergies?: boolean }, catalog: Catalog) {
   const hp = bossHealth(run.wave);
   const deepBoard = run.board.map(r => r ? { ...r } : null);
   const encounter = encounterAt(run.wave);

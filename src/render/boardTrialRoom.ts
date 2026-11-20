@@ -1,0 +1,194 @@
+import { boardShareUrl, type SharedBoard } from '../core/boardShare';
+import { encounterAt, encounters, relics } from '../core/expedition';
+import { planTurn, runeFootprint } from '../core/tactics';
+import type { Catalog, Rune, Slot } from '../core/types';
+
+const tileNames = { li_fire: '离火', xuan_ice: '玄冰', spirit_gathering: '聚灵' } as const;
+type Move = [Slot, Slot];
+interface ApplyFormation {
+  matches(board: SharedBoard): boolean;
+  apply(board: SharedBoard): boolean;
+}
+
+export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: string) => void, format: (value: number) => string, click: () => void) {
+  const dialog = document.querySelector<HTMLDialogElement>('#trial-board-dialog')!;
+  const get = <T extends HTMLElement = HTMLElement>(id: string) => dialog.querySelector<T>(`#trial-board-${id}`)!;
+  const undo = get<HTMLButtonElement>('undo');
+  const reset = get<HTMLButtonElement>('reset');
+  const copy = get<HTMLButtonElement>('copy');
+  const apply = get<HTMLButtonElement>('apply');
+  const link = get<HTMLInputElement>('link');
+  const outcome = get('result');
+  const shareStatus = get('share-status');
+  let active: SharedBoard;
+  let original: ReturnType<typeof planTurn>;
+  let originalPieces: Map<Rune, number>;
+  let selected: Slot | undefined;
+  let moves: Move[];
+  let tried = false;
+  let availableApply: ApplyFormation | undefined;
+  const delta = (value: number) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${format(Math.abs(value))}`;
+
+  function updateControls() {
+    undo.disabled = reset.disabled = !moves.length;
+    copy.disabled = !moves.length || !tried;
+    apply.hidden = !availableApply?.matches(active);
+  }
+
+  function clearAttempt() {
+    tried = false;
+    get('current').textContent = '待试打';
+    get('delta').textContent = '';
+    delete get('delta').dataset.direction;
+    outcome.textContent = '换位后点试打。';
+    delete outcome.dataset.win;
+    shareStatus.textContent = '换位和试打都只在这里生效。';
+    link.hidden = true;
+    updateControls();
+  }
+
+  function exchange([from, to]: Move) {
+    [active[from.zone][from.index], active[to.zone][to.index]] = [active[to.zone][to.index], active[from.zone][from.index]];
+  }
+
+  function draw(focus?: Slot) {
+    const picked = selected && active[selected.zone][selected.index];
+    const config = picked ? catalog[picked.configId] : undefined;
+    const reach = config && selected?.zone === 'board' ? runeFootprint(config, selected.index) : undefined;
+    get('inspect').textContent = config && picked
+      ? `${config.name} · ${picked.star} 星${picked.bonusPower ? ` · 威力 +${format(picked.bonusPower)}` : ''}。 ${config.desc}`
+      : '先点一枚符文，再点棋盘或备战区的目标格。';
+    for (const zone of ['board', 'bench'] as const) {
+      const container = get(zone === 'board' ? 'grid' : 'bench');
+      container.replaceChildren(...active[zone].map((rune, index) => {
+        const slot: Slot = { zone, index };
+        const cell = document.createElement('button');
+        const type = rune ? catalog[rune.configId] : undefined;
+        const tile = zone === 'board' ? active.tileModifiers[index] : undefined;
+        const isPicked = selected?.zone === zone && selected.index === index;
+        cell.type = 'button';
+        cell.dataset.index = String(index);
+        cell.dataset.occupied = String(!!rune);
+        cell.setAttribute('aria-pressed', String(isPicked));
+        cell.setAttribute('aria-label', `${zone === 'board' ? '棋盘' : '备战区'}第 ${index + 1} 格，${type?.name ?? '空格'}${rune ? `，${rune.star} 星` : ''}${tile ? `，${tileNames[tile]}位` : ''}`);
+        if (zone === 'board') cell.dataset.reach = reach?.links.has(index) ? 'chain' : reach?.effects.has(index) ? 'effect' : '';
+        const number = document.createElement('small');
+        number.textContent = String(index + 1);
+        cell.append(number);
+        if (tile) {
+          const marker = document.createElement('i');
+          marker.textContent = tileNames[tile];
+          cell.append(marker);
+        }
+        if (type && rune) {
+          cell.style.setProperty('--rune-ink', type.color);
+          glyph(cell, type.id);
+          if (rune.star > 1) cell.dataset.star = String(rune.star);
+        }
+        cell.onclick = () => {
+          click();
+          if (isPicked) selected = undefined;
+          else if (!selected) { if (rune) selected = slot; }
+          else {
+            const move: Move = [selected, slot];
+            exchange(move);
+            moves.push(move);
+            selected = undefined;
+            clearAttempt();
+          }
+          draw(slot);
+        };
+        return cell;
+      }));
+      if (focus?.zone === zone) container.querySelector<HTMLButtonElement>(`[data-index="${focus.index}"]`)?.focus({ preventScroll: true });
+    }
+  }
+
+  function check() {
+    click();
+    const current = planTurn(active, catalog);
+    const difference = current.result.damage - original.result.damage;
+    const combo = current.result.combo - original.result.combo;
+    get('current').textContent = format(current.result.damage);
+    const change = get('delta');
+    change.textContent = `${difference ? `${delta(difference)} 伤害` : '伤害持平'} · ${format(current.result.combo)} 连击${combo ? `（${delta(combo)}）` : ''}`;
+    change.dataset.direction = difference > 0 ? 'up' : difference < 0 ? 'down' : '';
+    const sources = [...active.board, ...active.bench].flatMap((rune, index) => {
+      if (!rune) return [];
+      const amount = (current.byCell[index]?.damage ?? 0) - (originalPieces.get(rune) ?? 0);
+      return amount ? [{ name: catalog[rune.configId].name, amount }] : [];
+    });
+    const poison = current.poisonDamage - original.poisonDamage;
+    if (poison) sources.push({ name: '回合末剧毒', amount: poison });
+    const largest = sources.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))[0];
+    const verdict = current.result.win ? '过了。' : `还差 ${format(current.result.hp)} 伤害。`;
+    outcome.textContent = `${verdict}${largest ? ` ${largest.name} ${delta(largest.amount)} 伤害。` : ''}`;
+    outcome.dataset.win = String(current.result.win);
+    tried = true;
+    updateControls();
+  }
+
+  get('close').onclick = () => dialog.close();
+  get('check').onclick = check;
+  apply.onclick = () => {
+    click();
+    if (availableApply?.apply(active)) dialog.close();
+    else {
+      apply.hidden = true;
+      shareStatus.textContent = '当前局已变化。改阵链接还可以复制。';
+    }
+  };
+  undo.onclick = () => {
+    const move = moves.pop();
+    if (!move) return;
+    click(); exchange(move); selected = undefined; clearAttempt(); draw();
+  };
+  reset.onclick = () => {
+    click();
+    for (const move of moves.reverse()) exchange(move);
+    moves = [];
+    selected = undefined;
+    clearAttempt();
+    draw();
+  };
+  copy.onclick = async () => {
+    click();
+    const url = boardShareUrl(location.href, active);
+    if (!url) return;
+    link.value = url;
+    try {
+      await navigator.clipboard.writeText(url);
+      if (dialog.open && tried) shareStatus.textContent = '改阵链接已复制。';
+    } catch {
+      if (!dialog.open || !tried) return;
+      link.hidden = false;
+      link.focus();
+      link.select();
+      shareStatus.textContent = '长按链接可手动复制。';
+    }
+  };
+
+  return {
+    dialog,
+    open(snapshot: SharedBoard, applyToRun?: ApplyFormation) {
+      if (dialog.open) return;
+      active = { ...snapshot, board: [...snapshot.board], bench: [...snapshot.bench] };
+      availableApply = applyToRun;
+      original = planTurn(active, catalog);
+      originalPieces = new Map(active.board.flatMap((rune, index) => rune ? [[rune, original.byCell[index].damage] as const] : []));
+      moves = [];
+      selected = undefined;
+      const enemy = encounters[encounterAt(active.wave)];
+      get('wave').textContent = `第 ${active.wave} 波 · ${enemy.name} · ${format(original.hp)} 生命`;
+      get('original').textContent = format(original.result.damage);
+      get('original-combo').textContent = `${format(original.result.combo)} 连击`;
+      get('resources').textContent = `${format(active.gold)} 金 · ${active.shield} 护盾 · ${active.relics.length} 件遗物`;
+      get('relics').textContent = [enemy.hint, ...active.relics.map(id => relics[id].name)].join(' · ');
+      get<HTMLDetailsElement>('conditions').open = false;
+      clearAttempt();
+      draw();
+      dialog.showModal();
+      dialog.scrollTop = 0;
+    },
+  };
+}

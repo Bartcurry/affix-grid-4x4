@@ -11,22 +11,45 @@ export function bindShareRoom() {
   const copy = get<HTMLButtonElement>('copy');
   get('close').onclick = () => dialog.close();
 
-  return (run: Run, reply = false) => {
+  return (run: Run, reply = false, boardUrl?: string) => {
     if (dialog.open || run.enableSynergies === false) return;
     const score = challengeFromRun(run);
     const opening = openings[score.opening];
-    const url = challengeUrl(location.href, score);
-    get('title').textContent = reply ? '发回同局战绩' : '邀请朋友打同局';
-    get('score').textContent = `${opening.name} · 已过 ${score.cleared} 波 · 最高 ${score.combo} 连击`;
-    status.hidden = true;
-    link.value = url;
+    const campaignUrl = challengeUrl(location.href, score);
+    const match = get<HTMLButtonElement>('run');
+    const board = get<HTMLButtonElement>('board');
+    let shareBoard = false;
+    let url = campaignUrl;
+    let title: string;
+    let caption: string;
+    get('modes').hidden = !boardUrl;
+    function update() {
+      match.setAttribute('aria-pressed', String(!shareBoard));
+      board.setAttribute('aria-pressed', String(shareBoard));
+      url = shareBoard && boardUrl ? boardUrl : campaignUrl;
+      title = shareBoard ? '4×4 词条法阵 · 试打这一波' : '4×4 词条法阵 · 同局挑战';
+      caption = shareBoard ? `帮我试试第 ${run.wave} 波` : `${opening.name} · 已过 ${score.cleared} 波`;
+      get('title').textContent = shareBoard ? '分享这一波' : reply ? '发回同局战绩' : '邀请朋友打同局';
+      get('score').textContent = shareBoard ? `第 ${run.wave} 波 · 当前棋盘与备战区`
+        : `${caption} · 最高 ${score.combo} 连击`;
+      get('description').textContent = shareBoard ? '朋友接手同一波，可以换位、试打，再把改好的阵发回来。'
+        : '朋友点开可用同种子、同开局开打。先比通关波数，波数相同再比连击。';
+      status.hidden = true;
+      link.value = url;
+    }
+    match.onclick = () => { shareBoard = false; update(); };
+    board.onclick = () => { if (boardUrl) { shareBoard = true; update(); } };
+    update();
     native.hidden = typeof navigator.share !== 'function';
     copy.onclick = async () => {
+      const address = url;
       status.hidden = false;
       try {
-        await navigator.clipboard.writeText(url);
+        await navigator.clipboard.writeText(address);
+        if (url !== address) return;
         status.textContent = '链接已复制。';
       } catch {
+        if (url !== address) return;
         link.focus();
         link.select();
         status.textContent = '复制未完成。长按链接可手动复制。';
@@ -34,7 +57,7 @@ export function bindShareRoom() {
     };
     native.onclick = async () => {
       try {
-        await navigator.share({ title: '4×4 词条法阵 · 同局挑战', text: `${opening.name} · 已过 ${score.cleared} 波`, url });
+        await navigator.share({ title, text: caption, url });
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return;
         status.hidden = false;

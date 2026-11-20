@@ -1204,6 +1204,41 @@ canvas {
 .challenge-actions .primary:hover { background: #f8cc89; }
 #share-link { width: 100%; min-width: 0; min-height: 2.4rem; border: 1px solid #6a5846; border-radius: 4px; padding: .45rem .55rem; color: #e9ddc9; background: #11161d; font: .75rem var(--mono-font); }
 #share-status { color: #d5efbc; }
+.share-modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem; }
+.share-modes button { min-height: 2.55rem; padding: .24rem .37rem; font-size: .78rem; }
+.share-modes [aria-pressed=true] { color: #f6d59e; border-color: #bd955d; background: #31281e; }
+.trial-board-dialog { width: min(30rem, calc(100% - 1.3rem)); max-height: 94dvh; }
+.trial-board-dialog .dialog-content { padding: clamp(.62rem, 3.4vw, 1rem); gap: .55rem; }
+.trial-board-stage { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); align-items: start; gap: .55rem; }
+.trial-tiles { display: grid; width: min(100%, 12rem); grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .16rem; }
+.trial-tiles button { position: relative; display: grid; place-items: center; min-width: 0; min-height: 0; aspect-ratio: 1; padding: 0; border: 1px solid #454955; background: #181e28; color: var(--rune-ink, #a9a7a1); }
+.trial-tiles button[data-occupied=true] { border-color: #65727a; background: #262e38; }
+.trial-tiles button[data-reach=chain] { border-color: #91d2c9; background: #203a3e; }
+.trial-tiles button[data-reach=effect] { border-color: #c3a0db; border-style: dashed; }
+.trial-tiles button[aria-pressed=true] { border-color: #f5cb85; background: #463426; }
+.trial-tiles svg { width: 61%; height: 61%; }
+.trial-tiles small, .trial-tiles i, .trial-tiles [data-star]::after { position: absolute; font: clamp(.46rem, 1.75vw, .63rem) var(--mono-font); }
+.trial-tiles small { inset: .08rem auto auto .12rem; color: #b2b7bf; }
+.trial-tiles i { inset: auto auto .05rem .09rem; color: #eac294; }
+.trial-tiles [data-star]::after { content: attr(data-star) "★"; inset: auto .08rem .05rem auto; color: #f3cf9a; }
+.trial-bench-label { margin: .35rem 0 .16rem; color: #c8b89e; font-size: .71rem; }
+.trial-scores { margin: 0; display: grid; gap: .38rem; }
+.trial-scores div { min-width: 0; padding: .43rem .48rem; background: #262725; border: 1px solid #635747; }
+.trial-scores div:last-child { background: #1f2b2a; border-color: #597165; }
+.trial-scores dt, .trial-scores small { color: #ccc6bb; font-size: .71rem; overflow-wrap: anywhere; }
+.trial-scores dd { margin: .15rem 0; color: #eed1a6; font: 700 clamp(.99rem, 4vw, 1.32rem) var(--mono-font); overflow-wrap: anywhere; }
+.trial-scores div:last-child dd, #trial-board-delta[data-direction=up], #trial-board-result[data-win=true] { color: #c8e5b1; }
+#trial-board-delta[data-direction=down], #trial-board-result[data-win=false] { color: #f0b490; }
+.trial-board-inspect, #trial-board-result { min-height: 1.25em; font-size: .76rem; line-height: 1.4; }
+.trial-conditions { padding: .4rem .49rem; border: 1px solid #5d5243; background: #1d2228; color: #ddd0c1; font-size: .72rem; }
+.trial-conditions p { margin-top: .22rem; color: #c3c7cc; }
+.trial-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(0, 1.25fr); gap: .32rem; }
+.trial-tools button, #trial-board-copy { min-height: 2.55rem; padding: .22rem .36rem; font-size: .76rem; }
+#trial-board-copy:enabled { color: #dceac9; border-color: #788d6d; background: #26352c; }
+.trial-tools .primary { color: #261b11; background: #edc07f; border-color: #f9d7a0; }
+.trial-tools .primary:hover { color: #261b11; background: #f6cc8d; }
+#trial-board-apply { min-height: 2.55rem; border-color: #8ca888; background: #29372e; color: #d6e7c5; font-size: .79rem; }
+#trial-board-link { width: 100%; min-width: 0; padding: .44rem; color: #e9e1d4; background: #141922; border: 1px solid #6b5d4b; font: .72rem var(--mono-font); }
 
 .report-stats {
   display: flex;

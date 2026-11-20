@@ -3,6 +3,7 @@ import { bossHealth, simulateBattle } from './core/battleEngine';
 import { affixAt, encounterAt, encounters, relics, upcomingEncounter } from './core/expedition';
 import { isOpening, openingIds, openings, runScore, updateRecords } from './core/openings';
 import { challengeParam, challengeSaveKey, matchesChallenge, readChallenge } from './core/challenge';
+import { boardShareParam, boardShareUrl, readSharedBoard, sameBattleSetup, sameFormation, type SharedBoard } from './core/boardShare';
 import { readDailyLink } from './core/daily';
 import { createMulberry32, decodeSeed, generateSeedCode } from './core/rng';
 import { planTurn, previewPlacement, runeFootprint, usesTutorial } from './core/tactics';
@@ -16,6 +17,7 @@ import { bindDragDrop } from './render/dragDrop';
 import { bindUpgradeBook } from './render/upgradeBook';
 import { bindChallengeRoom, bindShareRoom } from './render/challengeRoom';
 import { bindDailyRoom } from './render/dailyRoom';
+import { bindBoardTrial } from './render/boardTrialRoom';
 import { renderOpeningPreview } from './render/openingPreview';
 import { PlaybackController } from './render/playbackController';
 import { SynthAudio } from './audio/synthAudio';
@@ -40,14 +42,19 @@ const game = element('game');
 const dialog = element<HTMLDialogElement>('panel');
 const audio = new SynthAudio();
 const player = new PlaybackController();
-const invite = new URLSearchParams(location.search).get(challengeParam);
-const challenge = readChallenge(invite);
-const dailyRequest = new URLSearchParams(location.search).get('daily');
-const sharedDaily = challenge ? undefined : readDailyLink(dailyRequest);
-let dailyLanding = !!sharedDaily;
+const params = new URLSearchParams(location.search);
+const invite = params.get(challengeParam);
+const boardRequest = params.get(boardShareParam);
+const boardRequested = boardRequest !== null || location.hash.startsWith('#board=');
+const sharedBoard = readSharedBoard(boardRequest, catalog);
+const challenge = sharedBoard ? undefined : readChallenge(invite);
+const dailyRequest = params.get('daily');
+const sharedDaily = challenge || sharedBoard ? undefined : readDailyLink(dailyRequest);
+let sideLanding = !!(sharedDaily || sharedBoard);
+let appliedSharedBoard = false;
 const createPlatform = (key?: string) => new WebMockAdapter(catalog, element('ad'), element('ad-text'), button('cancel-ad'), key);
 const platform = createPlatform(challenge ? challengeSaveKey(challenge) : undefined);
-const loaded = platform.load(!sharedDaily);
+const loaded = platform.load(!sideLanding);
 const saved = challenge && loaded && !matchesChallenge(loaded.run, challenge) ? null : loaded;
 const mainRun = challenge && !saved ? createPlatform().load(false)?.run : undefined;
 const matchingMain = challenge && mainRun && matchesChallenge(mainRun, challenge) ? mainRun : undefined;
@@ -91,9 +98,9 @@ const bossColors: Record<string, string> = {
 const rarityLabel = { common: '普通', rare: '稀有', epic: '史诗' };
 const archetypeLabel = { chain: '连锁', poison: '剧毒', gold: '金币', amplify: '增幅' };
 
-const arranging = () => challengeEntered && !dailyLanding && phase === 'ARRANGE' && canArrange(run);
+const arranging = () => challengeEntered && !sideLanding && phase === 'ARRANGE' && canArrange(run);
 const persist = () => {
-  if (!challengeEntered || dailyLanding) return;
+  if (!challengeEntered || sideLanding) return;
   records = updateRecords(records, run);
   platform.save({
     schemaVersion: 2,
@@ -128,7 +135,10 @@ function leaveChallenge() {
 }
 
 button('share-open').onclick = () => {
-  if (phase === 'ARRANGE') { click(); shareRoom(run, !!challenge); }
+  if (phase === 'ARRANGE') {
+    click();
+    shareRoom(run, !!challenge, arranging() ? boardShareUrl(location.href, run) : undefined);
+  }
 };
 
 function iconPath(owner: HTMLElement, pathData: string) {
@@ -148,6 +158,7 @@ function iconPath(owner: HTMLElement, pathData: string) {
 const emptyIcon = 'M16 3l13 13-13 13L3 16 16 3Zm0 6v14m-7-7h14';
 const runeGlyph = (node: HTMLElement, id: string) => iconPath(node, runeVectors[id] ?? emptyIcon);
 const daily = bindDailyRoom(catalog, runeGlyph, click);
+const boardTrial = bindBoardTrial(catalog, runeGlyph, formatNumber, click);
 const openDaily = () => { if (phase === 'ARRANGE') { click(); daily.open(); } };
 button('daily-open').onclick = button('opening-daily').onclick = openDaily;
 const updateUpgrades = bindUpgradeBook(catalog, runeGlyph, formatNumber,
@@ -895,6 +906,7 @@ function openOpenings(first = false) {
   element('opening-note').textContent = openingReplacesRun ? '可以先试算起手阵。确认后才会开新局。'
     : first && invite !== null ? '这个邀请来自旧版或已失效。你可以选一套阵直接开局。'
     : first && dailyRequest !== null && !sharedDaily ? '这条每日链接已失效。可以直接玩今天的题。'
+    : first && boardRequested && !sharedBoard ? '这条阵型链接已失效。可以选一套起手阵开始。'
     : '点一套阵，看它怎么打首波。';
   button('opening-close').hidden = first || run.status !== 'active';
   openingDialog.dataset.first = String(first);
@@ -935,7 +947,7 @@ openingDialog.addEventListener('cancel', event => {
   startOpening(openingCandidate, chosenSeed());
 });
 
-function showOutcome() {
+function showOutcome(archive = true) {
   if (run.pendingRelics.length) { showRelicChoices(); return; }
   if (run.pendingLoss) {
     const after = (protectedRetry: boolean) => {
@@ -949,7 +961,7 @@ function showOutcome() {
     ]);
   } else if (run.status !== 'active') {
     const won = run.status === 'victory';
-    recordRunHistory(run);
+    if (archive) recordRunHistory(run);
     if (won) {
       renderer.spawnVictoryCelebration();
     }
@@ -1417,25 +1429,50 @@ button('ambient').onclick = () => {
   notice(active ? '五音雅乐：禅音悠扬' : '五音雅乐：已静音');
 };
 
-function openLanding() {
+function openLanding(archive = true) {
   if (challenge) { showChallenge(challenge, run, true, !saved, matchingMain); return; }
-  if (saved) showOutcome();
+  if (saved) showOutcome(archive);
   else openOpenings(true);
   if (invite !== null) notice('这个邀请来自旧版或已失效。');
   else if (dailyRequest !== null && !sharedDaily) notice('这条每日链接已失效。可以从「每日」玩今天的题。');
+  else if (boardRequested && !sharedBoard) notice('这条阵型链接来自旧版或已失效。');
 }
 
-redraw(!!saved && !challenge && !sharedDaily);
-if (sharedDaily && daily.open(sharedDaily)) {
-  daily.dialog.addEventListener('close', () => {
-    dailyLanding = false;
+function resumeAfterSideRoom(room: HTMLDialogElement) {
+  room.addEventListener('close', () => {
+    sideLanding = false;
     const address = new URL(location.href);
-    address.searchParams.delete('daily');
+    if (sharedBoard) address.searchParams.delete(boardShareParam);
+    else address.searchParams.delete('daily');
     window.history.replaceState(window.history.state, '', address);
     redraw(false);
-    openLanding();
+    openLanding(false);
+    if (appliedSharedBoard) notice('已应用改阵，可以撤销。');
   }, { once: true });
+}
+
+function canApplySharedBoard(board: SharedBoard) {
+  return !!saved && canArrange(run) && sameBattleSetup(run, board) && !sameFormation(run, board);
+}
+
+function applySharedBoard(board: SharedBoard) {
+  if (!canApplySharedBoard(board) || JSON.stringify(platform.load(false)) !== JSON.stringify(saved)) return false;
+  undoStack.push(run);
+  run.board = [...board.board];
+  run.bench = [...board.bench];
+  appliedSharedBoard = true;
+  sideLanding = false;
+  persist();
+  return true;
+}
+
+redraw(!!saved && !challenge && !sideLanding);
+if (sharedBoard) {
+  boardTrial.open(sharedBoard, { matches: canApplySharedBoard, apply: applySharedBoard });
+  resumeAfterSideRoom(boardTrial.dialog);
+} else if (sharedDaily && daily.open(sharedDaily)) {
+  resumeAfterSideRoom(daily.dialog);
 } else {
-  if (dailyLanding) { dailyLanding = false; redraw(false); }
+  if (sideLanding) { sideLanding = false; redraw(false); }
   openLanding();
 }
