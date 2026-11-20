@@ -28,13 +28,16 @@ describe('same-seed challenges', () => {
     const bounties = readChallenge(`v9.gold.${score.seed}.6.22`)!;
     const camp = readChallenge(`v10.gold.${score.seed}.6.22`)!;
     const reforge = readChallenge(`v11.gold.${score.seed}.6.22`)!;
-    const beforeFinale = { ...host, finaleRule: undefined };
+    const finale = readChallenge(`v12.gold.${score.seed}.6.22`)!;
+    const beforeFinale = { ...host, finaleRule: undefined, engravingRule: undefined };
     expect(previous.altarRule).toBeUndefined();
     expect(invite?.altarRule).toBe(1);
     expect(invite?.bountyRule).toBe(1);
     expect(invite?.endlessRule).toBe(1);
     expect(invite?.reforgeRule).toBe(1);
     expect(invite?.finaleRule).toBe(1);
+    expect(invite?.engravingRule).toBe(1);
+    expect(address.searchParams.get('challenge')).toMatch(/^v14\./);
     expect(camp.reforgeRule).toBeUndefined();
     expect(altar.altarRule).toBe(1);
     expect(altar.bountyRule).toBeUndefined();
@@ -50,6 +53,9 @@ describe('same-seed challenges', () => {
     expect(challengeSaveKey(bounties)).not.toBe(challengeSaveKey(score));
     expect(challengeSaveKey(camp)).not.toBe(challengeSaveKey(score));
     expect(challengeSaveKey(reforge)).not.toBe(challengeSaveKey(score));
+    expect(matchesChallenge({ ...host, engravingRule: undefined }, finale)).toBe(true);
+    expect(matchesChallenge(host, finale)).toBe(false);
+    expect(challengeSaveKey(finale)).not.toBe(challengeSaveKey(score));
   });
 
   it('rejects old, malformed and oversized scores and ranks waves before combo', () => {
@@ -70,8 +76,12 @@ describe('same-seed challenges', () => {
     expect(standard.freeRefreshes).toBe(1);
     const score = challengeFromRun(beginner);
     const invite = new URL(challengeUrl('https://example.org/game/', score)).searchParams.get('challenge');
-    expect(invite).toMatch(/^v13\./);
+    expect(invite).toMatch(/^v15\./);
     expect(readChallenge(invite)).toEqual(score);
+    const older = readChallenge(`v13.chain.${score.seed}.0.0`)!;
+    expect(older.difficulty).toBe('beginner');
+    expect(older.engravingRule).toBeUndefined();
+    expect(matchesChallenge({ ...beginner, engravingRule: undefined }, older)).toBe(true);
     expect(matchesChallenge(standard, score)).toBe(false);
     expect(challengeSaveKey(score)).not.toBe(challengeSaveKey(challengeFromRun(standard)));
 

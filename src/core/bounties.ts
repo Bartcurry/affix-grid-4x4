@@ -32,7 +32,8 @@ export const bountyWaves = [...rounds.keys()];
 export const bountyRefreshes = 2;
 export const engravingCell = 13;
 export const engravingPower = 12;
-export const bountyPerkText = {
+export const engravingWave = 16;
+const bountyPerkText = {
   refresh: `下一波多 ${bountyRefreshes} 次免费刷新`,
   repair: '修复 1 点护盾',
   engrave: `第 ${engravingCell + 1} 格符文永久威力 +${engravingPower}`,
@@ -56,7 +57,15 @@ export function offersBounties(run: Pick<Run, 'wave' | 'endless' | 'bountyRule'>
   return run.bountyRule === 1 && !run.endless && rounds.has(run.wave);
 }
 
-export function bountyPerkUnavailable(perk: BountyPerk, run: Partial<Pick<Run, 'shield' | 'board'>>) {
+export function bountyPerkLabel(perk: BountyPerk, run: Pick<Run, 'engravingRule'>) {
+  return perk === 'engrave' && run.engravingRule === 1 ? `战后自选一枚上阵符文，永久威力 +${engravingPower}` : bountyPerkText[perk];
+}
+
+export function bountyPerkUnavailable(perk: BountyPerk, run: Partial<Pick<Run, 'shield' | 'board' | 'engravingRule'>>) {
   if (perk === 'repair' && (run.shield ?? 3) >= 3) return '护盾已满';
-  if (perk === 'engrave' && !run.board?.[engravingCell]) return `第 ${engravingCell + 1} 格是空的`;
+  if (perk === 'engrave') {
+    if (run.engravingRule === 1) {
+      if (!run.board?.some(Boolean)) return '棋盘没有符文';
+    } else if (!run.board?.[engravingCell]) return `第 ${engravingCell + 1} 格是空的`;
+  }
 }

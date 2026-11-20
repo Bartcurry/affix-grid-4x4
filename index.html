@@ -687,6 +687,26 @@
         </div>
       </dialog>
 
+      <dialog id="engraving-dialog" class="engraving-dialog" aria-labelledby="engraving-title">
+        <div class="dialog-content">
+          <header><p class="engraving-source">内门夺金 · 悬赏奖励</p><h2 id="engraving-title">刻印符文</h2></header>
+          <p id="engraving-rule"></p>
+          <div class="trial-board-stage">
+            <div id="engraving-grid" class="trial-tiles" role="group" aria-label="选择要刻印的符文"></div>
+            <section class="engraving-preview" aria-label="刻印效果" aria-live="polite">
+              <strong id="engraving-piece"></strong>
+              <p id="engraving-power"></p>
+              <p id="engraving-enemy"></p>
+              <span>下一波伤害</span>
+              <strong id="engraving-change"></strong>
+              <p><span id="engraving-delta"></span> · <span id="engraving-verdict"></span></p>
+            </section>
+          </div>
+          <p id="engraving-status" role="status" hidden></p>
+          <button id="engraving-confirm" class="primary" type="button"></button>
+        </div>
+      </dialog>
+
       <!-- 弹窗：已获遗物行囊 -->
       <dialog id="relic-bag" aria-labelledby="relic-bag-title">
         <div class="dialog-content">

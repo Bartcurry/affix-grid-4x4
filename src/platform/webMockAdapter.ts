@@ -1,5 +1,5 @@
 import { BENCH_SIZE, generateTileModifiers, newRun, SHOP_SIZE } from '../core/shopEngine';
-import { bountyAt, bountyCount } from '../core/bounties';
+import { bountyAt, bountyCount, engravingWave } from '../core/bounties';
 import { reforgeWave } from '../core/reforge';
 import { CELL_COUNT } from '../core/grid';
 import { readJournal } from '../core/journal';
@@ -66,6 +66,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
         ...(item.altarRule === 1 && item.bountyRule === 1 && item.endlessRule === 1 ? { endlessRule: 1 as const } : {}),
         ...(item.altarRule === 1 && item.bountyRule === 1 && item.endlessRule === 1 && item.reforgeRule === 1 ? { reforgeRule: 1 as const } : {}),
         ...(item.altarRule === 1 && item.bountyRule === 1 && item.endlessRule === 1 && item.reforgeRule === 1 && item.finaleRule === 1 ? { finaleRule: 1 as const } : {}),
+        ...(item.finaleRule === 1 && item.engravingRule === 1 ? { engravingRule: 1 as const } : {}),
         ...(item.finaleRule === 1 && item.difficulty === 'beginner' ? { difficulty: 'beginner' as const } : {}),
         ...(item.endless === true || (natural(item.wave) && item.wave > 20) ? { endless: true as const } : {}),
       }));
@@ -135,6 +136,9 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
     const endlessRule = bountyRule && rawRun.endlessRule === 1;
     const reforgeRule = endlessRule && rawRun.reforgeRule === 1;
     const finaleRule = reforgeRule && rawRun.finaleRule === 1;
+    const engravingRule = finaleRule && rawRun.engravingRule === 1;
+    const pendingEngraving = engravingRule && !rawRun.endless && rawRun.status === 'active' && !rawRun.pendingLoss &&
+      wave === engravingWave && rawRun.pendingEngraving === true && board.some(Boolean);
     const pendingCamp = endlessRule && rawRun.endless === true && rawRun.status === 'active' &&
       !rawRun.pendingLoss && endlessCampAt(wave) && rawRun.pendingCamp === true;
 
@@ -168,6 +172,8 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       ...(endlessRule ? { endlessRule: 1 } : {}),
       ...(reforgeRule ? { reforgeRule: 1 } : {}),
       ...(finaleRule ? { finaleRule: 1 } : {}),
+      ...(engravingRule ? { engravingRule: 1 } : {}),
+      ...(pendingEngraving ? { pendingEngraving: true } : {}),
       ...(finaleRule && rawRun.difficulty === 'beginner' ? { difficulty: 'beginner' } : {}),
       ...(reforgeRule && wave === reforgeWave && rawRun.reforgeUsed === true ? { reforgeUsed: true } : {}),
       ...(pendingCamp ? { pendingCamp: true } : {}),

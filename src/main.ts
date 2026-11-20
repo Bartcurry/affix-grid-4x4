@@ -1,6 +1,7 @@
 import './style.css';
 import { simulateBattle } from './core/battleEngine';
-import { battleTarget, bountyCount, bountyPerkText, offersBounties } from './core/bounties';
+import { battleTarget, bountyCount, bountyPerkLabel, engravingPower, offersBounties } from './core/bounties';
+import { claimEngraving } from './core/engraving';
 import { claimCamp } from './core/endlessCamp';
 import { canReforge, prepareReforge } from './core/reforge';
 import { toCoords } from './core/grid';
@@ -33,6 +34,7 @@ import { bindStarterGuide } from './render/starterGuide';
 import { bindRetryScout } from './render/retryScout';
 import { bindPurchaseRoom } from './render/purchaseRoom';
 import { bindBountyRoom } from './render/bountyRoom';
+import { bindEngravingRoom } from './render/engravingRoom';
 import { bindEndlessCampRoom } from './render/endlessCampRoom';
 import { bindReforgeRoom } from './render/reforgeRoom';
 import { bindRelicRoom } from './render/relicRoom';
@@ -185,6 +187,7 @@ const relay = bindWeeklyRelay(catalog, runeGlyph, click, scoreShare.puzzle);
 const boardTrial = bindBoardTrial(catalog, runeGlyph, formatNumber, click);
 const showPurchase = bindPurchaseRoom(catalog, runeGlyph, click);
 const showReforge = bindReforgeRoom(catalog, runeGlyph, click);
+const showEngraving = bindEngravingRoom(catalog, runeGlyph, click);
 const showEndlessCamp = bindEndlessCampRoom(catalog, runeGlyph, click, choice => {
   if (!claimCamp(run, choice)) return false;
   click();
@@ -355,7 +358,7 @@ function updateHud() {
   element('hp-poison-text').textContent = formatNumber(poison);
 
   element('phase').textContent = phase === 'PLAYBACK' ? '连锁中' : run.pendingRelics.length ? '挑选遗物' : run.pendingLoss ? '待结算护盾' :
-    run.pendingCamp ? '营地补给' : run.status !== 'active' ? '战斗结束' : '布阵';
+    run.pendingEngraving ? '悬赏刻印' : run.pendingCamp ? '营地补给' : run.status !== 'active' ? '战斗结束' : '布阵';
 }
 
 function spawnGoldParticles(sourceEl: HTMLElement) {
@@ -821,7 +824,7 @@ const showRelicChoices = bindRelicRoom(catalog, (node, id) => iconPath(node, get
   close();
   redraw();
   notice(`拿到了 ${relics[id].name}`);
-  if (run.pendingCamp) showOutcome();
+  if (run.pendingCamp || run.pendingEngraving) showOutcome();
 });
 
 function openRelicBag() {
@@ -857,7 +860,7 @@ button('forecast-detail').onclick = () => {
   const deltaGold = result.gold - run.gold;
   const combatGold = deltaGold < 0 ? `战斗花 ${formatNumber(-deltaGold)} 金` : `战斗赚 ${formatNumber(deltaGold)} 金`;
   element('forecast-gold').textContent = result.win
-    ? `${combatGold} · 过关 ${payout.base} 金${payout.interest ? ` · 利息 ${payout.interest} 金` : ''}${payout.relic ? ` · 遗物 ${payout.relic} 金` : ''}${payout.bounty ? ` · 悬赏 ${payout.bounty} 金` : ''}。结束时有 ${formatNumber(result.gold + payout.total)} 金。${payout.perk ? bountyPerkText[payout.perk] + '。' : ''}${run.difficulty === 'beginner' && !run.endless && run.shield + Number(payout.perk === 'repair') < 3 ? '入门过关补 1 点护盾。' : ''}`
+    ? `${combatGold} · 过关 ${payout.base} 金${payout.interest ? ` · 利息 ${payout.interest} 金` : ''}${payout.relic ? ` · 遗物 ${payout.relic} 金` : ''}${payout.bounty ? ` · 悬赏 ${payout.bounty} 金` : ''}。结束时有 ${formatNumber(result.gold + payout.total)} 金。${payout.perk ? bountyPerkLabel(payout.perk, run) + '。' : ''}${run.difficulty === 'beginner' && !run.endless && run.shield + Number(payout.perk === 'repair') < 3 ? '入门过关补 1 点护盾。' : ''}`
     : `${combatGold}。打不过也会保留战斗后的 ${formatNumber(result.gold)} 金，但没有过关奖励。`;
   element('forecast-sources').replaceChildren(...sources.map(source => {
     const item = document.createElement('li');
@@ -994,6 +997,7 @@ function recordRunHistory(runToRecord: Run) {
     relicsCount: runToRecord.relics.length,
     ...(runToRecord.altarRule === 1 ? { altarRule: 1 } : {}),
     ...(runToRecord.bountyRule === 1 ? { bountyRule: 1 } : {}),
+    ...(runToRecord.engravingRule === 1 ? { engravingRule: 1 } : {}),
     ...(runToRecord.bountiesCleared ? { bountiesCleared: runToRecord.bountiesCleared } : {}),
     ...(runToRecord.endlessRule === 1 ? { endlessRule: 1 } : {}),
     ...(runToRecord.reforgeRule === 1 ? { reforgeRule: 1 } : {}),
@@ -1001,7 +1005,7 @@ function recordRunHistory(runToRecord: Run) {
     ...(runToRecord.endless ? { endless: true } : {}),
   };
   const existingIdx = history.findIndex(item => item.seed === entry.seed && item.opening === entry.opening && item.difficulty === entry.difficulty &&
-    item.altarRule === entry.altarRule && item.bountyRule === entry.bountyRule &&
+    item.altarRule === entry.altarRule && item.bountyRule === entry.bountyRule && item.engravingRule === entry.engravingRule &&
     item.endlessRule === entry.endlessRule && item.reforgeRule === entry.reforgeRule && item.finaleRule === entry.finaleRule);
   if (existingIdx >= 0) {
     history[existingIdx] = entry;
@@ -1024,6 +1028,7 @@ function makeOpening(id: OpeningId, seed: string, difficulty?: Run['difficulty']
   const next = newRun(catalog, createMulberry32(decodeSeed(seed)), id, seed, challenge ? challenge.difficulty : difficulty);
   if (challenge && !challenge.altarRule) delete next.altarRule;
   if (challenge && !challenge.bountyRule) delete next.bountyRule;
+  if (challenge && !challenge.engravingRule) delete next.engravingRule;
   if (challenge && !challenge.endlessRule) delete next.endlessRule;
   if (challenge && !challenge.reforgeRule) delete next.reforgeRule;
   if (challenge && !challenge.finaleRule) delete next.finaleRule;
@@ -1039,6 +1044,7 @@ function startOpening(id: OpeningId, customSeed?: string, quick = false, archive
   run = makeOpening(challenge?.opening ?? id, challenge?.seed || customSeed || chosenSeed(), archived ? archived.difficulty : openingDifficulty);
   if (!challenge && archived && !archived.altarRule) delete run.altarRule;
   if (!challenge && archived && !archived.bountyRule) delete run.bountyRule;
+  if (!challenge && archived && !archived.engravingRule) delete run.engravingRule;
   if (!challenge && archived && !archived.endlessRule) delete run.endlessRule;
   if (!challenge && archived && !archived.reforgeRule) delete run.reforgeRule;
   if (!challenge && archived && !archived.finaleRule) delete run.finaleRule;
@@ -1150,6 +1156,23 @@ openingDialog.addEventListener('cancel', event => {
 function showOutcome(archive = true) {
   if (run.pendingRelics.length) {
     if (showRelicChoices(run)) { audio.unlock(); audio.singingBowl(); }
+    return;
+  }
+  if (run.pendingEngraving) {
+    const rewarded = run;
+    const checkpoint = JSON.stringify(platform.load(false)?.run);
+    showEngraving(rewarded, index => {
+      if (run !== rewarded || JSON.stringify(platform.load(false)?.run) !== checkpoint || !claimEngraving(run, index)) return false;
+      click();
+      audio.jadeChime();
+      const slot: Slot = { zone: 'board', index };
+      const rune = run.board[index]!;
+      select(slot);
+      renderer.flash(slot, catalog[rune.configId].color);
+      redraw();
+      notice(`${catalog[rune.configId].name}永久威力 +${engravingPower}`);
+      return true;
+    });
     return;
   }
   if (run.pendingCamp) { showEndlessCamp(run); return; }
@@ -1362,13 +1385,13 @@ async function startBattle(quick = false) {
   run.rngState = prng.getState();
   if (result.win && run.wave === 2) firstClearPayout = payout.total;
   redraw();
-  if (result.win && run.status === 'active' && !run.pendingRelics.length && !run.pendingCamp) {
+  if (result.win && canArrange(run)) {
     if (run.wave - 1 >= 20) {
       renderer.spawnVictoryCelebration();
     }
     renderer.waveComplete = true; renderer.invalidate();
     victoryTimer = setTimeout(() => { renderer.waveComplete = false; renderer.invalidate(); }, 1500);
-    notice(`${payout.bounty ? '悬赏完成' : `打过第 ${run.wave - 1} 波`} · ${formatNumber(result.damage)} 伤害 · 过关 +${payout.total} 金${payout.perk ? ` · ${bountyPerkText[payout.perk]}` : ''}${repairedByDifficulty ? ' · 入门补盾 +1' : ''}`);
+    notice(`${payout.bounty ? '悬赏完成' : `打过第 ${run.wave - 1} 波`} · ${formatNumber(result.damage)} 伤害 · 过关 +${payout.total} 金${payout.perk ? ` · ${bountyPerkLabel(payout.perk, run)}` : ''}${repairedByDifficulty ? ' · 入门补盾 +1' : ''}`);
   }
   showOutcome();
 }

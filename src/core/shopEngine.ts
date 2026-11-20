@@ -9,7 +9,8 @@ import type { Archetype, BountyRoute, Catalog, Offer, OpeningId, Random, Rarity,
 export const BENCH_SIZE = 4;
 export const SHOP_SIZE = 3;
 export const REFRESH_COST = 2;
-export const canArrange = (run: Run) => run.status === 'active' && !run.pendingLoss && !run.pendingCamp && !run.pendingRelics.length;
+export const canArrange = (run: Run) =>
+  run.status === 'active' && !run.pendingLoss && !run.pendingCamp && !run.pendingEngraving && !run.pendingRelics.length;
 
 export function selectBounty(run: Run, route?: BountyRoute) {
   if (!canArrange(run) || !offersBounties(run) || route === run.bountyRoute ||
@@ -117,6 +118,7 @@ export function newRun(catalog: Catalog, rng: Random, opening: OpeningId = 'chai
     endlessRule: 1,
     reforgeRule: 1,
     finaleRule: 1,
+    engravingRule: 1,
   };
   for (const [index, configId] of setup.pieces) run.board[index] = { configId, star: 1 };
   rollShop(run, catalog, effectiveRng);
@@ -242,7 +244,7 @@ export function settleTurn(run: Run, result: TurnResult, catalog: Catalog, rng: 
   if (payout.bounty) run.bountiesCleared = (run.bountiesCleared ?? 0) + 1;
   if (payout.perk === 'repair') run.shield++;
   if (run.difficulty === 'beginner' && !run.endless) run.shield = Math.min(3, run.shield + 1);
-  if (payout.perk === 'engrave') {
+  if (payout.perk === 'engrave' && run.engravingRule !== 1) {
     const rune = run.board[engravingCell]!;
     run.board[engravingCell] = { ...rune, bonusPower: (rune.bonusPower ?? 0) + engravingPower };
   }
@@ -251,12 +253,13 @@ export function settleTurn(run: Run, result: TurnResult, catalog: Catalog, rng: 
     const choices = relicChoices(run.wave, run.relics, run.altarRule === 1 ? decodeSeed(run.seed) : undefined);
     advanceWave(run, catalog, rng);
     if (payout.perk === 'refresh') run.freeRefreshes += bountyRefreshes;
+    if (payout.perk === 'engrave' && run.engravingRule === 1) run.pendingEngraving = true;
     run.pendingRelics = choices;
   }
 }
 
 export function victoryPayout(run: Pick<Run, 'relics'> &
-  Partial<Pick<Run, 'board' | 'enableSynergies' | 'wave' | 'shield' | 'bountyRule' | 'bountyRoute' | 'endless'>>,
+  Partial<Pick<Run, 'board' | 'enableSynergies' | 'wave' | 'shield' | 'bountyRule' | 'bountyRoute' | 'endless' | 'engravingRule'>>,
   goldAfterBattle: number, catalog?: Catalog) {
   const base = 8;
   let interestDivisor = 10;

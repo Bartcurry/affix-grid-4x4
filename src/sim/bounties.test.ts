@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { battleTarget, bountyWaves, offersBounties } from '../core/bounties';
 import { encodeBoardToken, readSharedBoard, sameBattleSetup } from '../core/boardShare';
+import { claimEngraving, previewEngravings } from '../core/engraving';
 import { createMulberry32 } from '../core/rng';
-import { newRun, resolveLoss, selectBounty, settleTurn, UndoStack, victoryPayout } from '../core/shopEngine';
+import { canArrange, newRun, resolveLoss, selectBounty, settleTurn, swapRunes, UndoStack, victoryPayout } from '../core/shopEngine';
 import { planTurn } from '../core/tactics';
 import type { TurnResult } from '../core/types';
 import { catalog } from '../data/catalog';
@@ -84,6 +85,7 @@ describe('campaign bounties', () => {
     expect(middle).toMatchObject({ wave: 11, shield: 3, bountiesCleared: 1 });
 
     const late = atWave(15);
+    delete late.engravingRule;
     expect(selectBounty(late, 'alternate')).toBe(true);
     expect(victoryPayout(late, clear.gold, catalog).perk).toBeUndefined();
     const rune = { configId: 'gold_cannon', star: 2, bonusPower: 7 } as const;
@@ -92,5 +94,35 @@ describe('campaign bounties', () => {
     expect(late.board[13]).toEqual({ ...rune, bonusPower: 19 });
     expect(late.bountyRoute).toBeUndefined();
     expect(late.bountiesCleared).toBe(1);
+  });
+
+  it('holds the new reward across refresh, previews every occupied slot and applies it once', () => {
+    const run = atWave(15);
+    run.board[5] = { configId: 'spark_orb', star: 3, bonusPower: 31 };
+    expect(run.board[13]).toBeNull();
+    expect(selectBounty(run, 'alternate')).toBe(true);
+    expect(victoryPayout(run, clear.gold, catalog)).toMatchObject({ bounty: 10, perk: 'engrave' });
+    settleTurn(run, { ...clear, win: false, hp: 700 }, catalog, rng());
+    expect(run.pendingEngraving).toBeUndefined();
+    resolveLoss(run, false);
+    settleTurn(run, clear, catalog, rng());
+    expect(run).toMatchObject({ wave: 16, pendingEngraving: true, bountiesCleared: 1 });
+    expect(run.board[5]?.bonusPower).toBe(31);
+    const saved = migrateSave({ run }, catalog).run;
+    const prior = structuredClone(saved);
+    const preview = previewEngravings(saved, catalog);
+    expect(preview.choices.map(choice => choice.index)).toEqual([0, 1, 5]);
+    expect(saved).toEqual(prior);
+    expect(canArrange(saved)).toBe(false);
+    expect(claimEngraving(saved, 13)).toBe(false);
+    expect(claimEngraving(saved, 5)).toBe(true);
+    expect(claimEngraving(saved, 5)).toBe(false);
+    expect(canArrange(saved)).toBe(true);
+    expect(saved.board[5]?.bonusPower).toBe(43);
+    expect(planTurn(saved, catalog).result).toEqual(preview.choices.at(-1)?.result);
+    expect(saved.gold).toBe(prior.gold);
+    expect(saved.rngState).toBe(prior.rngState);
+    expect(swapRunes(saved, { zone: 'board', index: 5 }, { zone: 'bench', index: 0 })).toBe(true);
+    expect(saved.bench[0]?.bonusPower).toBe(43);
   });
 });

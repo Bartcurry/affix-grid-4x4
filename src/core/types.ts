@@ -87,6 +87,8 @@ export interface Run {
   bountyRule?: 1;
   bountyRoute?: BountyRoute;
   bountiesCleared?: number;
+  engravingRule?: 1;
+  pendingEngraving?: true;
   endlessRule?: 1;
   pendingCamp?: true;
   reforgeRule?: 1;

@@ -14,6 +14,7 @@ export interface RunArchive {
   relicsCount: number;
   altarRule?: 1;
   bountyRule?: 1;
+  engravingRule?: 1;
   bountiesCleared?: number;
   endlessRule?: 1;
   reforgeRule?: 1;

@@ -1,4 +1,4 @@
-import { battleTarget, bountyPerkText, bountyPerkUnavailable, bountyRoutes } from '../core/bounties';
+import { battleTarget, bountyPerkLabel, bountyPerkUnavailable, bountyRoutes } from '../core/bounties';
 import { encounters } from '../core/expedition';
 import { simulateFormation } from '../core/tactics';
 import type { BountyRoute, Catalog, Run } from '../core/types';
@@ -40,7 +40,7 @@ export function bindBountyRoom(catalog: Catalog, click: () => void, choose: (rou
         const perk = document.createElement('small');
         const unavailable = bountyPerkUnavailable(bounty.perk, run);
         perk.className = 'bounty-perk';
-        perk.textContent = bountyPerkText[bounty.perk] + (unavailable ? `（${unavailable}）` : '');
+        perk.textContent = bountyPerkLabel(bounty.perk, run) + (unavailable ? `（${unavailable}）` : '');
         card.append(perk);
       }
       card.onclick = () => { click(); selected = route; mark(); };
