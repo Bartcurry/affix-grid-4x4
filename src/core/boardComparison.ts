@@ -1,8 +1,8 @@
 import { damageBySource } from './journal';
-import type { BattleJournal, Rune } from './types';
+import type { BattleJournal, Rune, Slots } from './types';
 
-type BoardAttempt = Pick<BattleJournal, 'board' | 'events'>;
-type DamageChange = { rune: Rune; from: number; to: number; before: number; after: number } |
+type BoardAttempt = Pick<BattleJournal, 'board' | 'events'> & { bench?: Slots };
+type DamageChange = { rune: Rune; from: number | null; to: number | null; before: number; after: number } |
   { kind: 'poison' | 'tutorial'; before: number; after: number };
 
 // Trial positions keep the original rune objects when moving them between slots.
@@ -10,16 +10,17 @@ export function compareBoardAttempts(previous: BoardAttempt, next: BoardAttempt)
   const before = damageBySource(previous.events).breakdown;
   const after = damageBySource(next.events).breakdown;
   const origins = new Map<Rune, number>();
-  previous.board.forEach((rune, index) => { if (rune) origins.set(rune, index); });
+  [...previous.board, ...(previous.bench ?? [])].forEach((rune, index) => { if (rune) origins.set(rune, index); });
+  const destinations = new Map<Rune, number>();
+  next.board.forEach((rune, index) => { if (rune) destinations.set(rune, index); });
   const damage: DamageChange[] = [];
-  next.board.forEach((rune, to) => {
-    if (!rune) return;
-    const from = origins.get(rune);
-    if (from === undefined) return;
-    const was = before.get(from) ?? 0;
-    const now = after.get(to) ?? 0;
+  for (const [rune, index] of origins) {
+    const from = index < previous.board.length ? index : null;
+    const to = destinations.get(rune) ?? null;
+    const was = from === null ? 0 : before.get(from) ?? 0;
+    const now = to === null ? 0 : after.get(to) ?? 0;
     if (was !== now) damage.push({ rune, from, to, before: was, after: now });
-  });
+  }
   for (const kind of ['poison', 'tutorial'] as const) {
     const was = before.get(kind) ?? 0;
     const now = after.get(kind) ?? 0;

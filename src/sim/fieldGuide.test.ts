@@ -34,6 +34,18 @@ describe('early field guide', () => {
     expect(fieldTip(run, catalog, planTurn(run, catalog))).toBeNull();
   });
 
+  it('can recommend swapping in a bench rune when the board is full', () => {
+    const run = newBoard();
+    run.wave = 2;
+    run.board = Array.from({ length: 16 }, () => ({ configId: 'copper_mine', star: 1 }));
+    run.bench[0] = { configId: 'spark_orb', star: 3 };
+    const snapshot = structuredClone(run);
+    expect(fieldTip(run, catalog, planTurn(run, catalog))).toMatchObject({
+      origin: { zone: 'bench', index: 0 }, destination: { zone: 'board', index: 0 },
+    });
+    expect(run).toEqual(snapshot);
+  });
+
   it('prepares the exact forecast without committing growth or consuming saved randomness', () => {
     const run = newBoard();
     run.tileModifiers = { 1: 'spirit_gathering', 13: 'xuan_ice', 14: 'li_fire' };

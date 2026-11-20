@@ -21,7 +21,7 @@ import { bindChallengeRoom, bindInviteRoom } from './render/challengeRoom';
 import { bindTrialRoom } from './render/trialRoom';
 import { bindMarketPreview } from './render/marketPreviewRoom';
 import { renderOpeningPreview } from './render/openingPreview';
-import { openSharedBoard } from './render/sharedBoardRoom';
+import { openBoardTrial } from './render/sharedBoardRoom';
 import { bindRouteRoom } from './render/routeRoom';
 import { PlaybackController } from './render/playbackController';
 import { SynthAudio } from './audio/synthAudio';
@@ -183,8 +183,9 @@ function showForecast() {
   } else {
     const baselineChange = preview.minDamage - forecast.minDamage;
     const delta = baselineChange ? ` · ${baselineChange > 0 ? '+' : '−'}${formatNumber(Math.abs(baselineChange))}` : '';
-    element('forecast-readout').textContent = `${placement ? '放置后' : '战果预估'} 无暴击 ${formatNumber(preview.minDamage)} / ${formatNumber(hp)}${delta}`;
+    element('forecast-readout').textContent = `${placement ? '放置后 · ' : ''}无暴击 ${formatNumber(preview.minDamage)} / ${formatNumber(hp)}${delta}`;
   }
+  button('forecast-try-board').disabled = !!placement;
   button('forecast-detail').disabled = !!placement;
 }
 
@@ -424,6 +425,34 @@ function tryOffer(index: number, preferred?: number) {
   openMarketPreview(run, index, forecast.result, preferred);
 }
 
+function tryCurrentBoard(suggestion?: [Slot, Slot]) {
+  if (!arranging() || placement) return;
+  click();
+  const current = run;
+  const snapshot = { ...run, board: [...run.board], bench: [...run.bench] };
+  openBoardTrial(snapshot, catalog, (owner, id) => iconPath(owner, runeVectors[id] ?? emptyIcon), formatNumber, click, journal, {
+    live: {
+      bench: snapshot.bench,
+      suggestion,
+      apply(board, bench) {
+        if (run !== current || !arranging() || run.wave !== snapshot.wave || run.rngState !== snapshot.rngState ||
+          run.trialWave !== snapshot.trialWave || run.gold !== snapshot.gold || run.shield !== snapshot.shield ||
+          !run.board.every((rune, index) => rune === snapshot.board[index]) || !run.bench.every((rune, index) => rune === snapshot.bench[index])) return false;
+        undoStack.push(run);
+        run.board = board;
+        run.bench = bench;
+        select(null);
+        redraw();
+        notice('已应用试阵。可以撤销整套换位。');
+        requestAnimationFrame(() => button('battle').focus({ preventScroll: true }));
+        return true;
+      },
+    },
+  });
+}
+
+button('forecast-try-board').onclick = () => tryCurrentBoard();
+
 const offers = Array.from({ length: 3 }, (_, index) => {
   const card = document.createElement('div'); card.className = 'offer';
   const preview = document.createElement('button'); preview.className = 'offer-info'; preview.type = 'button';
@@ -463,10 +492,10 @@ function redraw(save = true) {
       item.card.dataset.suggested = 'true';
       tipAction.textContent = '试摆';
       tipAction.onclick = () => tryOffer(offerIndex, tip.destination?.index);
-    } else if (tip.origin) {
-      const origin = tip.origin;
-      tipAction.textContent = '选中符文';
-      tipAction.onclick = () => { click(); select(origin); element('arena').focus(); };
+    } else if (tip.origin && tip.destination) {
+      const suggestion: [Slot, Slot] = [tip.origin, tip.destination];
+      tipAction.textContent = '试这个换位';
+      tipAction.onclick = () => tryCurrentBoard(suggestion);
     }
   }
   const { encounter, trial } = target();
@@ -978,12 +1007,12 @@ function showLanding() {
   else openOpenings(true);
 }
 if (sharedBoard) {
-  openSharedBoard(sharedBoard, catalog, (owner, id) => iconPath(owner, runeVectors[id] ?? emptyIcon), formatNumber, click, journal, () => {
+  openBoardTrial(sharedBoard, catalog, (owner, id) => iconPath(owner, runeVectors[id] ?? emptyIcon), formatNumber, click, journal, { leave: () => {
     const address = new URL(location.href);
     address.hash = '';
     history.replaceState(history.state, '', address);
     location.reload();
-  });
+  } });
 } else if (!dailyRoom.openShared()) showLanding();
 window.addEventListener('hashchange', () => {
   if (location.hash.startsWith(boardSharePrefix) || sharedBoard) location.reload();

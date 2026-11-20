@@ -770,6 +770,13 @@ canvas {
   flex-shrink: 0;
 }
 
+#forecast-try-board { color: #b7e1e2; }
+
+@media (max-width: 400px) {
+  .forecast-gauge { display: none; }
+  .forecast-actions { gap: .24rem; }
+}
+
 .forecast-toggle {
   display: inline-flex;
   align-items: center;
@@ -1407,12 +1414,18 @@ dialog::backdrop {
 .invite-modes button { flex: 1; min-height: 2.35rem; color: #d6c5ad; }
 .invite-modes button[aria-pressed=true] { border-color: #e1b971; background: #33291f; color: #ffdfa2; }
 .shared-board-dialog { width: min(29rem, calc(100% - 1.5rem)); }
+.shared-board-dialog[data-live-board] { max-height: 93dvh; }
+.shared-board-dialog[data-live-board] .dialog-content { gap: .42rem; padding: .78rem; }
 #shared-board-close { width: 2.45rem; height: 2.45rem; padding: 0; font-size: 1.35rem; }
 .shared-board-scores { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .38rem; }
 .shared-board-scores > div { display: grid; gap: .22rem; padding: .47rem .62rem; border: 1px solid #695638; background: #27211f; color: #d4ba96; font-size: .77rem; }
 .shared-board-scores > div:last-child { border-color: #497475; background: #1a292c; color: #acd9cf; }
 .shared-board-scores strong { color: #f8e7bd; font: 750 1.2rem var(--mono-font); overflow-wrap: anywhere; }
 .shared-board-grid.daily-board > button { aspect-ratio: 1.22; }
+.shared-board-reserves { display: grid; gap: .23rem; color: #becbd9; font-size: .73rem; }
+.shared-board-bench.daily-board { background: #101820; border-color: #425568; }
+.shared-board-bench.daily-board > button { aspect-ratio: 1.65; min-height: 2.55rem; border-color: #667585; }
+.shared-board-dialog[data-live-board] #shared-board-grid > button { aspect-ratio: 1.36; }
 .shared-board-grid button[data-empty=true] { background: #202228; border-style: dashed; color: #657486; }
 .shared-board-grid button[data-empty=true] span { color: #657486; }
 .shared-board-grid button[aria-pressed=true] { outline-color: #ffd28b; }
@@ -1432,6 +1445,8 @@ dialog::backdrop {
 .shared-board-actions button { min-height: 2.55rem; }
 .shared-board-actions .primary { flex: 1; background: #e9b970; border-color: #f1cb8f; color: #201710; font-weight: 750; }
 .shared-board-actions .primary:hover { background: #f4c98b; color: #201710; }
+#shared-board-apply { min-height: 2.55rem; color: #1c2419; background: #bcd29b; border-color: #cedeb1; font-weight: 750; }
+#shared-board-apply:not(:disabled):hover { color: #1c2419; background: #d0e0b7; }
 .shared-board-link { display: flex; gap: .3rem; }
 .shared-board-link input { min-width: 0; flex: 1; border: 1px solid #64523e; background: #181b23; color: #efdab9; padding: .36rem; }
 .shared-board-link button { flex: none; min-height: 2rem; }

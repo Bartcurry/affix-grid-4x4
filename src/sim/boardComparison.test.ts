@@ -27,3 +27,22 @@ it('attributes damage and chains to individual runes when they move', () => {
     ],
   });
 });
+
+it('counts a reserve rune joining combat and a boarded rune going to reserve', () => {
+  const prism: Rune = { configId: 'prism_right', star: 1 };
+  const mine: Rune = { configId: 'copper_mine', star: 1 };
+  const spark: Rune = { configId: 'spark_orb', star: 1 };
+  const previous = { board: [prism, mine], bench: [spark], events: [hit(1, 3), link(0, 1)] };
+  const next = { board: [prism, spark], events: [hit(1, 12), hit(1, 24), link(0, 1)] };
+
+  expect(compareBoardAttempts(previous, next)).toEqual({
+    damage: [
+      { rune: spark, from: null, to: 1, before: 0, after: 36 },
+      { rune: mine, from: 1, to: null, before: 3, after: 0 },
+    ],
+    chains: [
+      { from: prism, to: mine, difference: -1 },
+      { from: prism, to: spark, difference: 1 },
+    ],
+  });
+});

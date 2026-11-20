@@ -134,6 +134,7 @@
           </div>
           <div class="forecast-actions" id="forecast-actions">
             <label class="forecast-toggle" title="切换模糊战果与精确数值"><input type="checkbox" id="exact-toggle"><span>精确</span></label>
+            <button id="forecast-try-board" type="button" class="btn-subtle" aria-haspopup="dialog">试阵</button>
             <button id="forecast-detail" type="button" class="btn-subtle">明细</button>
           </div>
           <div id="battle-timeline" class="battle-timeline" hidden>
@@ -246,9 +247,14 @@
           <div class="shared-board-scores"><div><span>原阵伤害</span><strong id="shared-board-original"></strong></div><div><span>你的最高伤害</span><strong id="shared-board-best">—</strong></div></div>
           <p id="shared-board-rules"></p>
           <div id="shared-board-grid" class="daily-board shared-board-grid" role="group" aria-label="试阵棋盘"></div>
+          <section id="shared-board-reserves" class="shared-board-reserves" hidden>
+            <p id="shared-board-bench-label">备战区</p>
+            <div id="shared-board-bench" class="daily-board shared-board-grid shared-board-bench" role="group" aria-labelledby="shared-board-bench-label"></div>
+          </section>
           <p id="shared-board-inspect" class="shared-board-inspect" hidden></p>
           <p id="shared-board-result" class="daily-result" role="status"></p>
           <div class="shared-board-actions"><button id="shared-board-check" class="primary" type="button">试打</button><button id="shared-board-undo" type="button" disabled>撤销</button><button id="shared-board-reset" type="button">恢复原阵</button><button id="shared-board-journal" type="button" hidden>看复盘</button></div>
+          <button id="shared-board-apply" class="primary" type="button" hidden disabled>应用到当前阵</button>
           <details id="shared-board-compare" class="shared-board-compare" hidden>
             <summary>伤害和连锁变化</summary>
             <ul id="shared-board-damage-diff"></ul>

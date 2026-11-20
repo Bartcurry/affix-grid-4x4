@@ -1,8 +1,7 @@
 import { previewOffer } from './marketPreview';
-import { canArrange, createSnapshot, restoreSnapshot, swapRunes } from './shopEngine';
+import { canArrange } from './shopEngine';
 import { openings } from './openings';
-import { prepareBattle } from './tactics';
-import type { planTurn } from './tactics';
+import { prepareBattle, previewPlacement, type planTurn } from './tactics';
 import type { Catalog, Run, Slot, TurnResult } from './types';
 
 type Turn = ReturnType<typeof planTurn>;
@@ -25,14 +24,11 @@ export function fieldTip(run: Run, catalog: Catalog, current: Turn): FieldTip | 
       ((result.win && cost > best.cost) || ((!result.win || cost === best.cost) && result.damage <= best.damage))))) return;
     best = { tip, win: result.win, damage: result.damage, cost };
   };
-  const considerFreeMove = (candidate: Run, tip: FieldTip) => {
+  const considerFreeMove = (origin: Slot, destination: Slot, text: string) => {
+    const candidate = previewPlacement(run, origin, destination);
+    if (!candidate) return;
     const result = prepareBattle(candidate, catalog).events.at(-1);
-    if (result?.type === 'TURN_RESULT') consider(result, tip, 0);
-  };
-  const clone = (source: Run) => {
-    const copy = { ...source };
-    restoreSnapshot(copy, createSnapshot(source));
-    return copy;
+    if (result?.type === 'TURN_RESULT') consider(result, { origin, destination, text }, 0);
   };
   for (const [index, rune] of run.board.entries()) {
     if (!rune) continue;
@@ -40,22 +36,20 @@ export function fieldTip(run: Run, catalog: Catalog, current: Turn): FieldTip | 
     for (const [cell, occupant] of run.board.entries()) {
       if (cell === index || (occupant && cell < index)) continue;
       const destination: Slot = { zone: 'board', index: cell };
-      const copy = clone(run);
       const name = catalog[rune.configId].name;
       const action = occupant ? `和第 ${cell + 1} 格换位` : `移到第 ${cell + 1} 格`;
-      if (swapRunes(copy, origin, destination)) considerFreeMove(copy,
-        { origin, destination, text: `把第 ${index + 1} 格的「${name}」${action}，不花钱。` });
+      considerFreeMove(origin, destination, `把第 ${index + 1} 格的「${name}」${action}，不花钱。`);
     }
   }
+  const squares = [...run.board.entries()].sort((left, right) => Number(!!left[1]) - Number(!!right[1]));
   for (const [index, rune] of run.bench.entries()) {
     if (!rune) continue;
     const origin: Slot = { zone: 'bench', index };
-    for (const [cell, occupant] of run.board.entries()) {
-      if (occupant) continue;
+    const name = catalog[rune.configId].name;
+    for (const [cell, occupant] of squares) {
       const destination: Slot = { zone: 'board', index: cell };
-      const copy = clone(run);
-      if (swapRunes(copy, origin, destination)) considerFreeMove(copy,
-        { origin, destination, text: `把备战区的「${catalog[rune.configId].name}」放到第 ${cell + 1} 格。` });
+      const action = occupant ? `和第 ${cell + 1} 格的符文换位` : `放到第 ${cell + 1} 格`;
+      considerFreeMove(origin, destination, `把备战区的「${name}」${action}。`);
     }
   }
   if (!best?.win) {
