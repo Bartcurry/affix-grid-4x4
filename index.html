@@ -223,8 +223,12 @@
               <strong id="daily-enemy"></strong>
               <p id="daily-rules"></p>
               <p id="daily-moves"></p>
-              <p id="daily-best" hidden></p>
             </div>
+          </div>
+          <p id="daily-friend" class="daily-friend" hidden></p>
+          <div id="daily-goals" class="daily-goals" role="group" aria-label="选择每日挑战目标" hidden>
+            <button type="button" data-goal="clear" aria-pressed="true"><span>最少步数</span><strong id="daily-best"></strong></button>
+            <button type="button" data-goal="peak" aria-pressed="false"><span>最高伤害</span><strong id="daily-peak"></strong></button>
           </div>
           <p id="daily-result" role="status">点两枚符文换位，再试打。</p>
           <div class="daily-tools">

@@ -1165,6 +1165,28 @@ canvas {
 #daily-result { min-height: 2.6em; margin: 0; font-size: .79rem; line-height: 1.45; }
 #daily-result[data-win=true] { color: #cce8ac; }
 #daily-result[data-win=false] { color: #ffc9a2; }
+.daily-goals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem; }
+.daily-goals button {
+  display: grid;
+  gap: .14rem;
+  min-height: 2.75rem;
+  padding: .34rem .5rem;
+  border-color: #a58a6654;
+  background: #181d24;
+  text-align: left;
+}
+.daily-goals span { color: #c5b79d; font-size: .68rem; }
+.daily-goals strong { color: #ecddc2; font-size: clamp(.68rem, 2.8vw, .83rem); font-variant-numeric: tabular-nums; }
+.daily-goals button[aria-pressed=true] { border-color: #d8ad71; background: #342a21; }
+#daily-peak { color: #c4e1a4; }
+.daily-dialog .daily-friend {
+  padding: .32rem .5rem;
+  border-left: 2px solid #87aea2;
+  background: #1b2728;
+  color: #c3dad2;
+  font-size: .74rem;
+  line-height: 1.38;
+}
 .daily-tools { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.25fr); gap: .3rem; }
 .daily-tools button, #daily-copy, #opening-daily { min-height: 2.55rem; padding: .2rem .3rem; font-size: .78rem; }
 .daily-tools .primary { color: #221a12; background: #efc682; border-color: #f8d498; }

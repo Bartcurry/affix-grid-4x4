@@ -1451,7 +1451,7 @@ redraw(!!saved && !challenge && !sideLanding);
 if (sharedBoard) {
   boardTrial.open(sharedBoard, { matches: board => !!saved && canReplaceFormation(board), apply: applySharedBoard });
   resumeAfterSideRoom(boardTrial.dialog);
-} else if (sharedDaily && daily.open(sharedDaily)) {
+} else if (sharedDaily && daily.open(sharedDaily.day, sharedDaily.score)) {
   resumeAfterSideRoom(daily.dialog);
 } else {
   if (sideLanding) { sideLanding = false; redraw(false); }
