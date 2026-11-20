@@ -1,4 +1,4 @@
-import { affixAt, encounters, lastGate, relicChoices } from '../core/expedition';
+import { affixAt, encounters, endlessCampAt, lastGate, relicChoices } from '../core/expedition';
 import { runScore } from '../core/openings';
 import { battleTarget, trialAt, trialOptions } from '../core/trials';
 import type { Run } from '../core/types';
@@ -27,17 +27,18 @@ export function bindRouteRoom(icon: (node: HTMLElement, encounter: keyof typeof 
       const { encounter, trial } = battleTarget(wave, run.trialWave, run.trialRoute);
       const bounty = trialAt(wave);
       const altar = relicChoices(wave, []).length > 0;
+      const camp = run.endless && run.endlessRule && endlessCampAt(wave);
       const tile = document.createElement('button');
       tile.type = 'button';
       tile.dataset.wave = String(wave);
       tile.dataset.state = wave <= cleared ? 'cleared' : wave === run.wave ? 'current' : 'ahead';
       tile.dataset.encounter = encounter;
       if (wave === run.wave && wave > cleared) tile.setAttribute('aria-current', 'step');
-      tile.setAttribute('aria-label', `第 ${wave} 波，${trial?.name ?? encounters[encounter].name}${wave <= cleared ? '，已过关' : ''}${bounty ? '，悬赏' : ''}${altar ? '，遗物' : ''}`);
+      tile.setAttribute('aria-label', `第 ${wave} 波，${trial?.name ?? encounters[encounter].name}${wave <= cleared ? '，已过关' : ''}${bounty ? '，悬赏' : ''}${altar ? '，遗物' : ''}${camp ? '，休整' : ''}`);
       const glyph = document.createElement('span'); glyph.setAttribute('aria-hidden', 'true'); icon(glyph, encounter);
       const label = document.createElement('strong'); label.textContent = String(wave);
       tile.append(glyph, label);
-      const mark = bounty ? '赏' : altar ? '遗' : wave === 20 ? '终' : '';
+      const mark = bounty ? '赏' : altar ? '遗' : camp ? '补' : wave === 20 ? '终' : '';
       if (mark) {
         const badge = document.createElement('small'); badge.textContent = mark;
         tile.append(badge);
@@ -59,6 +60,7 @@ export function bindRouteRoom(icon: (node: HTMLElement, encounter: keyof typeof 
       const bounties = trialOptions({ wave, trialRule: run.trialRule });
       const perk = bounties.length ? (run.clearedTrials?.includes(wave) ? '悬赏已拿下。' :
         bounties.map(bounty => `${bounty.name} +${bounty.reward} 金`).join(' / ')) :
+        run.endless && run.endlessRule && endlessCampAt(wave) ? wave === run.wave && !run.pendingCamp ? '本波已完成休整。' : '开战前可休整一次。' :
         relicChoices(wave, []).length ? '打过这一波，可以选一件遗物。' : '';
       reward.hidden = !perk;
       reward.textContent = perk;

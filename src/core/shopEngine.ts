@@ -1,5 +1,5 @@
 import { CELL_COUNT } from './grid';
-import { relicChoices } from './expedition';
+import { endlessCampAt, relicChoices } from './expedition';
 import { openings } from './openings';
 import { createMulberry32, decodeSeed, encodeSeed, type PRNG } from './rng';
 import { trialAt } from './trials';
@@ -8,7 +8,7 @@ import type { Archetype, Catalog, Offer, OpeningId, Random, Rarity, RelicId, Run
 export const BENCH_SIZE = 4;
 export const SHOP_SIZE = 3;
 export const REFRESH_COST = 2;
-export const canArrange = (run: Run) => run.status === 'active' && !run.pendingLoss && !run.pendingRelics.length;
+export const canArrange = (run: Run) => run.status === 'active' && !run.pendingLoss && !run.pendingCamp && !run.pendingRelics.length;
 
 export function selectTrial(run: Run, enabled: boolean, route?: 'alternate') {
   if (!canArrange(run) || run.endless || !trialAt(run.wave, route) || (route && !run.trialRule)) return false;
@@ -90,6 +90,7 @@ export function newRun(catalog: Catalog, rng: Random, opening: OpeningId = 'chai
     openingRule: 1,
     relicRule: 1,
     trialRule: 1,
+    endlessRule: 1,
     shopFocus: opening,
     wave: 1,
     gold: setup.gold,
@@ -259,6 +260,7 @@ function advanceWave(run: Run, catalog: Catalog, rng: Random) {
   run.trialRoute = undefined;
   run.attempts = 0;
   run.freeRefreshes = 1;
+  run.pendingCamp = run.endless && run.endlessRule === 1 && endlessCampAt(run.wave) ? true : undefined;
   rollShop(run, catalog, rng, { supply: run.wave === 2 ? openings[run.opening].supply : undefined });
 }
 

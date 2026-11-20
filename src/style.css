@@ -1231,6 +1231,25 @@ dialog::backdrop {
 .result-actions .primary { grid-column: 1 / -1; background: #efbf7d; border-color: #f5d4a1; color: #251a11; font-weight: 750; }
 .result-actions .primary:not(:disabled):hover { background: #f8d299; color: #251a11; }
 #result-feedback { color: #f1b189; }
+.camp-dialog { width: min(29rem, calc(100% - 1.3rem)); max-height: 93dvh; }
+.camp-dialog .dialog-content { gap: .54rem; padding: clamp(.72rem, 4vw, 1.05rem); }
+.camp-dialog h2 { margin-top: .17rem; }
+.camp-baseline { padding: .36rem .48rem; background: #1b2430; border-left: 2px solid #7c9db0; }
+.camp-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .38rem; }
+.camp-choices button { display: grid; align-content: start; gap: .23rem; text-align: left; padding: .52rem .48rem; border-color: #74644a; background: #28231f; }
+.camp-choices button strong { color: #f3d6ab; font-size: .87rem; }
+.camp-choices button span { color: #e3c997; font-size: .76rem; }
+.camp-choices button small, #camp-move-impact { color: #f4bd9c; font-size: .72rem; line-height: 1.38; }
+.camp-choices [data-win=true], #camp-move-impact[data-win=true] { color: #bce2a7; }
+.camp-move-panel { padding: .45rem; background: #19272d; border: 1px solid #506e78; }
+.camp-move-panel summary { cursor: pointer; color: #c6e4e8; font-size: .83rem; }
+.camp-move-panel summary span { margin-left: .5rem; color: #a6c5ce; font-size: .71rem; }
+.camp-move-panel p { color: #cbd7df; font-size: .75rem; line-height: 1.42; margin: .48rem .12rem; }
+.camp-move-panel .market-preview-grid { width: min(100%, 12.5rem); }
+#camp-grid button:disabled { opacity: .65; }
+#camp-grid button[aria-pressed=true] { border-color: #c0e1b3; background: #2b3c39; box-shadow: inset 0 0 0 1px #c0e1b3; }
+#camp-move { width: 100%; min-height: 2.45rem; color: #172529; background: #aed2d6; border-color: #bde0e4; font-weight: 750; }
+#camp-move:not(:disabled):hover { color: #172529; background: #c0e1e5; }
 
 .relic-choices {
   display: flex;

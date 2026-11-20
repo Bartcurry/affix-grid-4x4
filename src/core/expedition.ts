@@ -19,6 +19,7 @@ const campaign: readonly EncounterId[] = [
 const endless: readonly EncounterId[] = ['armor', 'cistern', 'flanks', 'bell', 'regent'];
 export const encounterAt = (wave: number): EncounterId => campaign[wave - 1] ?? endless[(wave - 21) % endless.length] ?? 'sentry';
 export const armorLayers = (encounter: EncounterId) => encounter === 'armor' ? 2 : encounter === 'regent' || encounter === 'last_gate' ? 3 : 0;
+export const endlessCampAt = (wave: number) => wave >= 21 && (wave - 21) % 5 === 0;
 
 export const lastGate = {
   closed: '前 3 次符文命中伤害减半。连锁伤害提高 20%。',
@@ -45,9 +46,9 @@ export interface EndlessAffix {
 
 export const endlessAffixes: readonly EndlessAffix[] = [
   { id: 'limit_triggers', name: '天劫·凝滞', desc: '单格触发上限降为 6 次。' },
-  { id: 'odd_row_frenzy', name: '天劫·离火', desc: '奇数行伤害 +60%，但无法主动触发连锁。' },
-  { id: 'shield_tax', name: '天劫·劫金', desc: '金币充裕方可破阵，当前金币若不足 10 则伤害减少 20%。' },
-  { id: 'decay_surge', name: '天劫·蚀骨', desc: '剧毒伤害提高 40%，但回合末衰减提速。' },
+  { id: 'odd_row_frenzy', name: '天劫·离火', desc: '第 2、4 排符文伤害 +60%，这两排无法发起连锁。' },
+  { id: 'shield_tax', name: '天劫·劫金', desc: '每次命中时，手里不足 10 金会让这一击减伤 20%。' },
+  { id: 'decay_surge', name: '天劫·蚀骨', desc: '回合末剧毒伤害 +40%，结算后保留 65% 毒层。' },
 ];
 
 export function affixAt(wave: number): EndlessAffix | null {

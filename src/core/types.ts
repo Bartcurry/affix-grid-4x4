@@ -63,6 +63,7 @@ export interface Run {
   openingRule?: 1;
   relicRule?: 1;
   trialRule?: 1;
+  endlessRule?: 1;
   shopFocus: Archetype | 'any';
   wave: number;
   gold: number;
@@ -73,6 +74,7 @@ export interface Run {
   freeRefreshes: number;
   attempts: number;
   endless: boolean;
+  pendingCamp?: true;
   status: 'active' | 'victory' | 'defeat';
   lastDamage: number;
   lastJournal?: BattleJournal;

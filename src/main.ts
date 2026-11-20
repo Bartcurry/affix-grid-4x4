@@ -3,6 +3,7 @@ import { affixAt, armorLayers, encounters, lastGate, relics, upcomingEncounter }
 import { challengeParam, challengeSaveKey, readChallenge } from './core/challenge';
 import { boardFromJournal, boardSharePrefix, boardShareUrl, readSharedBoard, type SharedBoard } from './core/boardShare';
 import { findLesson } from './core/formationGuide';
+import { claimCamp } from './core/endlessCamp';
 import { previewRelics } from './core/relicPreview';
 import { isOpening, openingIds, openings, runScore, updateRecords } from './core/openings';
 import { foughtHealth } from './core/journal';
@@ -22,6 +23,7 @@ import { bindChallengeRoom, bindInviteRoom } from './render/challengeRoom';
 import { bindTrialRoom } from './render/trialRoom';
 import { bindMarketPreview } from './render/marketPreviewRoom';
 import { bindFormationGuide } from './render/formationGuide';
+import { bindEndlessCampRoom } from './render/endlessCampRoom';
 import { renderOpeningPreview } from './render/openingPreview';
 import { bindResultRoom, type ResultAction } from './render/resultRoom';
 import { openBoardTrial, type TrialOptions } from './render/sharedBoardRoom';
@@ -51,7 +53,7 @@ const directLesson = !sharedBoard && !challenge ? findLesson(new URLSearchParams
 const platform = new WebMockAdapter(catalog, element('ad'), element('ad-text'), button('cancel-ad'), challenge ? challengeSaveKey(challenge) : undefined);
 const loaded = sharedBoard || directLesson ? null : platform.load();
 const saved = challenge && loaded && (loaded.run.seed !== challenge.seed || loaded.run.opening !== challenge.opening ||
-  loaded.run.relicRule !== challenge.relicRule || loaded.run.trialRule !== challenge.trialRule) ? null : loaded;
+  loaded.run.relicRule !== challenge.relicRule || loaded.run.trialRule !== challenge.trialRule || loaded.run.endlessRule !== challenge.endlessRule) ? null : loaded;
 
 const initialSeed = challenge?.seed ?? generateSeedCode().code;
 function createOpeningRun(opening: OpeningId, seed?: string) {
@@ -59,6 +61,7 @@ function createOpeningRun(opening: OpeningId, seed?: string) {
   if (challenge) {
     next.relicRule = challenge.relicRule;
     next.trialRule = challenge.trialRule;
+    next.endlessRule = challenge.endlessRule;
   }
   return next;
 }
@@ -146,6 +149,12 @@ const emptyIcon = 'M16 3l13 13-13 13L3 16 16 3Zm0 6v14m-7-7h14';
 const runeGlyph = (owner: HTMLElement, id: string) => iconPath(owner, runeVectors[id] ?? emptyIcon);
 const showBoardTrial = (snapshot: SharedBoard, options?: TrialOptions) => openBoardTrial(snapshot, catalog, runeGlyph, formatNumber, click, journal, options);
 const formationGuide = bindFormationGuide(catalog, runeGlyph, formatNumber, click, showBoardTrial);
+const showCamp = bindEndlessCampRoom(catalog, runeGlyph, formatNumber, (kind, cell) => {
+  if (!claimCamp(run, kind, cell)) return false;
+  click(); redraw();
+  requestAnimationFrame(() => button('battle').focus({ preventScroll: true }));
+  return true;
+});
 const openMarketPreview = bindMarketPreview(catalog, runeGlyph, formatNumber,
   (index, configId, cell) => run.shop[index]?.configId === configId && buyOffer(index, cell),
   id => { click(); formationGuide.show(id); });
@@ -262,7 +271,7 @@ function updateHud() {
     poisonText.textContent = formatNumber(poison);
   }
 
-  element('phase').textContent = phase === 'PLAYBACK' ? '回放中' : run.pendingRelics.length ? '挑选遗物' : run.pendingLoss ? '待结算护盾' :
+  element('phase').textContent = phase === 'PLAYBACK' ? '回放中' : run.pendingCamp ? '无尽休整' : run.pendingRelics.length ? '挑选遗物' : run.pendingLoss ? '待结算护盾' :
     run.status !== 'active' ? '战斗结束' : '布阵';
 }
 
@@ -873,6 +882,7 @@ openingDialog.addEventListener('cancel', event => {
 });
 
 function showOutcome() {
+  if (run.pendingCamp) { showCamp(run); return; }
   if (run.pendingRelics.length) { showRelicChoices(); return; }
   if (run.pendingLoss) {
     const after = (protectedRetry: boolean) => {
@@ -911,6 +921,7 @@ function showOutcome() {
       startEndless(run, catalog, prng);
       run.rngState = prng.getState();
       resetTimeline(); redraw();
+      showOutcome();
     } });
     showResult(run, actions);
   }

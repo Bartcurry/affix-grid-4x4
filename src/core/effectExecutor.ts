@@ -184,7 +184,7 @@ export function executeEffect(combat: Combat, rule: Effect, context: EffectConte
         () => changeState(combat, index, { chargeStacks: 0 }));
       break;
     case 'RETRIGGER_TARGET': {
-      // Endless affix odd_row_frenzy check: odd row runes cannot trigger chain
+      // The row index is zero-based. These are player rows 2 and 4.
       if (combat.affix === 'odd_row_frenzy') {
         const row = Math.floor(index / 4);
         if (row % 2 === 1) break;

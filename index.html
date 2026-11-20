@@ -237,6 +237,24 @@
         </div>
       </dialog>
 
+      <dialog id="camp-dialog" class="camp-dialog" aria-labelledby="camp-title">
+        <div class="dialog-content">
+          <header><p id="camp-wave" class="daily-date"></p><h2 id="camp-title">无尽休整</h2></header>
+          <p id="camp-baseline" class="camp-baseline"></p>
+          <div class="camp-choices" aria-label="选一项休整">
+            <button id="camp-supplies" type="button" autofocus><strong>补给</strong><span id="camp-supplies-value"></span><small id="camp-supplies-impact"></small></button>
+            <button id="camp-repair" type="button"><strong>修护盾</strong><span id="camp-repair-value"></span><small id="camp-repair-impact"></small></button>
+          </div>
+          <details id="camp-move-panel" class="camp-move-panel" hidden>
+            <summary><strong>移动离火位</strong><span id="camp-tile-current"></span></summary>
+            <p>离火位上的符文每次多触发一次。点格子比较挪印后的伤害。</p>
+            <div id="camp-grid" class="market-preview-grid" role="group" aria-label="选择离火位的新格子"></div>
+            <p id="camp-move-impact" role="status"></p>
+            <button id="camp-move" class="primary" type="button"></button>
+          </details>
+        </div>
+      </dialog>
+
       <dialog id="challenge-dialog" class="challenge-dialog" aria-labelledby="challenge-title">
         <div class="dialog-content">
           <p id="challenge-opening" class="challenge-opening"></p>

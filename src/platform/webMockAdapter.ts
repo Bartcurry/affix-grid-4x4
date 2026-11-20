@@ -1,7 +1,7 @@
 import { BENCH_SIZE, generateTileModifiers, newRun, SHOP_SIZE } from '../core/shopEngine';
 import { CELL_COUNT } from '../core/grid';
 import { readJournal } from '../core/journal';
-import { relics } from '../core/expedition';
+import { endlessCampAt, relics } from '../core/expedition';
 import { trialAt } from '../core/trials';
 import { isOpening, openingIds, type RunRecords } from '../core/openings';
 import { createMulberry32, decodeSeed, generateSeedCode } from '../core/rng';
@@ -105,6 +105,9 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       : [];
     const trialWave = !rawRun.endless && rawRun.trialWave === wave && trialAt(wave) ? wave : undefined;
     const trialRule = rawRun.trialRule === 1 && rawRun.relicRule === 1 ? 1 : undefined;
+    const endlessRule = trialRule && rawRun.endlessRule === 1 ? 1 : undefined;
+    const pendingCamp = endlessRule && rawRun.endless && rawRun.pendingCamp === true && endlessCampAt(wave) &&
+      rawRun.status === 'active' && !rawRun.pendingLoss && !pendingRelicsList.length ? true : undefined;
 
     const migratedRun: Run = {
       seed,
@@ -114,6 +117,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       openingRule: 1,
       relicRule: rawRun.relicRule === 1 ? 1 : undefined,
       trialRule,
+      endlessRule,
       shopFocus,
       wave,
       gold,
@@ -124,6 +128,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       freeRefreshes: natural(rawRun.freeRefreshes) ? rawRun.freeRefreshes : 1,
       attempts: natural(rawRun.attempts) ? rawRun.attempts : 0,
       endless: !!rawRun.endless,
+      pendingCamp,
       status: ['active', 'victory', 'defeat'].includes(rawRun.status) ? rawRun.status : 'active',
       lastDamage: damageCount(rawRun.lastDamage) ? rawRun.lastDamage : 0,
       lastJournal: readJournal(rawRun.lastJournal, catalog),
