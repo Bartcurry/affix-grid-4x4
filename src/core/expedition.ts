@@ -41,6 +41,14 @@ export function affixAt(wave: number): EndlessAffix | null {
   return endlessAffixes[tier % endlessAffixes.length];
 }
 
+export const endlessCampAt = (wave: number) => wave === 21 || wave >= 25 && wave % 5 === 0;
+
+export function endlessSegment(wave: number) {
+  const from = Math.max(21, Math.floor(wave / 5) * 5);
+  const next = (Math.floor(wave / 5) + 1) * 5;
+  return { from, through: Math.min(Number.MAX_SAFE_INTEGER, next - 1), next: Number.isSafeInteger(next) ? next : undefined };
+}
+
 export const relics = {
   whetstone: { name: '磨刀石', text: '第一排符文造成的伤害增加 30%。' },
   chain_ring: { name: '串铃', text: '连锁触发时，符文伤害增加 22%。' },

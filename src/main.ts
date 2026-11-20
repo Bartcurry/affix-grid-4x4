@@ -1,7 +1,8 @@
 import './style.css';
 import { simulateBattle } from './core/battleEngine';
 import { battleTarget, bountyCount, bountyPerkText, offersBounties } from './core/bounties';
-import { affixAt, armorHitsFor, encounters, relics } from './core/expedition';
+import { claimCamp } from './core/endlessCamp';
+import { affixAt, armorHitsFor, encounters, endlessSegment, relics } from './core/expedition';
 import { isOpening, openingIds, openings, runScore, updateRecords } from './core/openings';
 import { challengeParam, challengeSaveKey, matchesChallenge, readChallenge } from './core/challenge';
 import { boardShareParam, boardShareUrl, encodeBoardToken, readSharedBoard, sameBattleSetup, sameFormation, type SharedBoard } from './core/boardShare';
@@ -26,6 +27,7 @@ import { bindFormationLessons } from './render/formationLessons';
 import { bindRetryScout } from './render/retryScout';
 import { bindPurchaseRoom } from './render/purchaseRoom';
 import { bindBountyRoom } from './render/bountyRoom';
+import { bindEndlessCampRoom } from './render/endlessCampRoom';
 import { bindRelicRoom } from './render/relicRoom';
 import { renderOpeningPreview } from './render/openingPreview';
 import { PlaybackController } from './render/playbackController';
@@ -171,6 +173,14 @@ const runeGlyph = (node: HTMLElement, id: string) => iconPath(node, runeVectors[
 const daily = bindDailyRoom(catalog, runeGlyph, click);
 const boardTrial = bindBoardTrial(catalog, runeGlyph, formatNumber, click);
 const showPurchase = bindPurchaseRoom(catalog, runeGlyph, click);
+const showEndlessCamp = bindEndlessCampRoom(catalog, runeGlyph, click, choice => {
+  if (!claimCamp(run, choice)) return false;
+  click();
+  select(null);
+  redraw();
+  notice(choice.id === 'move' ? `离火位移到了第 ${choice.cell + 1} 格` : choice.id === 'repair' ? '护盾 +1' : '营地补给已领取');
+  return true;
+});
 const showBounties = bindBountyRoom(catalog, click, route => {
   if (!arranging()) return false;
   const prior = run.bountyRoute;
@@ -300,7 +310,7 @@ function updateHud() {
   }
 
   element('phase').textContent = phase === 'PLAYBACK' ? `连锁中 · ${displayed.combo} 连击` : run.pendingRelics.length ? '挑选遗物' : run.pendingLoss ? '待结算护盾' :
-    run.status !== 'active' ? '战斗结束' : '布阵';
+    run.pendingCamp ? '营地补给' : run.status !== 'active' ? '战斗结束' : '布阵';
   updateSynergiesUi();
 }
 
@@ -381,10 +391,12 @@ function updateSynergiesUi() {
 
 function markWaves() {
   const track = element('wave-track');
-  track.hidden = run.endless;
-  track.replaceChildren(...Array.from({ length: 20 }, (_, index) => {
+  const { from, through } = run.endless ? endlessSegment(run.wave) : { from: 1, through: 20 };
+  const length = through - from + 1;
+  track.style.setProperty('--wave-steps', String(length));
+  track.replaceChildren(...Array.from({ length }, (_, index) => {
     const notch = document.createElement('span');
-    const wave = index + 1;
+    const wave = from + index;
     notch.dataset.state = wave < run.wave || run.status === 'victory' ? 'cleared' : wave === run.wave ? 'current' : 'ahead';
     return notch;
   }));
@@ -719,6 +731,7 @@ const showRelicChoices = bindRelicRoom(catalog, (node, id) => iconPath(node, get
   close();
   redraw();
   notice(`拿到了 ${relics[id].name}`);
+  if (run.pendingCamp) showOutcome();
 });
 
 function openRelicBag() {
@@ -875,9 +888,11 @@ function recordRunHistory(runToRecord: Run) {
     ...(runToRecord.altarRule === 1 ? { altarRule: 1 } : {}),
     ...(runToRecord.bountyRule === 1 ? { bountyRule: 1 } : {}),
     ...(runToRecord.bountiesCleared ? { bountiesCleared: runToRecord.bountiesCleared } : {}),
+    ...(runToRecord.endlessRule === 1 ? { endlessRule: 1 } : {}),
+    ...(runToRecord.endless ? { endless: true } : {}),
   };
   const existingIdx = history.findIndex(item => item.seed === entry.seed && item.opening === entry.opening &&
-    item.altarRule === entry.altarRule && item.bountyRule === entry.bountyRule);
+    item.altarRule === entry.altarRule && item.bountyRule === entry.bountyRule && item.endlessRule === entry.endlessRule);
   if (existingIdx >= 0) {
     history[existingIdx] = entry;
   } else {
@@ -898,6 +913,7 @@ function makeOpening(id: OpeningId, seed: string) {
   const next = newRun(catalog, createMulberry32(decodeSeed(seed)), id, seed);
   if (challenge && !challenge.altarRule) delete next.altarRule;
   if (challenge && !challenge.bountyRule) delete next.bountyRule;
+  if (challenge && !challenge.endlessRule) delete next.endlessRule;
   return next;
 }
 
@@ -910,6 +926,7 @@ function startOpening(id: OpeningId, customSeed?: string, quick = false, archive
   run = makeOpening(challenge?.opening ?? id, challenge?.seed || customSeed || chosenSeed());
   if (!challenge && archived && !archived.altarRule) delete run.altarRule;
   if (!challenge && archived && !archived.bountyRule) delete run.bountyRule;
+  if (!challenge && archived && !archived.endlessRule) delete run.endlessRule;
   trackedUpgrade = undefined;
   firstClearPayout = undefined;
   undoStack.clear();
@@ -1011,6 +1028,7 @@ function showOutcome(archive = true) {
     if (showRelicChoices(run)) { audio.unlock(); audio.singingBowl(); }
     return;
   }
+  if (run.pendingCamp) { showEndlessCamp(run); return; }
   if (run.pendingLoss) {
     const failed = run;
     const after = (protectedRetry: boolean) => {
@@ -1072,7 +1090,7 @@ function showOutcome(archive = true) {
       const prng = createMulberry32(run.rngState);
       startEndless(run, catalog, prng);
       run.rngState = prng.getState();
-      resetTimeline(); redraw();
+      resetTimeline(); redraw(); showOutcome();
     } });
     showPanel(won ? '廿重劫尽 · 大获全胜' : '灵气耗竭 · 护盾归零',
       `破阵至第 ${run.wave} 波，最高 ${run.bestCombo} 连击。\n最后一轮倾泻 ${formatNumber(run.lastDamage)} 点伤害。${run.bountyRule ? `\n完成悬赏 ${run.bountiesCleared ?? 0} / ${bountyCount}` : ''}\n本局天机玄码：${run.seed}`, actions, false, mvpHtml, won);
@@ -1159,7 +1177,7 @@ async function startBattle(quick = false) {
   run.rngState = prng.getState();
   if (quick && result.win && run.wave === 2) firstClearPayout = payout.total;
   redraw();
-  if (result.win && run.status === 'active' && !run.pendingRelics.length) {
+  if (result.win && run.status === 'active' && !run.pendingRelics.length && !run.pendingCamp) {
     if (run.wave - 1 >= 20) {
       renderer.spawnVictoryCelebration();
     }
@@ -1387,7 +1405,8 @@ function renderCodexArchives() {
 
     const openingName = document.createElement('strong');
     openingName.className = 'codex-archive-opening-name';
-    openingName.textContent = `${openings[item.opening]?.name ?? '法阵'} · ${item.wave >= 20 && item.status === 'victory' ? '廿重破阵' : `止步第 ${item.wave} 波`}`;
+    const stage = item.endless ? `无尽第 ${item.wave} 波` : item.status === 'victory' ? '二十波通关' : `第 ${item.wave} 波`;
+    openingName.textContent = `${openings[item.opening].name} · ${stage}`;
 
     openingGroup.append(emblemWrap, openingName);
 

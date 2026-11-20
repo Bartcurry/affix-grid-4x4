@@ -2,7 +2,7 @@ import { BENCH_SIZE, generateTileModifiers, newRun, SHOP_SIZE } from '../core/sh
 import { bountyAt, bountyCount } from '../core/bounties';
 import { CELL_COUNT } from '../core/grid';
 import { readJournal } from '../core/journal';
-import { relics } from '../core/expedition';
+import { endlessCampAt, relics } from '../core/expedition';
 import { isOpening, openingIds, type RunRecords } from '../core/openings';
 import { createMulberry32, decodeSeed, generateSeedCode } from '../core/rng';
 import type { Catalog, OpeningId, Run, Slots, TileModifierMap } from '../core/types';
@@ -61,6 +61,8 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
         ...(item.altarRule === 1 ? { altarRule: 1 as const } : {}),
         ...(item.altarRule === 1 && item.bountyRule === 1 ? { bountyRule: 1 as const } : {}),
         ...(natural(item.bountiesCleared) && item.bountiesCleared <= bountyCount ? { bountiesCleared: item.bountiesCleared } : {}),
+        ...(item.altarRule === 1 && item.bountyRule === 1 && item.endlessRule === 1 ? { endlessRule: 1 as const } : {}),
+        ...(item.endless === true || (natural(item.wave) && item.wave > 20) ? { endless: true as const } : {}),
       }));
   };
 
@@ -124,6 +126,9 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
     const journal = readJournal(rawRun.lastJournal, catalog);
     const bountyRule = rawRun.altarRule === 1 && rawRun.bountyRule === 1;
     const bountyRoute = bountyRule && !rawRun.endless && bountyAt(wave, rawRun.bountyRoute) ? rawRun.bountyRoute : undefined;
+    const endlessRule = bountyRule && rawRun.endlessRule === 1;
+    const pendingCamp = endlessRule && rawRun.endless === true && rawRun.status === 'active' &&
+      !rawRun.pendingLoss && endlessCampAt(wave) && rawRun.pendingCamp === true;
 
     const migratedRun: Run = {
       seed,
@@ -152,6 +157,8 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       ...(bountyRule ? { bountyRule: 1 } : {}),
       ...(bountyRoute ? { bountyRoute } : {}),
       ...(bountyRule && natural(rawRun.bountiesCleared) && rawRun.bountiesCleared <= bountyCount ? { bountiesCleared: rawRun.bountiesCleared } : {}),
+      ...(endlessRule ? { endlessRule: 1 } : {}),
+      ...(pendingCamp ? { pendingCamp: true } : {}),
       ...(Array.isArray(rawRun.lastCellDamage) && rawRun.lastCellDamage.length === CELL_COUNT && rawRun.lastCellDamage.every(damageCount)
         ? { lastCellDamage: rawRun.lastCellDamage } : {}),
       ...(journal ? { lastJournal: journal } : {}),

@@ -204,8 +204,9 @@ describe('Synergy Resonance & Expanded Relic System', () => {
     expect(resultOf(armorEventsWithNeedle).damage).toBeGreaterThan(resultOf(armorEventsWithoutNeedle).damage * 2);
   });
 
-  it('rewards milestone bonuses every 5 waves in endless mode', () => {
+  it('keeps automatic milestone bonuses in earlier endless saves', () => {
     const run = newRun(catalog, noCrit);
+    delete run.endlessRule;
     run.endless = true;
     run.wave = 24;
     run.shield = 1;
@@ -217,6 +218,7 @@ describe('Synergy Resonance & Expanded Relic System', () => {
     // Shield repaired by +1, received +10 bonus gold & free refreshes!
     expect(run.shield).toBe(2);
     expect(run.freeRefreshes).toBeGreaterThanOrEqual(2);
+    expect(run.pendingCamp).toBeUndefined();
   });
 
   it('preserves combined bonusPower from spirit_gathering upon 3-rune merge', () => {

@@ -14,6 +14,8 @@ export interface RunArchive {
   altarRule?: 1;
   bountyRule?: 1;
   bountiesCleared?: number;
+  endlessRule?: 1;
+  endless?: true;
 }
 
 export interface SaveData {

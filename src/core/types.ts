@@ -85,6 +85,8 @@ export interface Run {
   bountyRule?: 1;
   bountyRoute?: BountyRoute;
   bountiesCleared?: number;
+  endlessRule?: 1;
+  pendingCamp?: true;
   lastCellDamage?: number[];
   lastJournal?: BattleJournal;
 }

@@ -430,6 +430,7 @@
             </div>
             <p id="encounter-trait"></p>
             <p id="encounter-affix" class="encounter-affix" hidden></p>
+            <p id="encounter-next" class="encounter-next" hidden></p>
             <p id="encounter-tip"></p>
             <div class="encounter-preview" id="encounter-preview">
               <div>
@@ -502,6 +503,32 @@
           </section>
           <div class="celestial-choices" id="relic-choices"></div>
           <button id="relic-pick" class="primary" type="button" disabled>领取所选遗物</button>
+        </div>
+      </dialog>
+
+      <dialog id="camp-dialog" aria-labelledby="camp-title">
+        <div class="dialog-content camp-room">
+          <header class="camp-header">
+            <p id="camp-stage"></p>
+            <h2 id="camp-title">无尽营地</h2>
+          </header>
+          <p id="camp-enemy"></p>
+          <p id="camp-affix" hidden></p>
+          <div class="camp-choices" role="group" aria-label="选择营地补给">
+            <button id="camp-supplies" type="button"><strong>拿补给</strong><small></small></button>
+            <button id="camp-repair" type="button"><strong>修护盾</strong><small></small></button>
+            <button id="camp-move" type="button"><strong>挪离火</strong><small></small></button>
+          </div>
+          <section id="camp-layout" class="camp-layout" hidden>
+            <div id="camp-grid" class="camp-grid" role="group" aria-label="选择离火位的新位置"></div>
+            <p id="camp-cell"></p>
+          </section>
+          <section class="camp-forecast" aria-label="下一战推演">
+            <span>下一战伤害</span>
+            <strong id="camp-impact"></strong>
+            <small id="camp-verdict"></small>
+          </section>
+          <button id="camp-confirm" type="button" class="primary"></button>
         </div>
       </dialog>
 

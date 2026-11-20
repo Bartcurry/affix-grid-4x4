@@ -1,6 +1,6 @@
 import { CELL_COUNT } from './grid';
 import { bountyAt, bountyPerkUnavailable, bountyRefreshes, engravingCell, engravingPower, offersBounties } from './bounties';
-import { relicChoices } from './expedition';
+import { endlessCampAt, relicChoices } from './expedition';
 import { openings } from './openings';
 import { countSynergies } from './synergy';
 import { createMulberry32, decodeSeed, encodeSeed, type PRNG } from './rng';
@@ -9,7 +9,7 @@ import type { Archetype, BountyRoute, Catalog, Offer, OpeningId, Random, Rarity,
 export const BENCH_SIZE = 4;
 export const SHOP_SIZE = 3;
 export const REFRESH_COST = 2;
-export const canArrange = (run: Run) => run.status === 'active' && !run.pendingLoss && !run.pendingRelics.length;
+export const canArrange = (run: Run) => run.status === 'active' && !run.pendingLoss && !run.pendingCamp && !run.pendingRelics.length;
 
 export function selectBounty(run: Run, route?: BountyRoute) {
   if (!canArrange(run) || !offersBounties(run) || route === run.bountyRoute ||
@@ -113,6 +113,7 @@ export function newRun(catalog: Catalog, rng: Random, opening: OpeningId = 'chai
     enableSynergies: true,
     altarRule: 1,
     bountyRule: 1,
+    endlessRule: 1,
   };
   for (const [index, configId] of setup.pieces) run.board[index] = { configId, star: 1 };
   rollShop(run, catalog, effectiveRng);
@@ -279,6 +280,7 @@ export function chooseRelic(run: Run, choice: RelicId): boolean {
 function advanceWave(run: Run, catalog: Catalog, rng: Random) {
   run.wave++;
   delete run.bountyRoute;
+  delete run.pendingCamp;
   run.attempts = 0;
   run.freeRefreshes = 1;
   if (run.relics.includes('jade_abacus')) {
@@ -287,10 +289,13 @@ function advanceWave(run: Run, catalog: Catalog, rng: Random) {
   if (run.relics.includes('spirit_gourd') && run.gold >= 20) {
     run.freeRefreshes += 1;
   }
-  if (run.endless && run.wave >= 25 && run.wave % 5 === 0) {
-    run.gold += 10;
-    if (run.shield < 3) run.shield++;
-    run.freeRefreshes += 2;
+  if (run.endless && endlessCampAt(run.wave)) {
+    if (run.endlessRule === 1) run.pendingCamp = true;
+    else if (run.wave !== 21) {
+      run.gold += 10;
+      if (run.shield < 3) run.shield++;
+      run.freeRefreshes += 2;
+    }
   }
   rollShop(run, catalog, rng, { supply: run.wave === 2 ? openings[run.opening].supply : undefined });
 }

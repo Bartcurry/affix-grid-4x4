@@ -435,7 +435,7 @@ button:focus-visible, canvas:focus-visible {
 
 .wave-track {
   display: grid;
-  grid-template-columns: repeat(20, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--wave-steps, 20), minmax(0, 1fr));
   gap: 2px;
   flex: 1;
 }
@@ -1593,6 +1593,7 @@ dialog::backdrop {
 #encounter-trait { color: var(--enemy-ink); font-weight: 700; font-size: .86rem; }
 #encounter-tip { color: #ded4c4; font-size: .81rem; }
 .encounter-affix { color: #f3c69f; padding-left: .5rem; border-left: 2px solid #bd8d61; font-size: .79rem; }
+.encounter-next { color: #c7b99e; font-size: .74rem; }
 
 .encounter-preview {
   display: flex;
@@ -1650,6 +1651,76 @@ dialog::backdrop {
 .dialog-actions button {
   min-height: 2.6rem;
 }
+
+#camp-dialog {
+  width: min(29rem, calc(100% - 1.2rem));
+  max-height: 94dvh;
+  border-color: #b59367;
+  background: linear-gradient(143deg, #27292c, #12151b 65%);
+}
+.camp-room { padding: clamp(.69rem, 3.75vw, 1.1rem); gap: .59rem; }
+.camp-header { padding-bottom: .46rem; border-bottom: 1px solid #a8895e57; }
+.camp-header h2 { color: #edd4a8; }
+#camp-stage { color: #c9ae86; font-size: .72rem; }
+.camp-room #camp-enemy, .camp-room #camp-affix { color: #dfd1ba; font-size: .79rem; line-height: 1.4; }
+.camp-room #camp-affix { color: #edc298; padding-left: .46rem; border-left: 2px solid #bb976c; }
+.camp-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .35rem; }
+.camp-choices button {
+  display: grid;
+  align-content: center;
+  gap: .17rem;
+  min-height: 3rem;
+  padding: .32rem .18rem;
+  border-color: #a18a635f;
+  background: #1b2128;
+  font-size: .78rem;
+}
+.camp-choices small { color: #cab79a; font-size: .66rem; }
+.camp-choices button[aria-pressed=true] { color: #f5dab0; border-color: #d8aa71; background: #382d26; }
+.camp-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr);
+  align-items: center;
+  gap: .55rem;
+  padding: .47rem;
+  border: 1px solid #a58a6057;
+  border-radius: .3rem;
+  background: #121922;
+}
+.camp-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .18rem; }
+.camp-grid button {
+  display: grid;
+  position: relative;
+  place-items: center;
+  min-width: 0;
+  aspect-ratio: 1;
+  padding: 0;
+  border-color: #a88f6555;
+  background: #19212b;
+}
+.camp-grid small, .camp-grid i { color: #c9b79b; font: .55rem var(--mono-font); }
+.camp-grid small { position: absolute; top: .1rem; left: .13rem; }
+.camp-grid i { position: absolute; right: .1rem; bottom: .1rem; color: #f2bf83; }
+.camp-grid svg { width: 66%; height: 66%; }
+.camp-grid [data-fire] { border-color: #bb8052; opacity: .85; }
+.camp-grid [data-best] { border-color: #8eac75; }
+.camp-grid [aria-pressed=true] { background: #3c3026; border-color: #f0be85; }
+#camp-cell { color: #e9dbc6; font-size: .76rem; line-height: 1.5; }
+.camp-forecast {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: .15rem .4rem;
+  padding: .5rem .6rem;
+  border: 1px solid #947c585e;
+  border-radius: .3rem;
+  background: #171e25;
+}
+.camp-forecast span, #camp-verdict { color: #cabaab; font-size: .72rem; }
+#camp-impact { color: #eddbc0; font-size: .9rem; font-variant-numeric: tabular-nums; text-align: right; }
+#camp-impact[data-change=up] { color: #c6e2a4; }
+#camp-impact[data-change=down] { color: #f2b782; }
+#camp-confirm { min-height: 2.45rem; font-size: .82rem; }
 
 .retry-scout {
   display: grid;

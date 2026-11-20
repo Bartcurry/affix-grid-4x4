@@ -1,5 +1,5 @@
 import { battleTarget, bountyWaves } from '../core/bounties';
-import { affixAt, encounters } from '../core/expedition';
+import { affixAt, encounters, endlessCampAt, endlessSegment } from '../core/expedition';
 import { planTurn } from '../core/tactics';
 import type { Catalog, Run } from '../core/types';
 import { formatNumber as format } from './canvasRenderer';
@@ -22,15 +22,22 @@ export function bindEncounterRoom(catalog: Catalog, click: () => void, trial: (w
     const affix = affixAt(selected);
     const milestone = selected % 4 === 0 && selected !== 20;
     const bountyWave = run.bountyRule && bountyWaves.includes(selected);
+    const campWave = run.endlessRule && endlessCampAt(selected);
     get('detail').dataset.enemy = encounter;
     dialog.querySelector('#encounter-icon')?.setAttribute('d', getBossSvgPath(encounter));
-    get('step').textContent = `第 ${format(selected)} 波${selected === run.wave ? ' · 当前' : ''}${milestone ? ' · 遗物节点' : ''}${bountyWave ? ' · 悬赏节点' : ''}`;
+    get('step').textContent = `第 ${format(selected)} 波${selected === run.wave ? ' · 当前' : ''}${milestone ? ' · 遗物节点' : ''}${bountyWave ? ' · 悬赏节点' : ''}${campWave ? ' · 营地' : ''}`;
     get('name').textContent = name;
     get('hp').textContent = `${format(hp)} 生命`;
     get('trait').textContent = bounty ? `${bounty.name} · ${trait}` : trait;
     get('tip').textContent = tip;
     get('affix').hidden = !affix;
     get('affix').textContent = affix ? `${affix.name} · ${affix.desc}` : '';
+    const upcoming = get('next');
+    const next = selected > 20 ? endlessSegment(selected).next : undefined;
+    const nextAffix = next !== undefined && affixAt(next);
+    upcoming.hidden = !nextAffix;
+    upcoming.textContent = nextAffix && next !== undefined
+      ? `第 ${format(next)} 波换为${nextAffix.name}${run.endlessRule ? '，开战前可在营地选补给。' : '，开战前会收到补给。'}` : '';
 
     const preview = get('preview');
     preview.hidden = !canTry;
