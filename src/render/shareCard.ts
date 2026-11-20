@@ -2,7 +2,7 @@ import qrcode from 'qrcode-generator';
 import { readSharedBoard } from '../core/boardShare';
 import { bountyAt } from '../core/bounties';
 import { damageLeaders } from '../core/journal';
-import { openings, runScore } from '../core/openings';
+import { difficultyLabel, openings, runScore } from '../core/openings';
 import type { Catalog, Run, Slots, TileModifierMap } from '../core/types';
 import { formatNumber } from './canvasRenderer';
 import { drawRuneGlyph } from './glyphs';
@@ -136,7 +136,7 @@ export function renderScoreCard(canvas: HTMLCanvasElement, run: Run, catalog: Ca
   const outcome = run.status === 'victory' ? '二十波通关'
     : run.status === 'defeat' ? `止步第 ${formatNumber(run.wave)} 波` : '本局战绩';
   print(outcome, 54, 153, 62, paper, 700, serif, 605);
-  print(`${opening.name} · ${opening.label}开局${run.endless ? ' / 无尽' : ''}`, 57, 200, 23, muted, 500);
+  print(`${opening.name} · ${opening.label}开局 · ${difficultyLabel(run.difficulty)}${run.endless ? ' / 无尽' : ''}`, 57, 200, 23, muted, 500);
   rule(56, 228, 608);
 
   const stats = [

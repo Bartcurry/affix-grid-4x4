@@ -37,6 +37,7 @@ export const openings = {
 
 export const openingIds = Object.keys(openings) as OpeningId[];
 export const isOpening = (value: unknown): value is OpeningId => typeof value === 'string' && Object.hasOwn(openings, value);
+export const difficultyLabel = (difficulty: Run['difficulty']) => difficulty === 'beginner' ? '入门' : '标准';
 
 export interface OpeningRecord { cleared: number; combo: number }
 export type RunRecords = Partial<Record<OpeningId, OpeningRecord>>;

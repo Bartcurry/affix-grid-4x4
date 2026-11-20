@@ -1,0 +1,130 @@
+import { previewPlacement, simulateFormation } from '../core/tactics';
+import type { Catalog } from '../core/types';
+import { formationLessons, lessonBoards } from '../data/formationLessons';
+import { formatNumber as format } from './canvasRenderer';
+
+const lessons = [formationLessons[0], formationLessons[2], formationLessons[1]];
+
+export function bindStarterGuide(catalog: Catalog, glyph: (cell: HTMLElement, id: string) => void,
+  click: () => void, finish: () => void) {
+  const dialog = document.querySelector<HTMLDialogElement>('#starter-guide')!;
+  const get = <T extends HTMLElement = HTMLElement>(id: string) => dialog.querySelector<T>(`#starter-${id}`)!;
+  const grid = get('grid');
+  const check = get<HTMLButtonElement>('check');
+  const reset = get<HTMLButtonElement>('reset');
+  const next = get<HTMLButtonElement>('next');
+  const feedback = get('feedback');
+  let round = 0;
+  let selected: number | undefined;
+  let exercise: ReturnType<typeof lessonBoards>;
+  let board: typeof exercise.original;
+  let baseline = 0;
+  let goal = 0;
+  let passed = false;
+
+  function damage(formation: typeof board) {
+    const result = simulateFormation(formation, catalog).events.at(-1);
+    if (result?.type !== 'TURN_RESULT') throw new Error('Missing practice result');
+    return result.damage;
+  }
+
+  function draw(focus?: number) {
+    const target = selected === lessons[round].move[0] ? lessons[round].move[1] : undefined;
+    grid.replaceChildren(...board.board.map((rune, index) => {
+      const cell = document.createElement('button');
+      const config = rune && catalog[rune.configId];
+      const number = document.createElement('small');
+      number.textContent = String(index + 1);
+      cell.type = 'button';
+      cell.dataset.index = String(index);
+      cell.dataset.occupied = String(!!config);
+      cell.setAttribute('aria-pressed', String(selected === index));
+      cell.setAttribute('aria-label', `第 ${index + 1} 格，${config?.name ?? '空格'}${target === index ? '，建议落位' : ''}`);
+      if (target === index) cell.dataset.suggestion = 'to';
+      cell.append(number);
+      if (config) {
+        cell.style.setProperty('--rune-ink', config.color);
+        glyph(cell, config.id);
+      }
+      cell.onclick = () => {
+        if (passed) return;
+        click();
+        if (selected === undefined || selected === index) {
+          selected = config && selected !== index ? index : undefined;
+          if (selected === lessons[round].move[0]) feedback.textContent = `点亮着的第 ${lessons[round].move[1] + 1} 格。`;
+          else if (selected !== undefined) feedback.textContent = '再点目标格。';
+          delete feedback.dataset.win;
+        } else {
+          const moved = previewPlacement(board, { zone: 'board', index: selected }, { zone: 'board', index });
+          if (moved) {
+            board = moved;
+            check.disabled = reset.disabled = false;
+            feedback.textContent = '摆好了，试打看看。';
+            delete feedback.dataset.win;
+          }
+          selected = undefined;
+        }
+        draw(index);
+      };
+      return cell;
+    }));
+    if (focus !== undefined) grid.querySelector<HTMLButtonElement>(`[data-index="${focus}"]`)?.focus({ preventScroll: true });
+  }
+
+  function start(index: number) {
+    round = index;
+    const lesson = lessons[index];
+    exercise = lessonBoards(lesson);
+    board = exercise.original;
+    selected = undefined;
+    passed = false;
+    baseline = damage(board);
+    goal = damage(exercise.revised);
+    get('progress').textContent = `第 ${index + 1} / ${lessons.length} 课`;
+    get('title').textContent = lesson.name;
+    get('tip').textContent = lesson.tip;
+    get('before').textContent = format(baseline);
+    get('goal').textContent = format(goal);
+    feedback.textContent = '先点要移动的符文，再点目标格。';
+    delete feedback.dataset.win;
+    next.hidden = true;
+    next.textContent = index + 1 === lessons.length ? '返回开局' : '下一课';
+    check.hidden = false;
+    check.disabled = reset.disabled = true;
+    draw();
+  }
+
+  check.onclick = () => {
+    click();
+    const amount = damage(board);
+    passed = amount >= goal;
+    feedback.textContent = passed
+      ? `打出了 ${format(amount)} 点，比原阵多 ${format(amount - baseline)} 点。`
+      : `打出了 ${format(amount)} 点，目标是 ${format(goal)}。再试一个位置。`;
+    feedback.dataset.win = String(passed);
+    if (passed) {
+      check.hidden = true;
+      next.hidden = false;
+      next.focus({ preventScroll: true });
+    }
+  };
+  next.onclick = () => {
+    click();
+    if (round + 1 < lessons.length) {
+      start(round + 1);
+      get('title').focus({ preventScroll: true });
+    } else {
+      dialog.close();
+      finish();
+    }
+  };
+  reset.onclick = () => { click(); start(round); get('title').focus({ preventScroll: true }); };
+  get('close').onclick = () => { click(); dialog.close(); };
+  return () => {
+    if (dialog.open) return;
+    click();
+    start(0);
+    dialog.showModal();
+    get('title').focus({ preventScroll: true });
+  };
+}

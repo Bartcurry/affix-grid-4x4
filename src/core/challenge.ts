@@ -9,11 +9,13 @@ const bountyVersion = 'v9';
 const campVersion = 'v10';
 const reforgeVersion = 'v11';
 const finaleVersion = 'v12';
-const revisions = [legacyVersion, altarVersion, bountyVersion, campVersion, reforgeVersion, finaleVersion];
+const beginnerVersion = 'v13';
+const revisions = [legacyVersion, altarVersion, bountyVersion, campVersion, reforgeVersion, finaleVersion, beginnerVersion];
 
 export interface Challenge extends OpeningRecord {
   opening: OpeningId;
   seed: string;
+  difficulty?: Run['difficulty'];
   altarRule?: 1;
   bountyRule?: 1;
   endlessRule?: 1;
@@ -21,11 +23,13 @@ export interface Challenge extends OpeningRecord {
   finaleRule?: 1;
 }
 
-const version = (challenge: Challenge) => challenge.finaleRule === 1 ? finaleVersion : challenge.reforgeRule === 1 ? reforgeVersion : challenge.endlessRule === 1 ? campVersion
+const version = (challenge: Challenge) => challenge.difficulty === 'beginner' ? beginnerVersion :
+  challenge.finaleRule === 1 ? finaleVersion : challenge.reforgeRule === 1 ? reforgeVersion : challenge.endlessRule === 1 ? campVersion
   : challenge.bountyRule === 1 ? bountyVersion : challenge.altarRule === 1 ? altarVersion : legacyVersion;
 
 export function challengeFromRun(run: Run): Challenge {
   return { opening: run.opening, seed: encodeSeed(decodeSeed(run.seed)), ...runScore(run),
+    ...(run.difficulty === 'beginner' ? { difficulty: run.difficulty } : {}),
     ...(run.altarRule === 1 ? { altarRule: 1 } : {}), ...(run.bountyRule === 1 ? { bountyRule: 1 } : {}),
     ...(run.endlessRule === 1 ? { endlessRule: 1 } : {}), ...(run.reforgeRule === 1 ? { reforgeRule: 1 } : {}),
     ...(run.finaleRule === 1 ? { finaleRule: 1 } : {}) };
@@ -43,7 +47,8 @@ export function readChallenge(raw: string | null): Challenge | undefined {
   if (!Number.isSafeInteger(score.cleared) || !Number.isSafeInteger(score.combo)) return;
   return { opening, seed, ...score, ...(rules >= 1 ? { altarRule: 1 } : {}),
     ...(rules >= 2 ? { bountyRule: 1 } : {}), ...(rules >= 3 ? { endlessRule: 1 } : {}),
-    ...(rules >= 4 ? { reforgeRule: 1 } : {}), ...(rules >= 5 ? { finaleRule: 1 } : {}) };
+    ...(rules >= 4 ? { reforgeRule: 1 } : {}), ...(rules >= 5 ? { finaleRule: 1 } : {}),
+    ...(rules >= 6 ? { difficulty: 'beginner' } : {}) };
 }
 
 export function challengeUrl(page: string, challenge: Challenge): string {
@@ -61,7 +66,7 @@ export function challengeSaveKey(challenge: Challenge) {
 export function matchesChallenge(run: Run, challenge: Challenge) {
   return run.enableSynergies !== false && run.opening === challenge.opening && run.altarRule === challenge.altarRule &&
     run.bountyRule === challenge.bountyRule && run.endlessRule === challenge.endlessRule &&
-    run.reforgeRule === challenge.reforgeRule && run.finaleRule === challenge.finaleRule &&
+    run.reforgeRule === challenge.reforgeRule && run.finaleRule === challenge.finaleRule && run.difficulty === challenge.difficulty &&
     encodeSeed(decodeSeed(run.seed)) === challenge.seed;
 }
 

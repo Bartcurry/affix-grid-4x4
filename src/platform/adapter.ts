@@ -6,6 +6,7 @@ export interface RunArchive {
   seed: string;
   wave: number;
   opening: OpeningId;
+  difficulty?: Run['difficulty'];
   status: 'victory' | 'defeat' | 'active';
   lastDamage: number;
   bestCombo: number;
@@ -30,6 +31,7 @@ export interface SaveData {
   trackedUpgrade?: string;
   firstClearPayout?: number;
   records: RunRecords;
+  beginnerRecords?: RunRecords;
   history?: RunArchive[];
   ambientMuted?: boolean;
 }

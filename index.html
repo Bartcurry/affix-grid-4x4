@@ -96,6 +96,7 @@
       <section class="arena-wrap panel" aria-label="布阵区域">
         <div class="arena-bar">
           <span id="board-count" class="board-counter">已布阵 0/16</span>
+          <span id="beginner-badge" hidden>入门</span>
           <span id="arena-hint" class="arena-hint-text">点符文，再点目标格</span>
           <span id="phase" class="phase-pill">布阵</span>
           <button id="daily-open" type="button" aria-haspopup="dialog">每日</button>
@@ -702,12 +703,19 @@
             </div>
             <button id="opening-close" type="button" aria-label="回到当前局" title="回到当前局">×</button>
           </header>
+          <div id="opening-modes" class="opening-modes" role="group" aria-label="战役难度">
+            <button id="difficulty-beginner" type="button" aria-pressed="false"><strong>入门</strong><small>多一次免费刷新，过关补一盾</small></button>
+            <button id="difficulty-standard" type="button" aria-pressed="true"><strong>标准</strong><small>原版战役规则</small></button>
+          </div>
           <div id="opening-choices" class="opening-choices-grid" role="group" aria-label="选择起手阵"></div>
           <div id="opening-actions" class="opening-actions">
             <button id="opening-quick" class="primary" type="button">开局并打首波</button>
             <button id="opening-prepare" type="button">先布阵</button>
           </div>
-          <nav id="opening-extra" class="opening-extra" aria-label="短局玩法">
+          <nav id="opening-extra" class="opening-extra" aria-label="练习和短局">
+            <button id="opening-guide" type="button" aria-haspopup="dialog">
+              <strong>新手练习</strong><span>三次换位上手</span>
+            </button>
             <button id="opening-daily" type="button" aria-haspopup="dialog">
               <strong>每日残局</strong><span>一题两种目标</span>
             </button>
@@ -768,6 +776,27 @@
             </div>
             <div class="upgrades-stock"><p id="upgrades-stock"></p><button id="upgrades-offer" type="button" hidden>看现货</button></div>
           </section>
+        </div>
+      </dialog>
+
+      <dialog id="starter-guide" class="starter-guide" aria-labelledby="starter-title">
+        <div class="dialog-content">
+          <header class="invite-heading">
+            <div><p id="starter-progress"></p><h2 id="starter-title" tabindex="-1"></h2></div>
+            <button id="starter-close" type="button" aria-label="关闭新手练习">×</button>
+          </header>
+          <p id="starter-tip"></p>
+          <div id="starter-grid" class="trial-tiles" role="group" aria-label="练习棋盘"></div>
+          <dl class="starter-scores">
+            <div><dt>原阵伤害</dt><dd id="starter-before"></dd></div>
+            <div><dt>目标伤害</dt><dd id="starter-goal"></dd></div>
+          </dl>
+          <p id="starter-feedback" role="status"></p>
+          <div class="starter-actions">
+            <button id="starter-reset" type="button">重摆</button>
+            <button id="starter-check" type="button" class="primary">试打</button>
+            <button id="starter-next" type="button" class="primary" hidden>下一课</button>
+          </div>
         </div>
       </dialog>
 

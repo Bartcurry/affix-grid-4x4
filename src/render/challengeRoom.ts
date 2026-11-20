@@ -1,5 +1,5 @@
 import { challengeFromRun, challengeProgress, challengeUrl, type Challenge } from '../core/challenge';
-import { openings, runScore } from '../core/openings';
+import { difficultyLabel, openings, runScore } from '../core/openings';
 import type { Run } from '../core/types';
 
 export function bindShareRoom() {
@@ -28,7 +28,7 @@ export function bindShareRoom() {
       board.setAttribute('aria-pressed', String(shareBoard));
       url = shareBoard && boardUrl ? boardUrl : campaignUrl;
       title = shareBoard ? '4×4 词条法阵 · 试打这一波' : '4×4 词条法阵 · 同局挑战';
-      caption = shareBoard ? `帮我试试第 ${run.wave} 波` : `${opening.name} · 已过 ${score.cleared} 波`;
+      caption = shareBoard ? `帮我试试第 ${run.wave} 波` : `${opening.name} · ${difficultyLabel(score.difficulty)} · 已过 ${score.cleared} 波`;
       get('title').textContent = shareBoard ? '分享这一波' : reply ? '发回同局战绩' : '邀请朋友打同局';
       get('score').textContent = shareBoard ? `第 ${run.wave} 波 · 当前棋盘与备战区`
         : `${caption} · 最高 ${score.combo} 连击`;
@@ -87,7 +87,7 @@ export function bindChallengeRoom(enter: (quick: boolean) => void, leave: () => 
     const progress = challengeProgress(player, target);
     const hasScore = !!(player.cleared || player.combo);
     const opening = openings[target.opening];
-    get('opening').textContent = `${opening.name} · ${opening.label} · ${target.seed}`;
+    get('opening').textContent = `${opening.name} · ${opening.label} · ${difficultyLabel(target.difficulty)} · ${target.seed}`;
     get('target').textContent = `${target.cleared} 波`;
     get('target-combo').textContent = `最高 ${target.combo} 连击`;
     get('player-label').textContent = main ? '本机同种子战绩' : '你的战绩';

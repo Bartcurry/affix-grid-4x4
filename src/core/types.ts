@@ -60,6 +60,7 @@ export interface RuneState { triggersThisTurn: number; tempMult: number; tempCri
 export interface Slot { zone: 'board' | 'bench'; index: number }
 export interface Offer { configId: string; locked: boolean }
 export interface Run {
+  difficulty?: 'beginner';
   seed: string;
   rngState: number;
   tileModifiers: TileModifierMap;

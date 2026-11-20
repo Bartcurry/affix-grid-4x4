@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { challengeFromRun, challengeProgress, challengeSaveKey, challengeUrl, matchesChallenge, readChallenge } from '../core/challenge';
 import { createMulberry32, decodeSeed } from '../core/rng';
-import { newRun, victoryPayout } from '../core/shopEngine';
+import { newRun, resolveLoss, settleTurn, startEndless, victoryPayout } from '../core/shopEngine';
 import { planTurn } from '../core/tactics';
 import { catalog } from '../data/catalog';
 import { migrateSave } from '../platform/webMockAdapter';
@@ -60,6 +60,45 @@ describe('same-seed challenges', () => {
     }
     expect(challengeProgress({ cleared: 4, combo: 2 }, { cleared: 3, combo: 120 }).reached).toBe(true);
     expect(challengeProgress({ cleared: 3, combo: 2 }, { cleared: 3, combo: 5 }).text).toContain('再多 3 连击');
+  });
+
+  it('keeps beginner support, saves and same-seed challenges separate from standard runs', () => {
+    const standard = newRun(catalog, createMulberry32(667));
+    const beginner = newRun(catalog, createMulberry32(667), 'chain', undefined, 'beginner');
+    expect(beginner.shop).toEqual(standard.shop);
+    expect(beginner.freeRefreshes).toBe(2);
+    expect(standard.freeRefreshes).toBe(1);
+    const score = challengeFromRun(beginner);
+    const invite = new URL(challengeUrl('https://example.org/game/', score)).searchParams.get('challenge');
+    expect(invite).toMatch(/^v13\./);
+    expect(readChallenge(invite)).toEqual(score);
+    expect(matchesChallenge(standard, score)).toBe(false);
+    expect(challengeSaveKey(score)).not.toBe(challengeSaveKey(challengeFromRun(standard)));
+
+    const win = planTurn(beginner, catalog).result;
+    expect(win.win).toBe(true);
+    const rng = createMulberry32(beginner.rngState);
+    settleTurn(beginner, { ...win, win: false }, catalog, rng);
+    resolveLoss(beginner, false);
+    expect(beginner.shield).toBe(2);
+    expect(beginner.freeRefreshes).toBe(2);
+    settleTurn(standard, { ...win, win: false }, catalog, createMulberry32(standard.rngState));
+    resolveLoss(standard, false);
+    settleTurn(standard, win, catalog, createMulberry32(standard.rngState));
+    settleTurn(beginner, win, catalog, rng);
+    expect(standard.shield).toBe(2);
+    expect(standard.freeRefreshes).toBe(1);
+    expect(beginner.shield).toBe(3);
+    expect(beginner.freeRefreshes).toBe(2);
+    const migrated = migrateSave({ run: beginner, records: { chain: { cleared: 7, combo: 32 } } }, catalog);
+    expect(migrated.run.difficulty).toBe('beginner');
+    expect(migrated.records.chain).toEqual({ cleared: 7, combo: 32 });
+    expect(migrated.beginnerRecords?.chain).toEqual({ cleared: 1, combo: win.combo });
+
+    Object.assign(beginner, { wave: 20, status: 'victory', shield: 1 });
+    startEndless(beginner, catalog, rng);
+    expect(beginner.shield).toBe(1);
+    expect(beginner.freeRefreshes).toBe(1);
   });
 
   it('preserves synergy payouts and the last damage breakdown after reloading', () => {

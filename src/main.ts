@@ -5,7 +5,7 @@ import { claimCamp } from './core/endlessCamp';
 import { canReforge, prepareReforge } from './core/reforge';
 import { toCoords } from './core/grid';
 import { affixAt, armorHitsFor, encounters, endlessSegment, relics } from './core/expedition';
-import { isOpening, openingIds, openings, runScore, updateRecords } from './core/openings';
+import { difficultyLabel, isOpening, openingIds, openings, runScore, updateRecords } from './core/openings';
 import { challengeParam, challengeSaveKey, matchesChallenge, readChallenge } from './core/challenge';
 import { boardShareParam, boardShareUrl, encodeBoardToken, readSharedBoard, sameBattleSetup, sameFormation, type SharedBoard } from './core/boardShare';
 import { readDailyLink } from './core/daily';
@@ -29,6 +29,7 @@ import { bindBoardTrial } from './render/boardTrialRoom';
 import { bindBattleJournal } from './render/battleJournal';
 import { bindEncounterRoom } from './render/encounterRoom';
 import { bindFormationLessons } from './render/formationLessons';
+import { bindStarterGuide } from './render/starterGuide';
 import { bindRetryScout } from './render/retryScout';
 import { bindPurchaseRoom } from './render/purchaseRoom';
 import { bindBountyRoom } from './render/bountyRoom';
@@ -86,6 +87,7 @@ let challengeEntered = !challenge;
 const initialSeed = challenge?.seed ?? generateSeedCode().code;
 let run = saved?.run ?? makeOpening(challenge?.opening ?? 'chain', initialSeed);
 let records = saved?.records ?? {};
+let beginnerRecords = saved?.beginnerRecords ?? {};
 let history: RunArchive[] = saved?.history ?? [];
 let forecast: ReturnType<typeof planTurn> | null = null;
 let placement: ReturnType<typeof planTurn> | null = null;
@@ -117,7 +119,8 @@ const rarityLabel = { common: '普通', rare: '稀有', epic: '史诗' };
 const arranging = () => challengeEntered && !sideLanding && phase === 'ARRANGE' && canArrange(run);
 const persist = () => {
   if (!challengeEntered || sideLanding) return;
-  records = updateRecords(records, run);
+  if (run.difficulty === 'beginner') beginnerRecords = updateRecords(beginnerRecords, run);
+  else records = updateRecords(records, run);
   platform.save({
     schemaVersion: 2,
     run,
@@ -128,6 +131,7 @@ const persist = () => {
     trackedUpgrade,
     firstClearPayout,
     records,
+    ...(Object.keys(beginnerRecords).length ? { beginnerRecords } : {}),
     history,
     ambientMuted: audio.ambientMuted,
   });
@@ -222,6 +226,10 @@ button('reforge-open').onclick = () => {
 const retryScout = bindRetryScout(catalog, click, openRetryTrial);
 const showFormationLessons = bindFormationLessons(catalog, runeGlyph, click,
   (board, name, damage) => boardTrial.open(board, undefined, true, { name, damage }));
+button('opening-guide').onclick = bindStarterGuide(catalog, runeGlyph, click, () => {
+  element('opening-note').textContent = '练完了。打过首波后，到符文铺试试开局补货。';
+  button('opening-quick').focus({ preventScroll: true });
+});
 const showEncounters = bindEncounterRoom(catalog, click, wave => {
   if (!arranging()) return;
   if (wave === run.wave) openCampaignTrial();
@@ -317,6 +325,7 @@ function updateBossArmorUi(hits: number, breaking = false, column?: number) {
 }
 
 function updateHud() {
+  element('beginner-badge').hidden = run.difficulty !== 'beginner' || run.endless;
   const maxHp = currentTarget().hp;
   const showOutcomeState = run.pendingLoss || run.status !== 'active';
   const hp = phase === 'PLAYBACK' ? displayed.hp : showOutcomeState ? Math.max(0, maxHp - run.lastDamage) : maxHp;
@@ -817,7 +826,7 @@ button('forecast-detail').onclick = () => {
   const deltaGold = result.gold - run.gold;
   const combatGold = deltaGold < 0 ? `战斗花 ${formatNumber(-deltaGold)} 金` : `战斗赚 ${formatNumber(deltaGold)} 金`;
   element('forecast-gold').textContent = result.win
-    ? `${combatGold} · 过关 ${payout.base} 金${payout.interest ? ` · 利息 ${payout.interest} 金` : ''}${payout.relic ? ` · 遗物 ${payout.relic} 金` : ''}${payout.bounty ? ` · 悬赏 ${payout.bounty} 金` : ''}。结束时有 ${formatNumber(result.gold + payout.total)} 金。${payout.perk ? bountyPerkText[payout.perk] + '。' : ''}`
+    ? `${combatGold} · 过关 ${payout.base} 金${payout.interest ? ` · 利息 ${payout.interest} 金` : ''}${payout.relic ? ` · 遗物 ${payout.relic} 金` : ''}${payout.bounty ? ` · 悬赏 ${payout.bounty} 金` : ''}。结束时有 ${formatNumber(result.gold + payout.total)} 金。${payout.perk ? bountyPerkText[payout.perk] + '。' : ''}${run.difficulty === 'beginner' && !run.endless && run.shield + Number(payout.perk === 'repair') < 3 ? '入门过关补 1 点护盾。' : ''}`
     : `${combatGold}。打不过也会保留战斗后的 ${formatNumber(result.gold)} 金，但没有过关奖励。`;
   element('forecast-sources').replaceChildren(...sources.map(source => {
     const item = document.createElement('li');
@@ -946,6 +955,7 @@ function recordRunHistory(runToRecord: Run) {
     seed: runToRecord.seed,
     wave: runToRecord.wave,
     opening: runToRecord.opening,
+    ...(runToRecord.difficulty ? { difficulty: runToRecord.difficulty } : {}),
     status: runToRecord.status,
     lastDamage: runToRecord.lastDamage,
     bestCombo: runToRecord.bestCombo,
@@ -959,7 +969,7 @@ function recordRunHistory(runToRecord: Run) {
     ...(runToRecord.finaleRule === 1 ? { finaleRule: 1 } : {}),
     ...(runToRecord.endless ? { endless: true } : {}),
   };
-  const existingIdx = history.findIndex(item => item.seed === entry.seed && item.opening === entry.opening &&
+  const existingIdx = history.findIndex(item => item.seed === entry.seed && item.opening === entry.opening && item.difficulty === entry.difficulty &&
     item.altarRule === entry.altarRule && item.bountyRule === entry.bountyRule &&
     item.endlessRule === entry.endlessRule && item.reforgeRule === entry.reforgeRule && item.finaleRule === entry.finaleRule);
   if (existingIdx >= 0) {
@@ -975,11 +985,12 @@ const openingDialog = element<HTMLDialogElement>('opening-dialog');
 const openingSeed = element<HTMLInputElement>('opening-seed');
 let fallbackOpeningSeed = initialSeed;
 let openingCandidate: OpeningId = 'chain';
+let openingDifficulty: Run['difficulty'];
 let openingReplacesRun = false;
 let openingQuick = false;
 const chosenSeed = () => openingSeed.value.trim() || fallbackOpeningSeed;
-function makeOpening(id: OpeningId, seed: string) {
-  const next = newRun(catalog, createMulberry32(decodeSeed(seed)), id, seed);
+function makeOpening(id: OpeningId, seed: string, difficulty?: Run['difficulty']) {
+  const next = newRun(catalog, createMulberry32(decodeSeed(seed)), id, seed, challenge ? challenge.difficulty : difficulty);
   if (challenge && !challenge.altarRule) delete next.altarRule;
   if (challenge && !challenge.bountyRule) delete next.bountyRule;
   if (challenge && !challenge.endlessRule) delete next.endlessRule;
@@ -994,7 +1005,7 @@ function startOpening(id: OpeningId, customSeed?: string, quick = false, archive
   }
   if (openingDialog.open) openingDialog.close();
   if (dialog.open) dialog.close();
-  run = makeOpening(challenge?.opening ?? id, challenge?.seed || customSeed || chosenSeed());
+  run = makeOpening(challenge?.opening ?? id, challenge?.seed || customSeed || chosenSeed(), archived ? archived.difficulty : openingDifficulty);
   if (!challenge && archived && !archived.altarRule) delete run.altarRule;
   if (!challenge && archived && !archived.bountyRule) delete run.bountyRule;
   if (!challenge && archived && !archived.endlessRule) delete run.endlessRule;
@@ -1019,7 +1030,7 @@ function startOpening(id: OpeningId, customSeed?: string, quick = false, archive
 
 function openingConfirm(visible: boolean) {
   element('opening-confirm').hidden = !visible;
-  for (const id of ['opening-choices', 'opening-preview', 'opening-actions', 'opening-settings', 'opening-extra']) element(id).hidden = visible;
+  for (const id of ['opening-choices', 'opening-preview', 'opening-actions', 'opening-settings', 'opening-extra', 'opening-modes']) element(id).hidden = visible;
 }
 
 const openingChoices = openingIds.map(id => {
@@ -1042,12 +1053,17 @@ element('opening-choices').replaceChildren(...openingChoices);
 
 function showOpeningPreview() {
   for (const [index, id] of openingIds.entries()) openingChoices[index].setAttribute('aria-pressed', String(id === openingCandidate));
-  const sample = makeOpening(openingCandidate, chosenSeed());
-  renderOpeningPreview(element('opening-preview'), sample, catalog, records[openingCandidate], runeGlyph, formatNumber, click);
+  const beginner = openingDifficulty === 'beginner';
+  button('difficulty-beginner').setAttribute('aria-pressed', String(beginner));
+  button('difficulty-standard').setAttribute('aria-pressed', String(!beginner));
+  const sample = makeOpening(openingCandidate, chosenSeed(), openingDifficulty);
+  renderOpeningPreview(element('opening-preview'), sample, catalog,
+    (beginner ? beginnerRecords : records)[openingCandidate], runeGlyph, formatNumber, click);
 }
 
 function openOpenings(first = false) {
   openingCandidate = first ? 'chain' : run.opening;
+  openingDifficulty = first ? undefined : run.difficulty;
   openingReplacesRun = run.status === 'active' && !first;
   openingConfirm(false);
   fallbackOpeningSeed = generateSeedCode().code;
@@ -1071,7 +1087,7 @@ function chooseOpening(quick: boolean) {
   click();
   if (!openingReplacesRun) { startOpening(openingCandidate, chosenSeed(), quick); return; }
   openingQuick = quick;
-  element('opening-warning').textContent = `要用「${openings[openingCandidate].name}」开新局吗？当前局会结束，最高纪录会保留。`;
+  element('opening-warning').textContent = `要用「${openings[openingCandidate].name}」开一局${difficultyLabel(openingDifficulty)}战役吗？当前局会结束，最高纪录会保留。`;
   button('opening-start').textContent = quick ? '确认开局并打首波' : '确认开新局';
   openingConfirm(true);
   button('opening-back').focus();
@@ -1083,6 +1099,8 @@ button('openings').onclick = () => {
 };
 button('opening-quick').onclick = () => chooseOpening(true);
 button('opening-prepare').onclick = () => chooseOpening(false);
+button('difficulty-beginner').onclick = () => { click(); openingDifficulty = 'beginner'; showOpeningPreview(); };
+button('difficulty-standard').onclick = () => { click(); openingDifficulty = undefined; showOpeningPreview(); };
 button('opening-start').onclick = () => { click(); startOpening(openingCandidate, chosenSeed(), openingQuick); };
 button('opening-back').onclick = () => { click(); openingConfirm(false); openingChoices[openingIds.indexOf(openingCandidate)].focus(); };
 button('opening-close').onclick = () => openingDialog.close();
@@ -1170,7 +1188,7 @@ function showOutcome(archive = true) {
       run.rngState = prng.getState();
       resetTimeline(); redraw(); showOutcome();
     } });
-    const details = [won ? '战役通关' : `止步第 ${formatNumber(run.wave)} 波`];
+    const details = [difficultyLabel(run.difficulty), won ? '战役通关' : `止步第 ${formatNumber(run.wave)} 波`];
     if (run.bountyRule) details.push(`悬赏 ${run.bountiesCleared ?? 0} / ${bountyCount}`);
     details.push(`种子 ${run.seed}`);
     showPanel(finale ? '闭门王已击破' : won ? '廿重劫尽 · 大获全胜' : '灵气耗竭 · 护盾归零',
@@ -1307,6 +1325,7 @@ async function startBattle(quick = false) {
   run.lastCellDamage = cellDamage;
   run.lastJournal = formation ? { formation, maxHp, events } : undefined;
   const payout = victoryPayout(run, result.gold, catalog);
+  const repairedByDifficulty = result.win && run.difficulty === 'beginner' && !run.endless && run.shield + Number(payout.perk === 'repair') < 3;
   const prng = createMulberry32(run.rngState);
   settleTurn(run, result, catalog, prng);
   run.rngState = prng.getState();
@@ -1318,7 +1337,7 @@ async function startBattle(quick = false) {
     }
     renderer.waveComplete = true; renderer.invalidate();
     victoryTimer = setTimeout(() => { renderer.waveComplete = false; renderer.invalidate(); }, 1500);
-    notice(`${payout.bounty ? '悬赏完成' : `打过第 ${run.wave - 1} 波`} · ${formatNumber(result.damage)} 伤害 · 过关 +${payout.total} 金${payout.perk ? ` · ${bountyPerkText[payout.perk]}` : ''}`);
+    notice(`${payout.bounty ? '悬赏完成' : `打过第 ${run.wave - 1} 波`} · ${formatNumber(result.damage)} 伤害 · 过关 +${payout.total} 金${payout.perk ? ` · ${bountyPerkText[payout.perk]}` : ''}${repairedByDifficulty ? ' · 入门补盾 +1' : ''}`);
   }
   showOutcome();
 }
@@ -1543,7 +1562,7 @@ function renderCodexArchives() {
     const openingName = document.createElement('strong');
     openingName.className = 'codex-archive-opening-name';
     const stage = item.endless ? `无尽第 ${item.wave} 波` : item.status === 'victory' ? '二十波通关' : `第 ${item.wave} 波`;
-    openingName.textContent = `${openings[item.opening].name} · ${stage}`;
+    openingName.textContent = `${openings[item.opening].name} · ${difficultyLabel(item.difficulty)} · ${stage}`;
 
     openingGroup.append(emblemWrap, openingName);
 

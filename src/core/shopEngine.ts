@@ -69,7 +69,7 @@ export function generateTileModifiers(rng: Random): TileModifierMap {
   };
 }
 
-export function newRun(catalog: Catalog, rng: Random, opening: OpeningId = 'chain', seedInput?: string): Run {
+export function newRun(catalog: Catalog, rng: Random, opening: OpeningId = 'chain', seedInput?: string, difficulty?: Run['difficulty']): Run {
   let seedCode = seedInput;
   let rngState = 1;
   let effectiveRng: Random = rng;
@@ -89,6 +89,7 @@ export function newRun(catalog: Catalog, rng: Random, opening: OpeningId = 'chai
   const setup = openings[opening];
   const tileModifiers = generateTileModifiers(effectiveRng);
   const run: Run = {
+    ...(difficulty ? { difficulty } : {}),
     seed: seedCode,
     rngState: typeof (effectiveRng as any)?.getState === 'function' ? (effectiveRng as PRNG).getState() : rngState,
     tileModifiers,
@@ -100,7 +101,7 @@ export function newRun(catalog: Catalog, rng: Random, opening: OpeningId = 'chai
     board: Array<Rune | null>(CELL_COUNT).fill(null),
     bench: Array<Rune | null>(BENCH_SIZE).fill(null),
     shop: [],
-    freeRefreshes: 1,
+    freeRefreshes: difficulty === 'beginner' ? 2 : 1,
     attempts: 0,
     endless: false,
     status: 'active',
@@ -240,6 +241,7 @@ export function settleTurn(run: Run, result: TurnResult, catalog: Catalog, rng: 
   run.gold += payout.total;
   if (payout.bounty) run.bountiesCleared = (run.bountiesCleared ?? 0) + 1;
   if (payout.perk === 'repair') run.shield++;
+  if (run.difficulty === 'beginner' && !run.endless) run.shield = Math.min(3, run.shield + 1);
   if (payout.perk === 'engrave') {
     const rune = run.board[engravingCell]!;
     run.board[engravingCell] = { ...rune, bonusPower: (rune.bonusPower ?? 0) + engravingPower };
@@ -292,6 +294,7 @@ function advanceWave(run: Run, catalog: Catalog, rng: Random) {
   if (run.relics.includes('spirit_gourd') && run.gold >= 20) {
     run.freeRefreshes += 1;
   }
+  if (run.difficulty === 'beginner' && !run.endless) run.freeRefreshes += 1;
   if (run.endless && endlessCampAt(run.wave)) {
     if (run.endlessRule === 1) run.pendingCamp = true;
     else if (run.wave !== 21) {
