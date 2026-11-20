@@ -1,4 +1,4 @@
-import type { DailyPuzzle, DailyRecord } from '../core/daily';
+import { dailyMastery, type DailyPuzzle, type DailyRecord } from '../core/daily';
 import { encounters } from '../core/expedition';
 import type { Catalog, Slots } from '../core/types';
 import type { Relay, RelayScore } from '../core/weeklyRelay';
@@ -40,7 +40,10 @@ export function renderPuzzleShareCard(canvas: HTMLCanvasElement, card: PuzzleSha
   print('4×4 词条法阵', 56, 78, 24, gold, true);
   const daily = card.kind === 'daily';
   print(daily ? card.puzzle.formation.title : '三阵接力', 53, 147, 57, cream, true, serif);
-  print(daily ? `${card.puzzle.day} · 每日残局` : `${card.relay.day} 当周`, 56, 185, 22, muted);
+  const subtitle = daily
+    ? `${card.puzzle.day} · 每日残局${dailyMastery(card.puzzle, card.score).complete ? ' · 双满' : ''}`
+    : `${card.relay.day} 当周`;
+  print(subtitle, 56, 185, 22, muted);
 
   if (card.kind === 'daily') {
     const { puzzle: { formation, hp, pieces }, score } = card;

@@ -255,6 +255,13 @@ export function dailyInviteScore(puzzle: DailyPuzzle, score?: DailyRecord) {
   return score.moves === puzzle.par && score.damage > puzzle.targetDamage ? undefined : score;
 }
 
+export function dailyMastery(puzzle: DailyPuzzle, record?: DailyRecord) {
+  const score = dailyInviteScore(puzzle, record);
+  const fast = score?.moves === puzzle.par && score.damage === puzzle.targetDamage;
+  const peak = !!score && (score.peakDamage ?? score.damage) === puzzle.peakDamage;
+  return { cleared: !!score, fast, peak, complete: fast && peak };
+}
+
 export function recentDailyDates(today: string) {
   return Array.from({ length: 7 }, (_, index) => dayOffset(today, -index)).filter(validDailyDate);
 }

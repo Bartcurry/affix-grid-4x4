@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { betterDailyRecord, dailyHint, dailyInviteScore, dailyLink, dailyPuzzle, dailyStreak, readDailyLink, readDailyRecord, recentDailyDates, runDaily, shanghaiDay } from '../core/daily';
+import { betterDailyRecord, dailyHint, dailyInviteScore, dailyLink, dailyMastery, dailyPuzzle, dailyStreak, readDailyLink, readDailyRecord, recentDailyDates, runDaily, shanghaiDay } from '../core/daily';
 import { catalog } from '../data/catalog';
 
 function layer(positions: string[][]) {
@@ -112,6 +112,18 @@ describe('daily formations', () => {
     expect(dailyInviteScore(puzzle, { ...score, damage: puzzle.peakDamage })).toBeUndefined();
     expect(readDailyLink(`v3.${day}.x.100.9999`, day)).toEqual({ day });
     expect(readDailyLink(`v2.${day}`, day)).toBeUndefined();
+  });
+
+  it('tracks both forms of mastery on their own and ignores impossible records', () => {
+    const puzzle = dailyPuzzle('2026-11-21', catalog)!;
+    const fast = { moves: puzzle.par, damage: puzzle.targetDamage };
+    const peak = { moves: puzzle.par + 1, damage: puzzle.peakDamage };
+    expect(dailyMastery(puzzle)).toEqual({ cleared: false, fast: false, peak: false, complete: false });
+    expect(dailyMastery(puzzle, fast)).toEqual({ cleared: true, fast: true, peak: false, complete: false });
+    expect(dailyMastery(puzzle, peak)).toEqual({ cleared: true, fast: false, peak: true, complete: false });
+    expect(dailyMastery(puzzle, betterDailyRecord(peak, fast))).toEqual({ cleared: true, fast: true, peak: true, complete: true });
+    expect(dailyMastery(puzzle, { ...fast, moves: puzzle.par - 1 }).cleared).toBe(false);
+    expect(dailyMastery(puzzle, { ...fast, peakDamage: puzzle.peakDamage + 1 }).complete).toBe(false);
   });
 
   it('keeps a streak before today is solved', () => {

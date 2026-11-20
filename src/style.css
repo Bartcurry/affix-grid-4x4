@@ -1308,7 +1308,7 @@ button:focus-visible, canvas:focus-visible {
 .daily-stage { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, .85fr); gap: clamp(.45rem, 2.3vw, .85rem); align-items: center; padding: .56rem; background: linear-gradient(130deg, #252822, #171c23 78%); border: 1px solid #5d6757; }
 .daily-board { display: grid; width: min(100%, 13rem); grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .15rem; }
 .daily-board > * { position: relative; display: grid; place-items: center; min-width: 0; min-height: 0; padding: 0; aspect-ratio: 1; border-radius: 3px; border: 1px solid #323936; background: #14191d; }
-.daily-board button { color: var(--rune-ink); border-color: #647263; background: #242c2c; }
+.daily-board button { color: var(--rune-ink); border-color: #647263; background: linear-gradient(146deg, #354139, #172225 76%); box-shadow: inset 0 1px #c4d6b827, inset 0 -3px #0a1418; }
 .daily-board small { position: absolute; top: .07rem; left: .11rem; color: #93968a; font: clamp(.44rem, 1.5vw, .64rem) var(--mono-font); }
 .daily-board button small { color: #c3c7b6; }
 .daily-board .rune-icon-svg { width: 61%; height: 61%; }
@@ -1333,6 +1333,7 @@ button:focus-visible, canvas:focus-visible {
   text-align: left;
 }
 .daily-goals span { color: #c5b79d; font-size: .68rem; }
+.daily-goals small { margin-left: .15rem; padding: .02rem .2rem; border: 1px solid #6b967b; border-radius: 3px; color: #c7e9c8; background: #253b33; font-size: .64rem; }
 .daily-goals strong { color: #ecddc2; font-size: clamp(.68rem, 2.8vw, .83rem); font-variant-numeric: tabular-nums; }
 .daily-goals button[aria-pressed=true] { border-color: #d8ad71; background: #342a21; }
 #daily-peak { color: #c4e1a4; }
@@ -1344,17 +1345,27 @@ button:focus-visible, canvas:focus-visible {
   font-size: .74rem;
   line-height: 1.38;
 }
+.daily-duel { color: #c4e3c1; padding: .05rem .4rem; font-size: .74rem; line-height: 1.4; }
 .daily-tools { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.25fr); gap: .3rem; }
 .daily-tools button, #daily-copy, #relay-open, #opening-daily, .puzzle-card-open { min-height: 2.55rem; padding: .2rem .3rem; font-size: .78rem; }
 .daily-tools .primary { color: #221a12; background: #efc682; border-color: #f8d498; }
 .daily-tools .primary:hover { background: #f7d79e; }
+.daily-next { display: flex; align-items: center; justify-content: space-between; gap: .42rem; padding: .3rem .42rem .3rem .55rem; border: 1px solid #66766b; background: #1d2b26; }
+.daily-next span { color: #d3e4c9; font-size: .76rem; }
+.daily-next[data-complete=true] { border-color: #a28a5f; background: #2c261e; }
+.daily-next[data-complete=true] span { color: #e8d2a8; }
+#daily-next-action { flex: none; min-height: 2.6rem; padding: .26rem .56rem; border-color: #89a48e; color: #e0eed8; background: #2b4135; font-size: .78rem; font-weight: 700; }
+#daily-next-action:hover { background: #3d5644; }
 .daily-archive { border: 1px solid #535849; background: #171e21; }
 .daily-archive summary { cursor: pointer; padding: .53rem .58rem; color: #e4dac5; font-size: .78rem; }
 #daily-streak { float: right; color: #bdd7aa; }
-.daily-dates { display: grid; grid-template-columns: repeat(auto-fit, minmax(2.8rem, 1fr)); gap: .23rem; padding: 0 .4rem .4rem; }
-.daily-dates button { display: grid; justify-items: center; align-content: center; gap: .12rem; min-height: 2.5rem; padding: .14rem; font: .68rem var(--mono-font); }
+.daily-dates { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .18rem; padding: 0 .35rem .35rem; }
+.daily-dates button { display: grid; justify-items: center; align-content: center; gap: .12rem; min-height: 2.75rem; padding: .1rem; font: clamp(.58rem, 2.6vw, .68rem) var(--mono-font); }
 .daily-dates button[aria-pressed=true] { color: #f6d29a; border-color: #d7aa6a; background: #382e23; }
-.daily-dates small { font-size: .63rem; }
+.daily-dates button[data-progress=cleared] small { color: #b4d7af; }
+.daily-dates button[data-progress=complete] { border-color: #a68a60; }
+.daily-dates button[data-progress=complete] small { color: #f4cf8c; }
+.daily-dates small { font-size: clamp(.56rem, 2.5vw, .65rem); white-space: nowrap; }
 .daily-footer span { color: #c0c9b6; font-size: .7rem; }
 #daily-copy { flex: none; padding-inline: .5rem; color: #dceac9; border-color: #657a5a; }
 #daily-link { width: 100%; min-width: 0; padding: .44rem; color: #e7e5dc; background: #11171b; border: 1px solid #64725c; font: .72rem var(--mono-font); }

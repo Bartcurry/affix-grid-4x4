@@ -1,4 +1,4 @@
-import { betterDailyRecord, dailyHint, dailyInviteScore, dailyLink, dailyPuzzle, dailyStreak, readDailyRecord, recentDailyDates, runDaily,
+import { betterDailyRecord, dailyHint, dailyInviteScore, dailyLink, dailyMastery, dailyPuzzle, dailyStreak, readDailyRecord, recentDailyDates, runDaily,
   shanghaiDay, validDailyDate, type DailyGoal, type DailyInvite, type DailyPuzzle, type DailyRecord } from '../core/daily';
 import { encounters } from '../core/expedition';
 import type { Catalog } from '../core/types';
@@ -19,6 +19,9 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
   const undo = get<HTMLButtonElement>('undo');
   const link = get<HTMLInputElement>('link');
   const shareStatus = get('share-status');
+  const followup = get('next');
+  const followupCopy = get('next-copy');
+  const nextAction = get<HTMLButtonElement>('next-action');
   const goalButtons = [...get('goals').querySelectorAll<HTMLButtonElement>('button[data-goal]')];
   const records = new Map<string, DailyRecord>();
   const drafts = new Map<string, { pieces: string[]; moves: Move[]; goal: DailyGoal }>();
@@ -48,37 +51,90 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
   function stats() {
     undo.disabled = !moves.length;
     get('moves').textContent = `已换 ${moves.length} 步 · 最少 ${puzzle.par} 步`;
-    const best = records.get(puzzle.day);
+    const best = dailyInviteScore(puzzle, records.get(puzzle.day));
     get('goals').hidden = !best;
-    get('card').hidden = !dailyInviteScore(puzzle, best);
+    get('card').hidden = !best;
     goalButtons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.goal === goal)));
     get('hint').textContent = goal === 'peak' ? '伤害提示' : '提示';
+    const friend = invite?.day === puzzle.day ? invite.score : undefined;
+    const duel = get('duel');
+    duel.hidden = !friend || !best;
     if (!best) return;
-    const speedPerfect = best.moves === puzzle.par && best.damage === puzzle.targetDamage;
+    const mastery = dailyMastery(puzzle, best);
     const peak = best.peakDamage ?? best.damage;
-    get('best').textContent = `${speedPerfect ? '满分 · ' : ''}${best.moves} 步 / ${best.damage} 伤害`;
-    get('peak').textContent = peak === puzzle.peakDamage ? `${peak} · 已达上限` : `${peak} / ${puzzle.peakDamage}`;
+    get('fast-seal').hidden = !mastery.fast;
+    get('peak-seal').hidden = !mastery.peak;
+    get('best').textContent = `${best.moves} 步 / ${best.damage} 伤害`;
+    get('peak').textContent = mastery.peak ? `${peak} · 已达上限` : `${peak} / ${puzzle.peakDamage}`;
+    if (friend) {
+      const moves = friend.moves - best.moves;
+      const fastDamage = best.damage - friend.damage;
+      const hit = peak - (friend.peakDamage ?? friend.damage);
+      const steps = moves ? `${moves > 0 ? '少' : '多'} ${Math.abs(moves)} 步` : '步数相同';
+      const tiebreak = !moves && fastDamage ? `，伤害${fastDamage > 0 ? '多' : '少'} ${Math.abs(fastDamage)}` : '';
+      duel.textContent = `与朋友比 · ${steps}${tiebreak} · ${hit ? `最高伤害${hit > 0 ? '多' : '少'} ${Math.abs(hit)}` : '最高伤害持平'}`;
+    }
   }
 
   function renderArchive() {
     const today = shanghaiDay();
     const streak = dailyStreak(records, today);
     get('streak').textContent = streak ? `连续解开 ${streak} 期` : '';
-    dates.replaceChildren(...recentDailyDates(today).map(day => {
-      const btn = document.createElement('button');
+    const recent = recentDailyDates(today).map(day => {
       const best = records.get(day);
+      const past = day === puzzle.day ? puzzle : best && dailyPuzzle(day, catalog);
+      const mark = past ? dailyMastery(past, best) : undefined;
+      return { day, best, mark };
+    });
+    const cleared = recent.filter(({ mark }) => mark?.cleared).length;
+    const complete = recent.filter(({ mark }) => mark?.complete).length;
+    get('recent').textContent = `近七期 · 已解 ${cleared}/${recent.length}${complete ? ` · 双满 ${complete}` : ''}`;
+    dates.replaceChildren(...recent.map(({ day, best, mark }) => {
+      const btn = document.createElement('button');
       btn.type = 'button';
       btn.dataset.day = day;
+      const badge = mark?.complete ? '双满' : mark?.fast ? '步数满' : mark?.peak ? '伤害满' : mark?.cleared ? '已解' : '待解';
+      btn.dataset.progress = mark?.complete ? 'complete' : mark?.cleared ? 'cleared' : 'open';
       btn.setAttribute('aria-pressed', String(day === puzzle.day));
-      btn.setAttribute('aria-label', `${day}，${day === today ? '今天，' : ''}${best ? `已解 ${best.moves} 步` : '待解'}`);
+      btn.setAttribute('aria-label', `${day}，${day === today ? '今天，' : ''}${badge}${mark?.cleared && best ? `，最少 ${best.moves} 步` : ''}`);
       const date = document.createElement('strong');
       date.textContent = day === today ? '今天' : day.slice(5).replace('-', '/');
       const score = document.createElement('small');
-      score.textContent = best ? `${best.moves} 步` : '待解';
+      score.textContent = badge;
       btn.append(date, score);
       btn.onclick = () => { click(); open(day); dates.querySelector<HTMLButtonElement>('[aria-pressed=true]')?.focus({ preventScroll: true }); };
       return btn;
     }));
+
+    const best = dailyInviteScore(puzzle, records.get(puzzle.day));
+    followup.hidden = !best;
+    if (!best) return;
+    const mark = dailyMastery(puzzle, best);
+    followup.dataset.complete = String(mark.complete);
+    nextAction.hidden = false;
+    if (!mark.fast) {
+      followupCopy.textContent = `目标 ${puzzle.par} 步 · ${puzzle.targetDamage} 伤害`;
+      nextAction.textContent = '重摆冲步数';
+      nextAction.onclick = () => { click(); selectGoal('clear', true); };
+    } else if (!mark.peak) {
+      followupCopy.textContent = `还差 ${puzzle.peakDamage - (best.peakDamage ?? best.damage)} 伤害拿双满`;
+      nextAction.textContent = '冲最高伤害';
+      nextAction.onclick = () => { click(); selectGoal('peak'); };
+    } else {
+      const candidate = recent.find(item => !item.mark?.cleared) ?? recent.find(item => !item.mark?.complete);
+      followupCopy.textContent = '步数和伤害都已满分';
+      nextAction.hidden = !candidate;
+      if (candidate) {
+        nextAction.textContent = candidate.day === today ? '回到今天' :
+          `${candidate.mark?.cleared ? '补满' : '补做'} ${candidate.day.slice(5).replace('-', '/')}`;
+        nextAction.onclick = () => {
+          click();
+          open(candidate.day);
+          get('title').focus({ preventScroll: true });
+          dialog.scrollTop = 0;
+        };
+      }
+    }
   }
 
   function exchange([left, right]: Move) {
@@ -168,15 +224,21 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     stats();
     draw();
   };
+  function selectGoal(next: DailyGoal, restart = false) {
+    goal = next;
+    selected = hinted = undefined;
+    if (restart) reset();
+    else {
+      draw();
+      stats();
+    }
+    message(goal === 'peak' ? `目标 ${puzzle.peakDamage} 伤害，可以多换几步。`
+      : `用 ${puzzle.par} 步过关，同样步数下争取 ${puzzle.targetDamage} 伤害。`);
+  }
   goalButtons.forEach(button => {
     button.onclick = () => {
       click();
-      goal = button.dataset.goal === 'peak' ? 'peak' : 'clear';
-      selected = hinted = undefined;
-      message(goal === 'peak' ? `目标 ${puzzle.peakDamage} 伤害，可以多换几步。`
-        : `用 ${puzzle.par} 步过关，同样步数下争取 ${puzzle.targetDamage} 伤害。`);
-      draw();
-      stats();
+      selectGoal(button.dataset.goal === 'peak' ? 'peak' : 'clear');
     };
   });
   get('hint').onclick = () => {
@@ -184,6 +246,13 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     const hint = dailyHint(puzzle, pieces, catalog, goal);
     selected = undefined;
     hinted = hint?.index;
+    const total = moves.length + (hint?.remaining ?? 0);
+    if (goal === 'clear' && records.has(puzzle.day) && total > puzzle.par) {
+      hinted = undefined;
+      message(`这条路线至少需要 ${total} 步。点「重摆」可重新冲 ${puzzle.par} 步。`);
+      draw();
+      return;
+    }
     message(hint ? `${puzzle.formation.clue} 先看亮起的格子，${goal === 'peak' ?
       `再换 ${hint.remaining} 步可打到伤害上限。` : `还能 ${hint.remaining} 步过。`}` :
       goal === 'peak' ? '这套阵已达到伤害上限，点试打记下成绩。' : '这套阵已经能打过，点试打验证。');
@@ -195,7 +264,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     if (!result.win) { message(`打了 ${result.damage} 点，还差 ${result.hp} 点。`, false); return; }
     loadRecords();
     const attempt = { moves: moves.length, damage: result.damage };
-    records.set(puzzle.day, betterDailyRecord(attempt, records.get(puzzle.day)));
+    records.set(puzzle.day, betterDailyRecord(attempt, dailyInviteScore(puzzle, records.get(puzzle.day))));
     try { localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(records))); } catch {}
     stats();
     renderArchive();
@@ -230,8 +299,15 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     if (score) shareCard({ kind: 'daily', puzzle, score, url: dailyLink(location.href, puzzle.day, score) });
   };
   dialog.addEventListener('close', () => {
+    if (dialog.open) return;
     drafts.set(puzzle.day, { pieces, moves, goal });
     invite = undefined;
+  });
+  window.addEventListener('storage', event => {
+    if (!dialog.open || event.key !== storageKey || !event.newValue) return;
+    loadRecords();
+    stats();
+    renderArchive();
   });
   return { open, dialog };
 }
