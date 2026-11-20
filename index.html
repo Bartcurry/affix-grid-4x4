@@ -414,10 +414,14 @@
           </details>
           <div id="daily-board" class="daily-board" aria-label="点两枚符文换位"></div>
           <div class="daily-stats"><span>交换 <strong id="daily-moves">0</strong> 次</span><span id="daily-best"></span></div>
+          <div id="daily-goal" class="daily-goal" hidden><strong id="daily-goal-title"></strong><span id="daily-goal-target"></span></div>
           <p id="daily-result" class="daily-result" role="status"></p>
-          <details id="daily-clue" class="daily-clue"><summary>看一条提示</summary><p id="daily-clue-text"></p></details>
+          <details id="daily-clue" class="daily-clue">
+            <summary>卡住了？</summary><p id="daily-clue-text"></p>
+            <button id="daily-hint" type="button">提示一格</button><span id="daily-hint-text" role="status" hidden></span>
+          </details>
           <div class="daily-actions">
-            <button id="daily-check" class="primary" type="button">试打这套阵</button><button id="daily-reset" type="button">重摆</button>
+            <button id="daily-check" class="primary" type="button">试打这套阵</button><button id="daily-undo" type="button" disabled>撤销</button><button id="daily-reset" type="button">重摆</button>
             <button id="daily-copy" type="button">复制挑战</button><button id="daily-today" type="button" hidden>玩今天这题</button>
           </div>
           <details class="daily-share"><summary>挑战链接</summary><input id="daily-link" type="url" readonly aria-label="可复制的挑战链接" /></details>

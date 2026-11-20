@@ -1,9 +1,10 @@
-import { dailyLink, dailyPuzzle, dailyStreak, newDailyRecord, recentDailyDates, runDaily, shanghaiDay, validDailyDate, type DailyPuzzle, type DailyRecord } from '../core/daily';
+import { dailyHint, dailyLink, dailyPuzzle, dailyStreak, newDailyRecord, recentDailyDates, runDaily, shanghaiDay, validDailyDate, type DailyPuzzle, type DailyRecord } from '../core/daily';
 import { encounters } from '../core/expedition';
 import type { Catalog } from '../core/types';
 
 const storageKey = 'affix-grid-4x4.daily.v1';
 const tileLabel = { li_fire: '离火', xuan_ice: '玄冰', spirit_gathering: '聚灵' } as const;
+type Swap = [number, number];
 
 export function bindDailyRoom(catalog: Catalog, glyph: (node: HTMLElement, id: string) => void, click: () => void,
   canOpen: () => boolean, onSharedClose: () => void) {
@@ -15,14 +16,26 @@ export function bindDailyRoom(catalog: Catalog, glyph: (node: HTMLElement, id: s
   const archive = get<HTMLDetailsElement>('daily-archive');
   const dates = get('daily-dates');
   const copyButton = get('daily-copy');
+  const undo = get<HTMLButtonElement>('daily-undo');
+  const goal = get('daily-goal');
+  const hintText = get('daily-hint-text');
   let puzzle: DailyPuzzle;
   let pieces: string[];
   let selected: number | null;
-  let moves: number;
+  let hinted: number | null = null;
+  let exchanges: Swap[];
   let shared = false;
   let copyTimer: ReturnType<typeof setTimeout>;
   const records = new Map<string, DailyRecord>();
-  const drafts = new Map<string, { pieces: string[]; moves: number }>();
+  const drafts = new Map<string, { pieces: string[]; exchanges: Swap[] }>();
+
+  const exchange = ([left, right]: Swap) => { [pieces[left], pieces[right]] = [pieces[right], pieces[left]]; };
+  const isPerfect = (score: DailyRecord) => score.moves === puzzle.par && score.damage >= puzzle.targetDamage;
+
+  function clearHint() {
+    hinted = null;
+    hintText.hidden = true;
+  }
 
   function readSavedRecords() {
     try {
@@ -62,9 +75,19 @@ export function bindDailyRoom(catalog: Catalog, glyph: (node: HTMLElement, id: s
   }
 
   function stats() {
-    get('daily-moves').textContent = String(moves);
+    get('daily-moves').textContent = String(exchanges.length);
+    undo.disabled = !exchanges.length;
     const best = records.get(puzzle.day);
-    get('daily-best').textContent = best ? `本机最佳 ${best.moves} 步` : '还没有纪录';
+    const bestLabel = get('daily-best');
+    const perfect = !!best && isPerfect(best);
+    bestLabel.hidden = perfect;
+    bestLabel.textContent = best ? `最佳 ${best.moves} 步 · ${best.damage} 伤害` : '还没有纪录';
+    goal.hidden = !best;
+    if (best) {
+      goal.dataset.perfect = String(perfect);
+      get('daily-goal-title').textContent = perfect ? '已拿满分' : '满分目标';
+      get('daily-goal-target').textContent = `${puzzle.par} 步 · ${puzzle.targetDamage} 伤害`;
+    }
   }
 
   function draw(focus?: number) {
@@ -81,9 +104,10 @@ export function bindDailyRoom(catalog: Catalog, glyph: (node: HTMLElement, id: s
       const piece = document.createElement('button');
       piece.type = 'button';
       piece.setAttribute('aria-pressed', String(index === selected));
+      piece.toggleAttribute('data-hint', index === hinted);
       const modifier = puzzle.template.tileModifiers?.[cell];
       if (modifier) piece.dataset.modifier = modifier;
-      piece.setAttribute('aria-label', `第 ${cell + 1} 格：${catalog[id].name}${modifier ? `，${tileLabel[modifier]}位` : ''}`);
+      piece.setAttribute('aria-label', `第 ${cell + 1} 格：${catalog[id].name}${modifier ? `，${tileLabel[modifier]}位` : ''}${index === hinted ? '，提示格' : ''}`);
       piece.style.setProperty('--daily-ink', catalog[id].color);
       const stamp = document.createElement('small'); stamp.textContent = `${cell + 1}${modifier ? ` ${tileLabel[modifier]}` : ''}`;
       const icon = document.createElement('span'); glyph(icon, id);
@@ -93,25 +117,27 @@ export function bindDailyRoom(catalog: Catalog, glyph: (node: HTMLElement, id: s
         click();
         if (selected === null) {
           selected = index;
-          result.textContent = '再点另一枚，交换位置。';
+          if (!result.dataset.win) result.textContent = '再点另一枚，交换位置。';
         } else if (selected === index || pieces[selected] === id) {
           selected = null;
-          result.textContent = '位置没变，不计步数。';
+          if (!result.dataset.win) result.textContent = '位置没变，不计步数。';
         } else {
-          [pieces[selected], pieces[index]] = [pieces[index], pieces[selected]];
-          selected = null; moves++;
+          const move: Swap = [selected, index];
+          exchange(move); exchanges.push(move); selected = null;
+          clearHint();
+          delete result.dataset.win;
           result.textContent = '换好了。可以继续换，也可以试打一轮。';
         }
-        delete result.dataset.win;
         stats(); draw(cell);
       };
       return piece;
     }));
-    if (focus !== undefined) (board.children[focus] as HTMLButtonElement)?.focus();
+    if (focus !== undefined) (board.children[focus] as HTMLButtonElement)?.focus({ preventScroll: true });
   }
 
   function reset() {
-    pieces = [...puzzle.pieces]; moves = 0; selected = null;
+    pieces = [...puzzle.pieces]; exchanges = []; selected = null;
+    clearHint();
     delete result.dataset.win;
     result.textContent = '点两枚符文换位。不限次数，不算暴击。';
     stats(); draw();
@@ -123,7 +149,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (node: HTMLElement, id: s
     const next = dailyPuzzle(day, catalog);
     if (!next) return false;
     readSavedRecords();
-    if (alreadyOpen) drafts.set(puzzle.day, { pieces, moves });
+    if (alreadyOpen) drafts.set(puzzle.day, { pieces, exchanges });
     else archive.open = false;
     puzzle = next;
     get('daily-date').textContent = `${day} · 北京时间每日更新`;
@@ -132,6 +158,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (node: HTMLElement, id: s
     get('daily-intro').textContent = `${encounters[enemy].name} · ${hp} 生命${gold ? ` · 起始 ${gold} 金` : ''}。用尽量少的换位打过它。`;
     const clue = get<HTMLDetailsElement>('daily-clue');
     clue.open = false;
+    clearHint();
     get('daily-clue-text').textContent = puzzle.template.clue;
     get('daily-today').hidden = day === shanghaiDay();
     link.value = dailyLink(day);
@@ -139,7 +166,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (node: HTMLElement, id: s
     copyButton.textContent = '复制挑战';
     const draft = drafts.get(day);
     if (draft) {
-      pieces = draft.pieces; moves = draft.moves; selected = null;
+      pieces = draft.pieces; exchanges = draft.exchanges; selected = null;
       delete result.dataset.win;
       result.textContent = '继续上次的摆法。';
       stats(); draw();
@@ -159,27 +186,48 @@ export function bindDailyRoom(catalog: Catalog, glyph: (node: HTMLElement, id: s
   get('opening-daily').onclick = openToday;
   get('daily-close').onclick = () => dialog.close();
   get('daily-reset').onclick = () => { click(); reset(); };
+  undo.onclick = () => {
+    const move = exchanges.pop();
+    if (!move) return;
+    click(); exchange(move); selected = null; clearHint();
+    delete result.dataset.win;
+    result.textContent = '已撤销一步。';
+    stats(); draw();
+  };
   get('daily-today').onclick = () => { click(); open(shanghaiDay()); };
+  get('daily-hint').onclick = () => {
+    click();
+    const hint = dailyHint(puzzle.template, pieces, catalog);
+    hinted = hint?.index ?? null;
+    selected = null;
+    hintText.hidden = false;
+    hintText.textContent = hint ? `先看第 ${puzzle.template.cells[hint.index] + 1} 格的「${catalog[pieces[hint.index]].name}」。从这里最快还有 ${hint.remaining} 步。` :
+      '这套已经能打过。想换个解法，可以重摆再试。';
+    draw();
+  };
   get('daily-check').onclick = () => {
     click();
     const outcome = runDaily(puzzle.template, pieces, catalog).result;
     result.dataset.win = String(outcome.win);
     if (!outcome.win) { result.textContent = `打了 ${outcome.damage} 点，还差 ${outcome.hp} 点。`; return; }
     readSavedRecords();
-    const record = newDailyRecord(records.get(puzzle.day), { moves, damage: outcome.damage });
+    const attempt = { moves: exchanges.length, damage: outcome.damage };
+    const record = newDailyRecord(records.get(puzzle.day), attempt);
     records.set(puzzle.day, record);
     try {
       localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(records)));
     } catch {}
     stats();
     renderArchive();
-    result.textContent = `${moves} 步打出 ${outcome.damage} 点，解开了。${moves === puzzle.par ? ' 已是最少步数。' : ` 最少能用 ${puzzle.par} 步。`}`;
+    result.textContent = isPerfect(attempt) ? '解开了。已是最少步数。' :
+      `${attempt.moves} 步打出 ${outcome.damage} 点，解开了。${attempt.moves === puzzle.par ? ' 已是最少步数。' : ` 最少能用 ${puzzle.par} 步。`}`;
   };
   copyButton.onclick = async () => {
     click();
     const day = puzzle.day;
     const best = records.get(day);
-    const copy = `《4×4 词条法阵》${day} 每日残局：${puzzle.template.title}。${best ? `我用 ${best.moves} 步打出了 ${best.damage} 点伤害。` : '来试试几步能解。'}\n${link.value}`;
+    const score = best ? `我用 ${best.moves} 步打出了 ${best.damage} 点伤害。${isPerfect(best) ? '拿到了满分。' : ''}` : '来试试几步能解。';
+    const copy = `《4×4 词条法阵》${day} 每日残局：${puzzle.template.title}。${score}\n${link.value}`;
     try {
       await navigator.clipboard.writeText(copy);
       if (!dialog.open || puzzle.day !== day) return;
@@ -193,7 +241,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (node: HTMLElement, id: s
     }
   };
   dialog.addEventListener('close', () => {
-    drafts.clear();
+    drafts.set(puzzle.day, { pieces, exchanges });
     if (!shared) return;
     shared = false;
     const address = new URL(location.href);

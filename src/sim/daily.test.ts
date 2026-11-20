@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dailyLink, dailyPuzzle, dailyStreak, newDailyRecord, recentDailyDates, runDaily, shanghaiDay, validDailyDate } from '../core/daily';
+import { dailyHint, dailyLink, dailyPuzzle, dailyStreak, newDailyRecord, recentDailyDates, runDaily, shanghaiDay, validDailyDate } from '../core/daily';
 import { catalog } from '../data/catalog';
 
 function combinations(pieces: string[], depth: number): string[][] {
@@ -44,6 +44,26 @@ describe('daily puzzles', () => {
     expect(newDailyRecord(best, { moves: 3, damage: 99 })).toBe(best);
     expect(newDailyRecord(best, { moves: 2, damage: 72 })).toBe(best);
     expect(newDailyRecord(best, { moves: 2, damage: 75 })).toEqual({ moves: 2, damage: 75 });
+  });
+
+  it('finds maximum damage at the original par and gives one square on a route there', () => {
+    const dates = ['2026-11-20', '2026-11-21', '2026-11-22', '2026-11-23', '2026-11-24', '2026-11-25',
+      '2026-11-26', '2026-11-27', '2026-11-28', '2026-11-29'];
+    for (const day of dates) {
+      const puzzle = dailyPuzzle(day, catalog)!;
+      const wins = combinations(puzzle.pieces, puzzle.par).map(pieces => runDaily(puzzle.template, pieces, catalog).result).filter(turn => turn.win);
+      expect(puzzle.targetDamage, day).toBe(Math.max(...wins.map(win => win.damage)));
+      let pieces = puzzle.pieces;
+      for (let remaining = puzzle.par; remaining > 0; remaining--) {
+        const hint = dailyHint(puzzle.template, pieces, catalog);
+        expect(hint?.remaining, day).toBe(remaining);
+        const next = combinations(pieces, 1).find(candidate => candidate[hint!.index] !== pieces[hint!.index] &&
+          combinations(candidate, remaining - 1).some(final => runDaily(puzzle.template, final, catalog).result.damage === puzzle.targetDamage));
+        expect(next, day).toBeDefined();
+        pieces = next!;
+      }
+      expect(dailyHint(puzzle.template, pieces, catalog), day).toBeNull();
+    }
   });
 
   it('keeps the first schedule and adds four solvable five-rune puzzles with exact distances', () => {

@@ -46,7 +46,7 @@ export const newDailyTemplates: readonly DailyTemplate[] = [
 
 export const dailyTemplates = [...newDailyTemplates, ...classicDailyTemplates];
 
-export type DailyPuzzle = { day: string; template: DailyTemplate; pieces: string[]; par: number };
+export type DailyPuzzle = { day: string; template: DailyTemplate; pieces: string[]; par: number; targetDamage: number };
 const dayMs = 86_400_000;
 const releaseDay = '2026-11-20';
 const expandedDay = '2026-11-26';
@@ -85,11 +85,16 @@ function swaps(pieces: readonly string[]) {
   return alternatives;
 }
 
-const pools = new WeakMap<Catalog, Map<DailyTemplate, { pieces: string[]; par: number }[]>>();
+type Route = { moves: number; damage: number };
+type DailyAnalysis = {
+  pool: Pick<DailyPuzzle, 'pieces' | 'par' | 'targetDamage'>[];
+  routes: Map<string, Route>;
+};
+const analyses = new WeakMap<Catalog, Map<DailyTemplate, DailyAnalysis>>();
 
-function puzzlePool(template: DailyTemplate, catalog: Catalog) {
-  let cached = pools.get(catalog);
-  if (!cached) { cached = new Map(); pools.set(catalog, cached); }
+function analyzeDaily(template: DailyTemplate, catalog: Catalog) {
+  let cached = analyses.get(catalog);
+  if (!cached) { cached = new Map(); analyses.set(catalog, cached); }
   const prior = cached.get(template);
   if (prior) return prior;
   const all = [[...template.pieces] as string[]];
@@ -98,22 +103,33 @@ function puzzlePool(template: DailyTemplate, catalog: Catalog) {
     const key = signature(next);
     if (!seen.has(key)) { seen.add(key); all.push(next); }
   }
-  const winners = all.filter(pieces => runDaily(template, pieces, catalog).result.win);
-  const distances = new Map(winners.map(pieces => [signature(pieces), 0]));
-  for (const pieces of winners) for (const next of swaps(pieces)) {
-    const key = signature(next);
-    if (distances.has(key)) continue;
-    distances.set(key, distances.get(signature(pieces))! + 1);
-    winners.push(next);
+  const routes = new Map<string, Route>();
+  const search = all.filter(pieces => {
+    const { result } = runDaily(template, pieces, catalog);
+    if (result.win) routes.set(signature(pieces), { moves: 0, damage: result.damage });
+    return result.win;
+  });
+  // Finish a layer before reading the next so equal-length routes can improve damage.
+  for (const pieces of search) {
+    const route = routes.get(signature(pieces))!;
+    const moves = route.moves + 1;
+    for (const next of swaps(pieces)) {
+      const key = signature(next);
+      const prior = routes.get(key);
+      if (!prior) {
+        routes.set(key, { moves, damage: route.damage });
+        search.push(next);
+      } else if (prior.moves === moves) prior.damage = Math.max(prior.damage, route.damage);
+    }
   }
   const eligible = all.flatMap(pieces => {
-    const par = distances.get(signature(pieces)) ?? 0;
-    return par > 0 ? [{ pieces, par }] : [];
+    const route = routes.get(signature(pieces));
+    return route && route.moves > 0 ? [{ pieces, par: route.moves, targetDamage: route.damage }] : [];
   });
   const twoStep = eligible.filter(puzzle => puzzle.par >= 2);
-  const pool = twoStep.length ? twoStep : eligible;
-  cached.set(template, pool);
-  return pool;
+  const analysis = { pool: twoStep.length ? twoStep : eligible, routes };
+  cached.set(template, analysis);
+  return analysis;
 }
 
 export function dailyPuzzle(day: string, catalog: Catalog): DailyPuzzle | null {
@@ -123,12 +139,23 @@ export function dailyPuzzle(day: string, catalog: Catalog): DailyPuzzle | null {
   const dayIndex = (Date.parse(day) - Date.parse(expanded ? expandedDay : releaseDay)) / dayMs;
   const templateIndex = dayIndex % schedule.length;
   const template = schedule[templateIndex];
-  const pool = puzzlePool(template, catalog);
+  const { pool } = analyzeDaily(template, catalog);
   if (!pool.length) return null;
   const rng = createMulberry32(templateIndex + 983);
   const start = Math.floor(rng() * pool.length);
   const setup = pool[(start + Math.floor(dayIndex / schedule.length)) % pool.length];
-  return { day, template, pieces: [...setup.pieces], par: setup.par };
+  return { day, template, ...setup, pieces: [...setup.pieces] };
+}
+
+export function dailyHint(template: DailyTemplate, pieces: readonly string[], catalog: Catalog) {
+  const { routes } = analyzeDaily(template, catalog);
+  const route = routes.get(signature(pieces));
+  if (!route?.moves) return null;
+  const next = swaps(pieces).find(candidate => {
+    const after = routes.get(signature(candidate));
+    return after?.moves === route.moves - 1 && after.damage === route.damage;
+  });
+  return next ? { index: pieces.findIndex((id, index) => id !== next[index]), remaining: route.moves } : null;
 }
 
 export interface DailyRecord { moves: number; damage: number }
