@@ -150,8 +150,14 @@ function simulateBotRun(opening: OpeningId, seed: number, runeStats: Record<stri
       shop(run);
       arrange(run, decisionRng);
     }
-    const bounty = trialAt(run.wave);
-    if (bounty && preview({ ...run, trialWave: run.wave }).result.win) selectTrial(run, true);
+    if (trialAt(run.wave)) {
+      const routes: { trialRoute?: 'alternate' }[] = [{}, { trialRoute: 'alternate' }];
+      routes.sort((a, b) => (trialAt(run.wave, b.trialRoute)?.reward ?? 0) - (trialAt(run.wave, a.trialRoute)?.reward ?? 0));
+      for (const { trialRoute } of routes) {
+        if (!trialAt(run.wave, trialRoute) || !preview({ ...run, trialWave: run.wave, trialRoute }).result.win) continue;
+        if (selectTrial(run, true, trialRoute)) break;
+      }
+    }
 
     const { events, result, rngState, board } = preview(run);
     for (const rune of board) if (rune) runeStats[rune.configId].fielded++;
@@ -176,7 +182,7 @@ function simulateBotRun(opening: OpeningId, seed: number, runeStats: Record<stri
     opening,
     clearedWave20,
     deathWave: clearedWave20 ? null : run.wave,
-    deathEncounter: clearedWave20 ? null : battleTarget(run.wave, run.trialWave).encounter,
+    deathEncounter: clearedWave20 ? null : battleTarget(run.wave, run.trialWave, run.trialRoute).encounter,
     wavesCleared: clearedWave20 ? 20 : run.wave - 1,
     bountiesCleared: run.clearedTrials?.length ?? 0,
   };

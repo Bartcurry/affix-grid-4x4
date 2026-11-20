@@ -4,8 +4,9 @@ import { trialAt } from './trials';
 import type { Catalog, RelicId, Run, Rune, Slots, TileModifier, TileModifierMap } from './types';
 
 export const boardSharePrefix = '#board=';
-export type SharedBoard = Pick<Run, 'wave' | 'gold' | 'shield' | 'rngState' | 'board' | 'relics' | 'tileModifiers' | 'trialWave'>;
+export type SharedBoard = Pick<Run, 'wave' | 'gold' | 'shield' | 'rngState' | 'board' | 'relics' | 'tileModifiers' | 'trialWave' | 'trialRoute'>;
 const revision = 's1';
+const alternateRevision = 's2';
 const runeTuple = (rune: Rune | null) => rune ? [rune.configId, rune.star, rune.bonusPower ?? 0] : null;
 const tileTypes = new Set<TileModifier>(['li_fire', 'xuan_ice', 'spirit_gathering']);
 const whole = (value: unknown, minimum: number, maximum = Number.MAX_SAFE_INTEGER): value is number =>
@@ -14,7 +15,8 @@ const whole = (value: unknown, minimum: number, maximum = Number.MAX_SAFE_INTEGE
 export function boardShareUrl(page: string, run: SharedBoard): string | null {
   const url = new URL(page);
   if ((url.protocol !== 'http:' && url.protocol !== 'https:') || !run.board.some(Boolean)) return null;
-  const raw = [revision, run.wave, run.gold, run.shield, run.rngState, Number(run.trialWave === run.wave), run.relics,
+  const route = run.trialWave === run.wave ? run.trialRoute === 'alternate' ? 2 : 1 : 0;
+  const raw = [route === 2 ? alternateRevision : revision, run.wave, run.gold, run.shield, run.rngState, route, run.relics,
     Object.entries(run.tileModifiers).map(([cell, modifier]) => [Number(cell), modifier]), run.board.map(runeTuple)];
   url.search = '';
   url.hash = `${boardSharePrefix}${btoa(JSON.stringify(raw)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '')}`;
@@ -29,8 +31,9 @@ export function readSharedBoard(hash: string, catalog: Catalog): SharedBoard | n
     const raw: unknown = JSON.parse(atob(encoded.replaceAll('-', '+').replaceAll('_', '/')));
     if (!Array.isArray(raw) || raw.length !== 9) return null;
     const [version, wave, gold, shield, rngState, trial, owned, tiles, pieces] = raw;
-    if (version !== revision || !whole(wave, 1) || !whole(gold, 0) || !whole(shield, 0, 3) || !whole(rngState, 0, 0xffffffff) ||
-      !whole(trial, 0, 1) || (trial && !trialAt(wave)) || !Array.isArray(owned) || owned.length > Object.keys(relics).length ||
+    if ((version !== revision && version !== alternateRevision) || !whole(wave, 1) || !whole(gold, 0) || !whole(shield, 0, 3) || !whole(rngState, 0, 0xffffffff) ||
+      !(version === alternateRevision ? trial === 2 : whole(trial, 0, 1)) || (trial && !trialAt(wave, trial === 2 ? 'alternate' : undefined)) ||
+      !Array.isArray(owned) || owned.length > Object.keys(relics).length ||
       !owned.every(id => typeof id === 'string' && Object.hasOwn(relics, id)) || new Set(owned).size !== owned.length ||
       !Array.isArray(tiles) || tiles.length > CELL_COUNT || !Array.isArray(pieces) || pieces.length !== CELL_COUNT) return null;
     const tileModifiers: TileModifierMap = {};
@@ -47,7 +50,8 @@ export function readSharedBoard(hash: string, catalog: Catalog): SharedBoard | n
       board.push({ configId: piece[0], star: piece[1] as Rune['star'], ...(piece[2] ? { bonusPower: piece[2] } : {}) });
     }
     if (!board.some(Boolean)) return null;
-    return { wave, gold, shield, rngState, board, relics: owned as RelicId[], tileModifiers, trialWave: trial ? wave : undefined };
+    return { wave, gold, shield, rngState, board, relics: owned as RelicId[], tileModifiers, trialWave: trial ? wave : undefined,
+      ...(trial === 2 ? { trialRoute: 'alternate' } : {}) };
   } catch {
     return null;
   }

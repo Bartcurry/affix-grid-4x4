@@ -37,7 +37,7 @@ export function openBoardTrial(
   const undo = dialog.querySelector<HTMLButtonElement>('#shared-board-undo')!;
   const compare = dialog.querySelector<HTMLDetailsElement>('#shared-board-compare')!;
   const inspect = get('shared-board-inspect');
-  const { hp, encounter, trial } = battleTarget(snapshot.wave, snapshot.trialWave);
+  const { hp, encounter, trial } = battleTarget(snapshot.wave, snapshot.trialWave, snapshot.trialRoute);
   const originalEvents = prepareBattle(snapshot, catalog).events;
   const original = originalEvents.at(-1);
   if (original?.type !== 'TURN_RESULT') return;
@@ -172,7 +172,7 @@ export function openBoardTrial(
     const { events } = prepareBattle({ ...snapshot, board }, catalog);
     const turn = events.at(-1);
     if (turn?.type !== 'TURN_RESULT') return;
-    journal = { wave: snapshot.wave, trialWave: snapshot.trialWave, board, gold: snapshot.gold, events };
+    journal = { wave: snapshot.wave, trialWave: snapshot.trialWave, trialRoute: snapshot.trialRoute, board, gold: snapshot.gold, events };
     journalButton.hidden = false;
     showComparison(journal);
     best = best === undefined ? turn.damage : Math.max(best, turn.damage);

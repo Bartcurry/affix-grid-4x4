@@ -73,7 +73,7 @@ export function bindBattleJournal(catalog: Catalog, format: (value: number) => s
     const result = entry?.events.at(-1);
     if (!entry || result?.type !== 'TURN_RESULT' || dialog.open) return;
     log = entry;
-    const { trial, encounter } = battleTarget(entry.wave, entry.trialWave);
+    const { trial, encounter } = battleTarget(entry.wave, entry.trialWave, entry.trialRoute);
     const bounty = trial ? `\n${result.win ? `悬赏已领 · +${trial.reward} 金` : '没拿到这次悬赏。'}` : '';
     get('journal-title').textContent = `第 ${entry.wave} 波 · ${trial?.name ?? encounters[encounter].name}`;
     get('journal-summary').textContent = `${format(result.damage)} 伤害，${result.combo} 次触发。${result.win ? '打过了。' : `还差 ${format(result.hp)} 点。`}\n战斗金币：${format(entry.gold)} → ${format(result.gold)}（不含过关奖励）。${bounty}`;

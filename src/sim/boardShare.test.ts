@@ -27,11 +27,21 @@ describe('one-wave board links', () => {
     expect(boardShareUrl('file:///preview.html', run)).toBeNull();
   });
 
+  it('round-trips a new bounty foe, health and battle events in one-wave links', () => {
+    const run = newRun(catalog, createMulberry32(667), 'chain');
+    run.wave = run.trialWave = 15;
+    run.trialRoute = 'alternate';
+    const address = new URL(boardShareUrl('https://test.example/', run)!);
+    const snapshot = readSharedBoard(address.hash, catalog)!;
+    expect(snapshot).toMatchObject({ wave: 15, trialWave: 15, trialRoute: 'alternate' });
+    expect(prepareBattle(snapshot, catalog)).toEqual(prepareBattle(run, catalog));
+  });
+
   it('rejects malformed revisions, illegal pieces and inconsistent trial or tile settings', () => {
     const pieces = Array.from({ length: 16 }, (_, index) => index === 0 ? ['spark_orb', 1, 0] : null);
     const valid = ['s1', 5, 0, 3, 667, 1, [], [[2, 'li_fire']], pieces];
     expect(readSharedBoard(fromParts(valid), catalog)).not.toBeNull();
-    for (const changes of [{ 0: 's2' }, { 1: 6 }, { 3: 5 }, { 6: ['not_a_relic'] }, { 7: [[2, 'li_fire'], [2, 'xuan_ice']] },
+    for (const changes of [{ 0: 's2' }, { 5: 2 }, { 0: 's2', 1: 6, 5: 2 }, { 1: 6 }, { 3: 5 }, { 6: ['not_a_relic'] }, { 7: [[2, 'li_fire'], [2, 'xuan_ice']] },
       { 7: [[16, 'li_fire']] }, { 8: [['spark_orb', 9, 0], ...pieces.slice(1)] }, { 8: [['missing', 1, 0], ...pieces.slice(1)] },
       { 8: [['spark_orb', 1, -5], ...pieces.slice(1)] }, { 8: pieces.slice(1) }]) {
       expect(readSharedBoard(fromParts(Object.assign([...valid], changes)), catalog)).toBeNull();

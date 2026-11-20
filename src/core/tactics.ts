@@ -6,10 +6,10 @@ import { runeAt } from './shopEngine';
 import { battleTarget } from './trials';
 import type { Catalog, RuneConfig, Run, Scope, Slot } from './types';
 
-type BattleSetup = Pick<Run, 'wave' | 'trialWave' | 'board' | 'gold' | 'relics' | 'tileModifiers' | 'shield' | 'rngState'>;
+type BattleSetup = Pick<Run, 'wave' | 'trialWave' | 'trialRoute' | 'board' | 'gold' | 'relics' | 'tileModifiers' | 'shield' | 'rngState'>;
 
 function battleInput(run: BattleSetup) {
-  const { hp, encounter } = battleTarget(run.wave, run.trialWave);
+  const { hp, encounter } = battleTarget(run.wave, run.trialWave, run.trialRoute);
   return {
     board: run.board.map(rune => rune ? { ...rune } : null), hp, gold: run.gold,
     encounter, relics: run.relics, tileModifiers: run.tileModifiers,

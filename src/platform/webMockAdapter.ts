@@ -103,6 +103,8 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
     const clearedTrials = Array.isArray(rawRun.clearedTrials)
       ? rawRun.clearedTrials.filter((entry: unknown): entry is number => natural(entry) && entry < wave && !!trialAt(entry))
       : [];
+    const trialWave = !rawRun.endless && rawRun.trialWave === wave && trialAt(wave) ? wave : undefined;
+    const trialRule = rawRun.trialRule === 1 && rawRun.relicRule === 1 ? 1 : undefined;
 
     const migratedRun: Run = {
       seed,
@@ -111,6 +113,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       opening,
       openingRule: 1,
       relicRule: rawRun.relicRule === 1 ? 1 : undefined,
+      trialRule,
       shopFocus,
       wave,
       gold,
@@ -124,7 +127,8 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       status: ['active', 'victory', 'defeat'].includes(rawRun.status) ? rawRun.status : 'active',
       lastDamage: damageCount(rawRun.lastDamage) ? rawRun.lastDamage : 0,
       lastJournal: readJournal(rawRun.lastJournal, catalog),
-      trialWave: !rawRun.endless && rawRun.trialWave === wave && trialAt(wave) ? wave : undefined,
+      trialWave,
+      trialRoute: trialRule && trialWave && rawRun.trialRoute === 'alternate' && trialAt(wave, 'alternate') ? 'alternate' : undefined,
       clearedTrials: clearedTrials.length ? [...new Set<number>(clearedTrials)].sort((a, b) => a - b) : undefined,
       lastPoison: damageCount(rawRun.lastPoison) ? rawRun.lastPoison : 0,
       bestCombo: natural(rawRun.bestCombo) ? rawRun.bestCombo : 0,

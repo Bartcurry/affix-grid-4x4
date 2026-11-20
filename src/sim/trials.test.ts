@@ -3,7 +3,7 @@ import { foughtHealth } from '../core/journal';
 import { createMulberry32 } from '../core/rng';
 import { newRun, resolveLoss, selectTrial, settleTurn, victoryPayout } from '../core/shopEngine';
 import { planTurn, prepareBattle } from '../core/tactics';
-import { battleTarget } from '../core/trials';
+import { battleTarget, trialOptions } from '../core/trials';
 import { catalog } from '../data/catalog';
 import { migrateSave } from '../platform/webMockAdapter';
 
@@ -56,6 +56,35 @@ describe('campaign bounties', () => {
     expect(restored.lastJournal?.trialWave).toBe(5);
     expect(foughtHealth(restored.lastJournal, 5)).toBe(turn.hp);
     expect(victoryPayout(restored, turn.result.gold).trial).toBe(0);
+  });
+
+  it.each([
+    { wave: 5, foe: 'flanks', health: 112, reward: 5 },
+    { wave: 10, foe: 'bell', health: 135, reward: 10 },
+    { wave: 15, foe: 'regent', health: 135, reward: 14 },
+  ])('carries the alternate wave $wave route through save, payout and journal', ({ wave, foe, health, reward }) => {
+    const run = fixture(wave);
+    const legacy = { ...run, trialRule: undefined };
+    expect(trialOptions(legacy)).toHaveLength(1);
+    expect(selectTrial(legacy, true, 'alternate')).toBe(false);
+    expect(trialOptions(run)).toHaveLength(2);
+    expect(selectTrial(run, true, 'alternate')).toBe(true);
+    const restored = migrateSave({ run }, catalog).run;
+    expect(restored).toMatchObject({ trialWave: wave, trialRoute: 'alternate' });
+    const { hp: regularHp } = battleTarget(wave);
+    expect(battleTarget(wave, restored.trialWave, restored.trialRoute)).toMatchObject({ encounter: foe, hp: Math.round(regularHp * health / 100) });
+    expect(victoryPayout(restored, run.gold).trial).toBe(reward);
+    restored.board = restored.board.map(() => ({ configId: 'spark_orb', star: 3, bonusPower: 500 }));
+    const turn = planTurn(restored, catalog);
+    expect(turn.result.win).toBe(true);
+    restored.lastJournal = { wave, trialWave: wave, trialRoute: restored.trialRoute, board: restored.board, gold: restored.gold, events: turn.events };
+    const payout = victoryPayout(restored, turn.result.gold);
+    settleTurn(restored, turn.result, catalog, createMulberry32(restored.rngState));
+    expect(restored).toMatchObject({ wave: wave + 1, gold: turn.result.gold + payout.total, clearedTrials: [wave] });
+    expect(restored.trialRoute).toBeUndefined();
+    const log = migrateSave({ run: restored }, catalog).run.lastJournal;
+    expect(log?.trialRoute).toBe('alternate');
+    expect(foughtHealth(log, wave)).toBe(turn.hp);
   });
 
   it('requires loss resolution before leaving a failed bounty and gives no bounty payment', () => {

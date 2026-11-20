@@ -10,9 +10,10 @@ export const SHOP_SIZE = 3;
 export const REFRESH_COST = 2;
 export const canArrange = (run: Run) => run.status === 'active' && !run.pendingLoss && !run.pendingRelics.length;
 
-export function selectTrial(run: Run, enabled: boolean) {
-  if (!canArrange(run) || run.endless || !trialAt(run.wave)) return false;
+export function selectTrial(run: Run, enabled: boolean, route?: 'alternate') {
+  if (!canArrange(run) || run.endless || !trialAt(run.wave, route) || (route && !run.trialRule)) return false;
   run.trialWave = enabled ? run.wave : undefined;
+  run.trialRoute = enabled ? route : undefined;
   return true;
 }
 
@@ -88,6 +89,7 @@ export function newRun(catalog: Catalog, rng: Random, opening: OpeningId = 'chai
     opening,
     openingRule: 1,
     relicRule: 1,
+    trialRule: 1,
     shopFocus: opening,
     wave: 1,
     gold: setup.gold,
@@ -236,11 +238,11 @@ export function settleTurn(run: Run, result: TurnResult, catalog: Catalog, rng: 
   }
 }
 
-export function victoryPayout(run: Pick<Run, 'relics' | 'wave' | 'trialWave' | 'endless'>, goldAfterBattle: number) {
+export function victoryPayout(run: Pick<Run, 'relics' | 'wave' | 'trialWave' | 'trialRoute' | 'endless'>, goldAfterBattle: number) {
   const base = 8;
   const interest = Math.min(5, Math.floor(goldAfterBattle / 10));
   const relic = run.relics.includes('gate_tithe') ? 4 : 0;
-  const trial = !run.endless && run.trialWave === run.wave ? trialAt(run.wave)?.reward ?? 0 : 0;
+  const trial = !run.endless && run.trialWave === run.wave ? trialAt(run.wave, run.trialRoute)?.reward ?? 0 : 0;
   return { base, interest, relic, trial, total: base + interest + relic + trial };
 }
 
@@ -254,6 +256,7 @@ export function chooseRelic(run: Run, choice: RelicId): boolean {
 function advanceWave(run: Run, catalog: Catalog, rng: Random) {
   run.wave++;
   run.trialWave = undefined;
+  run.trialRoute = undefined;
   run.attempts = 0;
   run.freeRefreshes = 1;
   rollShop(run, catalog, rng, { supply: run.wave === 2 ? openings[run.opening].supply : undefined });

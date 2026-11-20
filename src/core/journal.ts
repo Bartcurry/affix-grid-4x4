@@ -68,11 +68,13 @@ export function readJournal(raw: unknown, catalog: Catalog): BattleJournal | und
       default: return false;
     }
   }
-  if (events.every(valid)) return { wave, board, gold, events, trialWave: data.trialWave === wave && trialAt(wave) ? wave : undefined };
+  const trialWave = data.trialWave === wave && trialAt(wave) ? wave : undefined;
+  const trialRoute = trialWave && data.trialRoute === 'alternate' && trialAt(wave, 'alternate') ? 'alternate' : undefined;
+  if (events.every(valid)) return { wave, board, gold, events, trialWave, trialRoute };
 }
 
-export function foughtHealth(journal: BattleJournal | undefined, wave: number, trialWave?: number) {
-  if (!journal || journal.wave !== wave) return battleTarget(wave, trialWave).hp;
+export function foughtHealth(journal: BattleJournal | undefined, wave: number, trialWave?: number, trialRoute?: 'alternate') {
+  if (!journal || journal.wave !== wave) return battleTarget(wave, trialWave, trialRoute).hp;
   const result = journal.events.at(-1);
-  return result?.type === 'TURN_RESULT' && result.hp > 0 ? result.damage + result.hp : battleTarget(wave, journal.trialWave).hp;
+  return result?.type === 'TURN_RESULT' && result.hp > 0 ? result.damage + result.hp : battleTarget(wave, journal.trialWave, journal.trialRoute).hp;
 }

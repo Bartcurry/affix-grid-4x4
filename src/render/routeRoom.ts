@@ -1,6 +1,6 @@
 import { affixAt, encounters, lastGate, relicChoices } from '../core/expedition';
 import { runScore } from '../core/openings';
-import { battleTarget, trialAt } from '../core/trials';
+import { battleTarget, trialAt, trialOptions } from '../core/trials';
 import type { Run } from '../core/types';
 
 export function bindRouteRoom(icon: (node: HTMLElement, encounter: keyof typeof encounters) => void) {
@@ -24,7 +24,7 @@ export function bindRouteRoom(icon: (node: HTMLElement, encounter: keyof typeof 
     const waves = run.endless ? Array.from({ length: 5 }, (_, index) => run.wave + index) : Array.from({ length: 20 }, (_, index) => index + 1);
     const initial = run.endless ? run.wave + 1 : Math.min(run.wave + 1, 20);
     const buttons = waves.map(wave => {
-      const { encounter, trial } = battleTarget(wave, run.trialWave);
+      const { encounter, trial } = battleTarget(wave, run.trialWave, run.trialRoute);
       const bounty = trialAt(wave);
       const altar = relicChoices(wave, []).length > 0;
       const tile = document.createElement('button');
@@ -48,7 +48,7 @@ export function bindRouteRoom(icon: (node: HTMLElement, encounter: keyof typeof 
 
     function selectWave(wave: number) {
       for (const tile of buttons) tile.setAttribute('aria-pressed', String(Number(tile.dataset.wave) === wave));
-      const { encounter, trial, hp } = battleTarget(wave, run.trialWave);
+      const { encounter, trial, hp } = battleTarget(wave, run.trialWave, run.trialRoute);
       const foe = encounters[encounter];
       const affix = affixAt(wave);
       get('route-enemy').textContent = `第 ${wave} 波 · ${trial?.name ?? foe.name}`;
@@ -56,11 +56,12 @@ export function bindRouteRoom(icon: (node: HTMLElement, encounter: keyof typeof 
       finale.hidden = encounter !== 'last_gate';
       get('route-rule').textContent = encounter === 'last_gate' ? `剩余生命降到 ${Math.floor(hp / 2).toLocaleString('zh-CN')} 或更低时破门。` :
         affix ? `${foe.hint} ${affix.name} · ${affix.desc}` : foe.hint;
-      const bounty = trialAt(wave);
-      const perk = bounty ? (run.clearedTrials?.includes(wave) ? '悬赏已拿下' : `可选${bounty.name}，打过额外 +${bounty.reward} 金`) :
+      const bounties = trialOptions({ wave, trialRule: run.trialRule });
+      const perk = bounties.length ? (run.clearedTrials?.includes(wave) ? '悬赏已拿下。' :
+        bounties.map(bounty => `${bounty.name} +${bounty.reward} 金`).join(' / ')) :
         relicChoices(wave, []).length ? '打过这一波，可以选一件遗物。' : '';
       reward.hidden = !perk;
-      reward.textContent = perk ? `${perk}${bounty ? '。' : ''}` : '';
+      reward.textContent = perk;
     }
 
     list.replaceChildren(...buttons);

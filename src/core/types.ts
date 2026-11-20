@@ -62,6 +62,7 @@ export interface Run {
   opening: OpeningId;
   openingRule?: 1;
   relicRule?: 1;
+  trialRule?: 1;
   shopFocus: Archetype | 'any';
   wave: number;
   gold: number;
@@ -81,6 +82,7 @@ export interface Run {
   relics: RelicId[];
   pendingRelics: RelicId[];
   trialWave?: number;
+  trialRoute?: 'alternate';
   clearedTrials?: number[];
 }
 
@@ -97,6 +99,7 @@ export type TurnResult = Extract<BattleEvent, { type: 'TURN_RESULT' }>;
 export interface BattleJournal {
   wave: number;
   trialWave?: number;
+  trialRoute?: 'alternate';
   board: Slots;
   gold: number;
   events: BattleEvent[];

@@ -8,7 +8,7 @@ import { foughtHealth } from './core/journal';
 import { fieldTip } from './core/fieldGuide';
 import { createMulberry32, decodeSeed, generateSeedCode } from './core/rng';
 import { planTurn, prepareBattle, previewPlacement, runeFootprint } from './core/tactics';
-import { battleTarget, trialAt } from './core/trials';
+import { battleTarget, trialOptions } from './core/trials';
 import { buyRune, canArrange, chooseRelic, newRun, purchaseInfo, refreshShop, resolveLoss, runeAt, selectTrial, sellRune, sellValue, settleTurn, startEndless, swapRunes, toggleLock, UndoStack, victoryPayout } from './core/shopEngine';
 import { STAR_MULT, initialRuneState, type BattleEvent, type OpeningId, type Rune, type RuneState, type Slot } from './core/types';
 import { catalog } from './data/catalog';
@@ -45,16 +45,20 @@ const sharedBoard = readSharedBoard(location.hash, catalog);
 const invalidBoard = location.hash.startsWith(boardSharePrefix) && !sharedBoard;
 const platform = new WebMockAdapter(catalog, element('ad'), element('ad-text'), button('cancel-ad'), challenge ? challengeSaveKey(challenge) : undefined);
 const loaded = sharedBoard ? null : platform.load();
-const saved = challenge && loaded && (loaded.run.seed !== challenge.seed || loaded.run.opening !== challenge.opening || loaded.run.relicRule !== challenge.relicRule) ? null : loaded;
+const saved = challenge && loaded && (loaded.run.seed !== challenge.seed || loaded.run.opening !== challenge.opening ||
+  loaded.run.relicRule !== challenge.relicRule || loaded.run.trialRule !== challenge.trialRule) ? null : loaded;
 
 const initialSeed = challenge?.seed ?? generateSeedCode().code;
 function createOpeningRun(opening: OpeningId, seed?: string) {
   const next = newRun(catalog, createMulberry32(seed ? decodeSeed(seed) : 1), opening, seed);
-  if (challenge) next.relicRule = challenge.relicRule;
+  if (challenge) {
+    next.relicRule = challenge.relicRule;
+    next.trialRule = challenge.trialRule;
+  }
   return next;
 }
 let run = saved?.run ?? createOpeningRun(challenge?.opening ?? 'chain', initialSeed);
-const target = () => battleTarget(run.wave, run.trialWave);
+const target = () => battleTarget(run.wave, run.trialWave, run.trialRoute);
 let records = saved?.records ?? {};
 let forecast: ReturnType<typeof planTurn> | null = null;
 let placement: ReturnType<typeof planTurn> | null = null;
@@ -110,8 +114,8 @@ if (challenge) {
 const journal = bindBattleJournal(catalog, formatNumber);
 const reviewLast = () => journal(run.lastJournal);
 button('journal-open').onclick = () => { click(); reviewLast(); };
-const openTrial = bindTrialRoom(catalog, formatNumber, enabled => {
-  if (!arranging() || !selectTrial(run, enabled)) return false;
+const openTrial = bindTrialRoom(catalog, formatNumber, choice => {
+  if (!arranging() || !selectTrial(run, choice !== 'normal', choice === 'alternate' ? 'alternate' : undefined)) return false;
   click(); resetTimeline(); redraw();
   return true;
 });
@@ -214,7 +218,7 @@ function updateGateUi() {
 
 function updateHud() {
   const showOutcomeState = run.pendingLoss || run.status !== 'active';
-  const maxHp = showOutcomeState ? foughtHealth(run.lastJournal, run.wave, run.trialWave) : target().hp;
+  const maxHp = showOutcomeState ? foughtHealth(run.lastJournal, run.wave, run.trialWave, run.trialRoute) : target().hp;
   const hp = phase === 'PLAYBACK' ? displayed.hp : showOutcomeState ? Math.max(0, maxHp - run.lastDamage) : maxHp;
   const pct = Math.max(0, Math.min(100, (100 * hp) / maxHp));
 
@@ -436,7 +440,7 @@ function tryCurrentBoard(suggestion?: [Slot, Slot]) {
       suggestion,
       apply(board, bench) {
         if (run !== current || !arranging() || run.wave !== snapshot.wave || run.rngState !== snapshot.rngState ||
-          run.trialWave !== snapshot.trialWave || run.gold !== snapshot.gold || run.shield !== snapshot.shield ||
+          run.trialWave !== snapshot.trialWave || run.trialRoute !== snapshot.trialRoute || run.gold !== snapshot.gold || run.shield !== snapshot.shield ||
           !run.board.every((rune, index) => rune === snapshot.board[index]) || !run.bench.every((rune, index) => rune === snapshot.bench[index])) return false;
         undoStack.push(run);
         run.board = board;
@@ -501,11 +505,11 @@ function redraw(save = true) {
   const { encounter, trial } = target();
   const enemy = encounters[encounter];
   element('enemy-name').textContent = trial?.name ?? enemy.name;
-  const bounty = !run.endless && trialAt(run.wave);
+  const bounties = run.endless ? [] : trialOptions(run);
   const trialButton = button('trial-open');
-  trialButton.hidden = !bounty || !arranging();
-  if (bounty) {
-    trialButton.textContent = trial ? '悬赏 · 已接' : `悬赏 +${bounty.reward} 金`;
+  trialButton.hidden = !bounties.length || !arranging();
+  if (bounties.length) {
+    trialButton.textContent = trial ? `悬赏 · +${trial.reward} 金` : bounties.length > 1 ? '选悬赏' : `悬赏 +${bounties[0].reward} 金`;
     trialButton.dataset.active = String(!!trial);
   }
 
@@ -837,7 +841,7 @@ function showOutcome() {
       else notice(protectedRetry ? '护盾保留。现在可以重新布阵。' : '护盾 −1，重新布阵后可再次挑战。');
     };
     const { trial, encounter } = target();
-    const missing = Math.max(0, foughtHealth(run.lastJournal, run.wave, run.trialWave) - run.lastDamage);
+    const missing = Math.max(0, foughtHealth(run.lastJournal, run.wave, run.trialWave, run.trialRoute) - run.lastDamage);
     const retry = trial ? '重新布阵后，可到悬赏里改走原路。' : `重来时${encounters[encounter].name}会回满血。`;
     showPanel(`第 ${run.wave} 波没打过`, `你打了 ${formatNumber(run.lastDamage)} 点，还差 ${formatNumber(missing)} 点。\n${retry}看一次模拟广告可以保住护盾。`, [
       ...(run.lastJournal ? [{ label: '看看怎么打的', act: reviewLast }] : []),
@@ -935,7 +939,7 @@ button('battle').onclick = async event => {
     },
   });
   phase = 'ARRANGE'; panel.style.minHeight = ''; states.clear(); renderer.clearEffects(); audio.finish(result.win);
-  run.lastJournal = { wave: run.wave, trialWave: run.trialWave, gold: startingGold, board: startingBoard, events };
+  run.lastJournal = { wave: run.wave, trialWave: run.trialWave, trialRoute: run.trialRoute, gold: startingGold, board: startingBoard, events };
   const payout = victoryPayout(run, result.gold);
   run.board = prepared.board;
   const prng = createMulberry32(prepared.rngState);
