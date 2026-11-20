@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { simulateBattle } from '../core/battleEngine';
+import { boardFromJournal, boardShareUrl, readSharedBoard } from '../core/boardShare';
 import { damageLeaders, journalRows, readJournal } from '../core/journal';
+import { createMulberry32 } from '../core/rng';
+import { newRun } from '../core/shopEngine';
+import { prepareBattle } from '../core/tactics';
 import type { BattleJournal, Slots } from '../core/types';
 import { catalog } from '../data/catalog';
 import { migrateSave } from '../platform/webMockAdapter';
@@ -41,5 +45,29 @@ describe('battle journal', () => {
     const recovered = migrateSave(saved, catalog);
     expect(recovered.run.gold).toBe(32);
     expect(recovered.run.lastJournal).toBeUndefined();
+  });
+
+  it('shares the original battle state after gold, shield, random state and power change', () => {
+    const run = newRun(catalog, createMulberry32(667));
+    run.wave = run.trialWave = 10;
+    run.trialRoute = 'alternate';
+    run.shield = 1;
+    run.gold = 23;
+    run.relics = ['chain_ring'];
+    run.tileModifiers = { 1: 'spirit_gathering', 12: 'li_fire', 13: 'xuan_ice' };
+    const { board, events, rngState } = prepareBattle(run, catalog);
+    expect(board[1]?.bonusPower).toBeGreaterThan(0);
+    const { wave, trialWave, trialRoute, gold } = run;
+    run.lastJournal = { wave, trialWave, trialRoute, gold, board: run.board, events,
+      replay: { rngState: run.rngState, shield: run.shield, relics: [...run.relics], tileModifiers: { ...run.tileModifiers } } };
+    Object.assign(run, { board, gold: 29, shield: 0, status: 'defeat', rngState });
+    const restored = migrateSave(JSON.stringify({ run }), catalog).run;
+    const replay = boardFromJournal(restored.lastJournal)!;
+    expect(replay).toMatchObject({ gold: 23, shield: 1, trialRoute: 'alternate', relics: ['chain_ring'] });
+    const address = new URL(boardShareUrl('https://example.test/', replay)!);
+    expect(prepareBattle(readSharedBoard(address.hash, catalog)!, catalog).events).toEqual(events);
+    const broken = readJournal({ ...restored.lastJournal!, replay: { ...replay, rngState: -1 } }, catalog);
+    expect(broken?.events).toEqual(events);
+    expect(boardFromJournal(broken)).toBeUndefined();
   });
 });

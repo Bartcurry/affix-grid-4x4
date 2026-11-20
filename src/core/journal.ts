@@ -2,6 +2,7 @@ import { MAX_EVENTS } from './eventBus';
 import { CELL_COUNT } from './grid';
 import { relics } from './expedition';
 import { battleTarget, trialAt } from './trials';
+import { readJournalReplay } from './boardShare';
 import type { BattleEvent, BattleJournal, Catalog } from './types';
 
 export type JournalFilter = 'all' | 'chain' | 'damage' | 'economy' | 'support';
@@ -70,7 +71,10 @@ export function readJournal(raw: unknown, catalog: Catalog): BattleJournal | und
   }
   const trialWave = data.trialWave === wave && trialAt(wave) ? wave : undefined;
   const trialRoute = trialWave && data.trialRoute === 'alternate' && trialAt(wave, 'alternate') ? 'alternate' : undefined;
-  if (events.every(valid)) return { wave, board, gold, events, trialWave, trialRoute };
+  if (events.every(valid)) {
+    const replay = readJournalReplay(data.replay);
+    return { wave, board, gold, events, trialWave, trialRoute, ...(replay ? { replay } : {}) };
+  }
 }
 
 export function foughtHealth(journal: BattleJournal | undefined, wave: number, trialWave?: number, trialRoute?: 'alternate') {

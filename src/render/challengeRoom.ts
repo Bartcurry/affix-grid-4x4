@@ -1,6 +1,6 @@
 import { challengeFromRun, challengeUrl, compareScores, type Challenge } from '../core/challenge';
 import { openings, runScore } from '../core/openings';
-import { boardShareUrl } from '../core/boardShare';
+import { boardFromJournal, boardShareUrl } from '../core/boardShare';
 import { canArrange } from '../core/shopEngine';
 import { prepareBattle } from '../core/tactics';
 import type { Catalog, Run } from '../core/types';
@@ -75,13 +75,16 @@ export function bindInviteRoom(click: () => void, catalog: Catalog, format: (num
     catch (error) { if (dialog.open && !(error instanceof DOMException && error.name === 'AbortError')) manual(); }
   };
 
-  return (run: Run) => {
+  return (run: Run, preferBoard = false) => {
     const challenge = challengeFromRun(run);
     const url = challengeUrl(location.href, challenge);
     const name = openings[challenge.opening].name;
     const score = `${challenge.cleared} 波 / ${challenge.combo} 连击`;
-    const boardUrl = canArrange(run) ? boardShareUrl(location.href, run) : null;
+    const isLastBattle = !canArrange(run);
+    const snapshot = isLastBattle ? boardFromJournal(run.lastJournal) : run;
+    const boardUrl = snapshot ? boardShareUrl(location.href, snapshot) : null;
     modes.hidden = !boardUrl;
+    board.textContent = isLastBattle ? '最后一波' : '这一波';
     function selectBoard(enabled: boolean) {
       const useBoard = enabled && !!boardUrl;
       campaign.setAttribute('aria-pressed', String(!useBoard));
@@ -89,11 +92,11 @@ export function bindInviteRoom(click: () => void, catalog: Catalog, format: (num
       const address = useBoard ? boardUrl : url;
       let text = `来打同一个开局。「${name}」${challenge.cleared || challenge.combo ? `，我的战绩是 ${score}。` : '，看看谁能走得更远。'}`;
       let summary = url ? `${name}开局 · ${score}。朋友从同一个种子开始。` : `${name}开局 · ${score}。离线试玩可以分享种子码 ${challenge.seed}。`;
-      if (useBoard) {
-        const result = prepareBattle(run, catalog).events.at(-1);
+      if (useBoard && snapshot) {
+        const result = isLastBattle ? run.lastJournal?.events.at(-1) : prepareBattle(snapshot, catalog).events.at(-1);
         const damage = result?.type === 'TURN_RESULT' ? format(result.damage) : '0';
-        text = `接手我的第 ${run.wave} 波。原阵打 ${damage} 伤害，你换几格能打得更高？`;
-        summary = `第 ${run.wave} 波 · 原阵 ${damage} 伤害。朋友打开就能换位试打。`;
+        text = `接手我的${isLastBattle ? '最后一波，' : ''}第 ${snapshot.wave} 波。原阵打 ${damage} 伤害，你换几格能打得更高？`;
+        summary = `第 ${snapshot.wave} 波 · 原阵 ${damage} 伤害。朋友打开就能换位试打。`;
       }
       share = { title: '4×4 词条法阵', text, ...(address ? { url: address } : {}) };
       textarea.value = `《4×4 词条法阵》${text}\n${address ?? `种子码 ${challenge.seed}`}`;
@@ -105,7 +108,7 @@ export function bindInviteRoom(click: () => void, catalog: Catalog, format: (num
     }
     campaign.onclick = () => { click(); selectBoard(false); };
     board.onclick = () => { click(); selectBoard(true); };
-    selectBoard(false);
+    selectBoard(preferBoard);
     if (!dialog.open) dialog.showModal();
   };
 }

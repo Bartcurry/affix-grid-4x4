@@ -96,6 +96,7 @@ export type BattleEvent =
   | { type: 'TURN_RESULT'; damage: number; combo: number; hp: number; poison: number; gold: number; win: boolean };
 
 export type TurnResult = Extract<BattleEvent, { type: 'TURN_RESULT' }>;
+export type BattleReplay = Pick<Run, 'rngState' | 'shield' | 'relics' | 'tileModifiers'>;
 export interface BattleJournal {
   wave: number;
   trialWave?: number;
@@ -103,6 +104,7 @@ export interface BattleJournal {
   board: Slots;
   gold: number;
   events: BattleEvent[];
+  replay?: BattleReplay;
 }
 export type Random = () => number;
 export type Catalog = Readonly<Record<string, RuneConfig>>;

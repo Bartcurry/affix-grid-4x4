@@ -206,6 +206,32 @@
         </div>
       </dialog>
 
+      <dialog id="result-dialog" class="result-dialog" aria-labelledby="result-title">
+        <div class="dialog-content">
+          <header class="result-heading">
+            <p id="result-battle"></p>
+            <h2 id="result-title"></h2>
+            <p id="result-opening"></p>
+          </header>
+          <dl class="result-stats" aria-label="本局战绩">
+            <div><dt>打过波数</dt><dd id="result-cleared"></dd></div>
+            <div><dt>最高连击</dt><dd id="result-combo"></dd></div>
+            <div><dt>末战伤害</dt><dd id="result-damage"></dd></div>
+          </dl>
+          <section id="result-formation" class="result-formation" aria-label="末战阵容" hidden>
+            <div id="result-board" class="result-board" role="group" aria-label="末战棋盘"></div>
+            <div class="result-formation-note">
+              <h3>末战阵容</h3>
+              <p id="result-leader" hidden></p>
+              <p id="result-bounties" hidden></p>
+              <button id="result-replay" type="button" hidden>复盘最后一波</button>
+            </div>
+          </section>
+          <div id="result-actions" class="result-actions"></div>
+          <p id="result-feedback" role="status" hidden></p>
+        </div>
+      </dialog>
+
       <dialog id="challenge-dialog" class="challenge-dialog" aria-labelledby="challenge-title">
         <div class="dialog-content">
           <p id="challenge-opening" class="challenge-opening"></p>

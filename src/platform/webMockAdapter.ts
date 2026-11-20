@@ -2,12 +2,12 @@ import { BENCH_SIZE, generateTileModifiers, newRun, SHOP_SIZE } from '../core/sh
 import { CELL_COUNT } from '../core/grid';
 import { readJournal } from '../core/journal';
 import { relics } from '../core/expedition';
-import { trialAt, trialCount } from '../core/trials';
-import { isOpening, openingIds, openings, runScore, type RunRecords } from '../core/openings';
+import { trialAt } from '../core/trials';
+import { isOpening, openingIds, type RunRecords } from '../core/openings';
 import { createMulberry32, decodeSeed, generateSeedCode } from '../core/rng';
 import type { Catalog, OpeningId, Run, Slots, TileModifierMap } from '../core/types';
 import { catalog as defaultCatalog } from '../data/catalog';
-import { formatNumber } from '../render/canvasRenderer';
+import { renderScoreCard } from '../render/scoreCard';
 import type { PlatformAdapter, Reward, SaveData } from './adapter';
 
 const SAVE_KEY_V2 = 'affix-grid-4x4.v2';
@@ -203,30 +203,14 @@ export class WebMockAdapter implements PlatformAdapter {
   }
 
   async exportScore(run: Run) {
-    const image = document.createElement('canvas');
-    image.width = 720; image.height = 860;
-    const ctx = image.getContext('2d');
-    if (!ctx) return false;
-    const gradient = ctx.createLinearGradient(0, 0, 720, 860);
-    gradient.addColorStop(0, '#282a20'); gradient.addColorStop(1, '#39291e');
-    ctx.fillStyle = gradient; ctx.fillRect(0, 0, 720, 860);
-    ctx.strokeStyle = '#caa66e'; ctx.lineWidth = 3; ctx.strokeRect(28, 28, 664, 804);
-    const print = (value: string, y: number, size: number, color: string) => {
-      ctx.font = `bold ${size}px system-ui, sans-serif`; ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.fillText(value, 360, y);
-    };
-    print('词条法阵', 161, 70, '#f3e9cf');
-    print(`${openings[run.opening].name} · ${openings[run.opening].label}开局`, 244, 33, '#e2bf87');
-    print(`打过 ${runScore(run).cleared} 波`, 390, 44, '#ffdc85');
-    if (run.clearedTrials?.length) print(`悬赏拿下 ${run.clearedTrials.length} / ${trialCount}`, 451, 26, '#e2bf87');
-    print(`本轮伤害 ${formatNumber(run.lastDamage)}`, 512, 33, '#f0dec1');
-    print(`最高连击 ${run.bestCombo}`, 582, 33, '#f0dec1');
-    print(`种子码 ${run.seed}`, 652, 26, '#e2bf87');
-    print(run.endless ? '无尽战绩' : '本局战绩', 749, 28, '#e2bf87');
+    const image = renderScoreCard(run, this.catalog);
+    if (!image) return false;
+    const filename = `affix-grid-wave-${run.wave}-${run.seed}.png`;
     const blob = await new Promise<Blob | null>(resolve => image.toBlob(resolve, 'image/png'));
     if (!blob) return false;
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `affix-grid-wave-${run.wave}-${run.seed}.png`;
+    link.download = filename;
     document.body.append(link); link.click(); link.remove();
     setTimeout(() => URL.revokeObjectURL(link.href), 10_000);
     return true;

@@ -1,7 +1,7 @@
 import './style.css';
 import { affixAt, armorLayers, encounters, lastGate, relics, upcomingEncounter } from './core/expedition';
 import { challengeParam, challengeSaveKey, readChallenge } from './core/challenge';
-import { boardSharePrefix, readSharedBoard } from './core/boardShare';
+import { boardFromJournal, boardSharePrefix, boardShareUrl, readSharedBoard } from './core/boardShare';
 import { previewRelics } from './core/relicPreview';
 import { isOpening, openingIds, openings, runScore, updateRecords } from './core/openings';
 import { foughtHealth } from './core/journal';
@@ -21,6 +21,7 @@ import { bindChallengeRoom, bindInviteRoom } from './render/challengeRoom';
 import { bindTrialRoom } from './render/trialRoom';
 import { bindMarketPreview } from './render/marketPreviewRoom';
 import { renderOpeningPreview } from './render/openingPreview';
+import { bindResultRoom, type ResultAction } from './render/resultRoom';
 import { openBoardTrial } from './render/sharedBoardRoom';
 import { bindRouteRoom } from './render/routeRoom';
 import { PlaybackController } from './render/playbackController';
@@ -36,6 +37,7 @@ function element<ElementType extends HTMLElement = HTMLElement>(id: string): Ele
 const button = (id: string) => element<HTMLButtonElement>(id);
 const game = element('game');
 const dialog = element<HTMLDialogElement>('panel');
+const resultDialog = element<HTMLDialogElement>('result-dialog');
 const audio = new SynthAudio();
 const player = new PlaybackController();
 const challengeQuery = new URLSearchParams(location.search).get(challengeParam);
@@ -113,6 +115,7 @@ if (challenge) {
 }
 const journal = bindBattleJournal(catalog, formatNumber);
 const reviewLast = () => journal(run.lastJournal);
+const showResult = bindResultRoom(resultDialog, catalog, (owner, id) => iconPath(owner, runeVectors[id] ?? emptyIcon), formatNumber, click, reviewLast);
 button('journal-open').onclick = () => { click(); reviewLast(); };
 const openTrial = bindTrialRoom(catalog, formatNumber, choice => {
   if (!arranging() || !selectTrial(run, choice !== 'normal', choice === 'alternate' ? 'alternate' : undefined)) return false;
@@ -701,8 +704,7 @@ button('forecast-detail').onclick = () => {
 };
 button('forecast-close').onclick = () => forecastDialog.close();
 
-interface Action { label: string; act: () => void | Promise<void>; primary?: boolean }
-function showPanel(title: string, text: string, actions: Action[], dismissible = false) {
+function showPanel(title: string, text: string, actions: ResultAction[], dismissible = false) {
   dialogDismissible = dismissible;
   element('panel-title').textContent = title; element('panel-text').textContent = text;
   element('panel-actions').replaceChildren(...actions.map(action => {
@@ -743,6 +745,7 @@ const selectedOpeningSeed = () => openingSeed.value.trim() || initialSeed;
 function startOpening(id: OpeningId, customSeed?: string) {
   if (openingDialog.open) openingDialog.close();
   if (dialog.open) dialog.close();
+  if (resultDialog.open) resultDialog.close();
   const seed = customSeed || selectedOpeningSeed();
   run = createOpeningRun(id, seed);
   undoStack.clear();
@@ -850,25 +853,29 @@ function showOutcome() {
     ]);
   } else if (run.status !== 'active') {
     const won = run.status === 'victory';
-    const actions: Action[] = [
+    const replay = boardFromJournal(run.lastJournal);
+    const canShareLast = replay && boardShareUrl(location.href, replay);
+    const actions: ResultAction[] = [
+      ...(canShareLast ? [{ label: '分享最后一波', act: () => inviteRoom(run, true) }] : []),
       { label: '分享同局挑战', act: shareRun },
-      { label: '导出战绩 PNG', act: async () => { if (!await platform.exportScore(run)) notice('战绩导出失败，请再试一次。'); } },
-      ...(run.lastJournal ? [{ label: '复盘最后一波', act: reviewLast }] : []),
+      { label: '导出战绩 PNG', act: async () => {
+        const feedback = element('result-feedback');
+        feedback.hidden = await platform.exportScore(run);
+        feedback.textContent = '战绩导出失败，请再试一次。';
+      } },
       ...(challenge ? [
         { label: '对比战绩', act: () => challengeRoom(challenge, run) },
         { label: '同种子再打', act: () => startOpening(challenge.opening, challenge.seed), primary: !won },
       ] : [{ label: '新开一局', act: () => openOpenings(), primary: !won }]),
     ];
     if (won) actions.unshift({ label: '继续无尽模式', primary: true, act: () => {
-      dialog.close();
+      resultDialog.close();
       const prng = createMulberry32(run.rngState);
       startEndless(run, catalog, prng);
       run.rngState = prng.getState();
       resetTimeline(); redraw();
     } });
-    const score = runScore(run);
-    showPanel(won ? '打完二十波了' : '护盾用完了',
-      `打过 ${score.cleared} 波，最高 ${score.combo} 连击。\n最后一轮打了 ${formatNumber(run.lastDamage)} 点。\n本局种子码：${run.seed}`, actions);
+    showResult(run, actions);
   }
 }
 
@@ -920,10 +927,13 @@ function consume(event: BattleEvent, maxHp: number) {
 
 button('battle').onclick = async event => {
   if (!arranging() || event.detail > 1) return;
-  const startingBoard = run.board.map(rune => rune ? { ...rune } : null);
-  const startingGold = run.gold;
   const prepared = prepareBattle(run, catalog);
   const { events } = prepared;
+  const journal = {
+    wave: run.wave, trialWave: run.trialWave, trialRoute: run.trialRoute, gold: run.gold,
+    board: run.board.map(rune => rune ? { ...rune } : null), events,
+    replay: { rngState: run.rngState, shield: run.shield, relics: [...run.relics], tileModifiers: { ...run.tileModifiers } },
+  };
   const panel = element('forecast');
   panel.style.minHeight = `${panel.offsetHeight}px`;
   element<HTMLProgressElement>('battle-progress').max = Math.max(1, events.filter(entry => entry.type === 'CELL_ACTIVATE').length);
@@ -939,7 +949,7 @@ button('battle').onclick = async event => {
     },
   });
   phase = 'ARRANGE'; panel.style.minHeight = ''; states.clear(); renderer.clearEffects(); audio.finish(result.win);
-  run.lastJournal = { wave: run.wave, trialWave: run.trialWave, trialRoute: run.trialRoute, gold: startingGold, board: startingBoard, events };
+  run.lastJournal = journal;
   const payout = victoryPayout(run, result.gold);
   run.board = prepared.board;
   const prng = createMulberry32(prepared.rngState);

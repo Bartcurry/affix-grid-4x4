@@ -1,7 +1,7 @@
 import { relics } from './expedition';
 import { CELL_COUNT } from './grid';
 import { trialAt } from './trials';
-import type { Catalog, RelicId, Run, Rune, Slots, TileModifier, TileModifierMap } from './types';
+import type { BattleJournal, BattleReplay, Catalog, RelicId, Run, Rune, Slots, TileModifier, TileModifierMap } from './types';
 
 export const boardSharePrefix = '#board=';
 export type SharedBoard = Pick<Run, 'wave' | 'gold' | 'shield' | 'rngState' | 'board' | 'relics' | 'tileModifiers' | 'trialWave' | 'trialRoute'>;
@@ -11,6 +11,33 @@ const runeTuple = (rune: Rune | null) => rune ? [rune.configId, rune.star, rune.
 const tileTypes = new Set<TileModifier>(['li_fire', 'xuan_ice', 'spirit_gathering']);
 const whole = (value: unknown, minimum: number, maximum = Number.MAX_SAFE_INTEGER): value is number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value >= minimum && value <= maximum;
+
+function readReplay(rngState: unknown, shield: unknown, owned: unknown, tiles: unknown): BattleReplay | undefined {
+  if (!whole(rngState, 0, 0xffffffff) || !whole(shield, 0, 3) || !Array.isArray(owned) || owned.length > Object.keys(relics).length ||
+    !owned.every(id => typeof id === 'string' && Object.hasOwn(relics, id)) || new Set(owned).size !== owned.length ||
+    !Array.isArray(tiles) || tiles.length > CELL_COUNT) return;
+  const tileModifiers: TileModifierMap = {};
+  for (const tile of tiles) {
+    if (!Array.isArray(tile) || tile.length !== 2 || !whole(tile[0], 0, CELL_COUNT - 1) ||
+      !tileTypes.has(tile[1]) || Object.hasOwn(tileModifiers, tile[0])) return;
+    tileModifiers[tile[0]] = tile[1];
+  }
+  return { rngState, shield, relics: owned as RelicId[], tileModifiers };
+}
+
+export function readJournalReplay(raw: unknown) {
+  if (!raw || typeof raw !== 'object') return;
+  const { rngState, shield, relics, tileModifiers } = raw as BattleReplay;
+  if (!tileModifiers || typeof tileModifiers !== 'object' || Array.isArray(tileModifiers)) return;
+  return readReplay(rngState, shield, relics, Object.entries(tileModifiers).map(([cell, modifier]) => [Number(cell), modifier]));
+}
+
+export function boardFromJournal(journal?: BattleJournal): SharedBoard | undefined {
+  if (!journal?.replay || !whole(journal.wave, 1) || !whole(journal.gold, 0) ||
+    !journal.board.some(Boolean) || journal.board.some(rune => rune && !whole(rune.bonusPower ?? 0, 0))) return;
+  const { wave, gold, board, trialWave, trialRoute, replay } = journal;
+  return { ...replay, wave, gold, board, trialWave, trialRoute };
+}
 
 export function boardShareUrl(page: string, run: SharedBoard): string | null {
   const url = new URL(page);
@@ -31,17 +58,11 @@ export function readSharedBoard(hash: string, catalog: Catalog): SharedBoard | n
     const raw: unknown = JSON.parse(atob(encoded.replaceAll('-', '+').replaceAll('_', '/')));
     if (!Array.isArray(raw) || raw.length !== 9) return null;
     const [version, wave, gold, shield, rngState, trial, owned, tiles, pieces] = raw;
-    if ((version !== revision && version !== alternateRevision) || !whole(wave, 1) || !whole(gold, 0) || !whole(shield, 0, 3) || !whole(rngState, 0, 0xffffffff) ||
+    if ((version !== revision && version !== alternateRevision) || !whole(wave, 1) || !whole(gold, 0) ||
       !(version === alternateRevision ? trial === 2 : whole(trial, 0, 1)) || (trial && !trialAt(wave, trial === 2 ? 'alternate' : undefined)) ||
-      !Array.isArray(owned) || owned.length > Object.keys(relics).length ||
-      !owned.every(id => typeof id === 'string' && Object.hasOwn(relics, id)) || new Set(owned).size !== owned.length ||
-      !Array.isArray(tiles) || tiles.length > CELL_COUNT || !Array.isArray(pieces) || pieces.length !== CELL_COUNT) return null;
-    const tileModifiers: TileModifierMap = {};
-    for (const tile of tiles) {
-      if (!Array.isArray(tile) || tile.length !== 2 || !whole(tile[0], 0, CELL_COUNT - 1) ||
-        !tileTypes.has(tile[1]) || Object.hasOwn(tileModifiers, tile[0])) return null;
-      tileModifiers[tile[0]] = tile[1];
-    }
+      !Array.isArray(pieces) || pieces.length !== CELL_COUNT) return null;
+    const replay = readReplay(rngState, shield, owned, tiles);
+    if (!replay) return null;
     const board: Slots = [];
     for (const piece of pieces) {
       if (piece === null) { board.push(null); continue; }
@@ -50,7 +71,7 @@ export function readSharedBoard(hash: string, catalog: Catalog): SharedBoard | n
       board.push({ configId: piece[0], star: piece[1] as Rune['star'], ...(piece[2] ? { bonusPower: piece[2] } : {}) });
     }
     if (!board.some(Boolean)) return null;
-    return { wave, gold, shield, rngState, board, relics: owned as RelicId[], tileModifiers, trialWave: trial ? wave : undefined,
+    return { ...replay, wave, gold, board, trialWave: trial ? wave : undefined,
       ...(trial === 2 ? { trialRoute: 'alternate' } : {}) };
   } catch {
     return null;
