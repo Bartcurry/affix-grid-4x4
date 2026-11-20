@@ -27,9 +27,7 @@
   </head>
   <body>
     <main class="game" id="game" aria-label="4×4 词条法阵">
-      <!-- 顶部精简两行高质感战况栏 -->
       <header class="hud-top">
-        <!-- 战况栏第一行：Boss 徽记、波次、双层残影血条、资源状态与功能键 -->
         <div class="hud-row-status">
           <div class="boss-identity">
             <div class="boss-emblem-wrap" id="boss-emblem-wrap" title="敌人专属图腾徽记">
@@ -39,13 +37,13 @@
             </div>
             <div class="boss-meta">
               <div class="boss-title-row">
-                <span id="wave" class="wave-pill">第 1 / 20 波</span>
                 <h2 id="enemy-name" class="boss-name">守门核心</h2>
                 <div id="boss-armor-shields" class="boss-armor-shields" role="img" hidden>
                   <span class="boss-shield-icon" id="boss-shield-1"><svg viewBox="0 0 32 32"><path d="M16 3L27 7V15C27 22 22 27 16 29C10 27 5 22 5 15V7Z" fill="currentColor"/></svg></span>
                   <span class="boss-shield-icon" id="boss-shield-2"><svg viewBox="0 0 32 32"><path d="M16 3L27 7V15C27 22 22 27 16 29C10 27 5 22 5 15V7Z" fill="currentColor"/></svg></span>
                   <span class="boss-shield-icon" id="boss-shield-3" hidden><svg viewBox="0 0 32 32"><path d="M16 3L27 7V15C27 22 22 27 16 29C10 27 5 22 5 15V7Z" fill="currentColor"/></svg></span>
                 </div>
+                <span id="wave" class="wave-pill">第 1 / 20 波</span>
               </div>
               <div class="hp-gauge-row">
                 <div class="hp-track" id="hp-meter" role="progressbar" aria-label="敌人生命" aria-valuemin="0">
@@ -53,8 +51,8 @@
                   <span id="hp-fill" class="hp-fill"></span>
                 </div>
                 <div class="hp-numbers">
-                  <span id="hp-poison-badge" class="hp-poison-badge" hidden title="敌人身上附带的剧毒层数">
-                    <svg viewBox="0 0 32 32" class="poison-mini-icon"><path d="M16 4C12 10 7 15 7 20A9 9 0 0 0 25 20C25 15 20 10 16 4Z" fill="currentColor"/></svg>
+                  <span id="hp-poison-badge" class="hp-poison-badge" hidden>
+                    <span>毒</span>
                     <span id="hp-poison-text">0</span>
                   </span>
                   <span id="hp-text" class="hp-text"></span>
@@ -64,49 +62,40 @@
           </div>
 
           <div class="player-resources">
-            <div class="res-item res-shield" title="护盾">
-              <svg viewBox="0 0 32 32" class="res-icon" aria-hidden="true"><path d="M16 3L27 7V15C27 22 22 27 16 29C10 27 5 22 5 15V7Z" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>
+            <div class="res-item res-shield">
+              <span>护盾</span>
               <strong id="shield" class="shield">3/3</strong>
             </div>
-            <div class="res-item res-poison" title="剧毒">
-              <svg viewBox="0 0 32 32" class="res-icon" aria-hidden="true"><path d="M16 4C12 10 7 15 7 20A9 9 0 0 0 25 20C25 15 20 10 16 4Z" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>
-              <strong id="poison" class="poison">0</strong>
-            </div>
-            <div class="res-item res-gold" title="金币">
-              <svg viewBox="0 0 32 32" class="res-icon" aria-hidden="true"><path d="M16 3A13 13 0 1 0 16 29A13 13 0 1 0 16 3M12 12H20V20H12Z" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>
+            <div class="res-item res-gold">
+              <span>金币</span>
               <strong id="gold" class="gold">10</strong>
             </div>
           </div>
-
-          <div class="hud-utility">
-            <button id="openings" type="button" title="换开局">开局</button>
-            <button id="codex" type="button" aria-haspopup="dialog" title="查看符文、阵型练习与战绩">图鉴</button>
-            <button id="ambient" type="button" aria-pressed="true" title="五音雅乐背景禅音">雅乐</button>
-            <button id="sound" type="button" aria-pressed="false" title="音效">音效</button>
-            <button id="help" type="button" aria-label="玩法说明" title="玩法">玩法</button>
-          </div>
         </div>
 
-        <!-- 战况栏第二行：紧凑芯片条（前方敌情预告 + 20波进度刻度 + 已获遗物紧凑列表） -->
+        <div class="wave-track" id="wave-track" aria-hidden="true"></div>
         <div class="hud-row-chips">
           <button class="boss-intel" id="boss-intel" type="button" aria-haspopup="dialog" aria-label="查看对阵表">
             <strong>敌情</strong>
             <span id="boss-intel-text" class="boss-intel-text"></span>
             <span aria-hidden="true">›</span>
           </button>
-          <div class="wave-track" id="wave-track" aria-hidden="true"></div>
           <div id="relic-list" class="relic-chip-list" hidden><button id="relic-inventory-open" type="button" aria-haspopup="dialog"></button></div>
+          <nav class="hud-utility" aria-label="游戏菜单">
+            <button id="openings" type="button" aria-haspopup="dialog" title="换开局">开局</button>
+            <button id="codex" type="button" aria-haspopup="dialog" title="查看符文、阵型练习与战绩">图鉴</button>
+            <button id="settings-open" type="button" aria-haspopup="dialog">设置</button>
+          </nav>
         </div>
 
-        <!-- 战况栏第三行：流派共鸣羁绊徽条（连锁/剧毒/金币/增幅 3/5 件套状态） -->
-        <div class="hud-row-synergies" id="hud-synergies" aria-label="法阵共鸣羁绊"></div>
+        <div class="hud-row-synergies" id="hud-synergies" role="group" aria-label="符文共鸣"></div>
       </header>
 
       <!-- 核心黄金区域：4×4 动态法阵棋盘与悬浮词条详情卡片 -->
       <section class="arena-wrap panel" aria-label="布阵区域">
         <div class="arena-bar">
           <span id="board-count" class="board-counter">已布阵 0/16</span>
-          <span id="arena-hint" class="arena-hint-text">点符文看作用，拖动或轻击换位</span>
+          <span id="arena-hint" class="arena-hint-text">点符文，再点目标格</span>
           <span id="phase" class="phase-pill">布阵</span>
           <button id="daily-open" type="button" aria-haspopup="dialog">每日</button>
           <button id="journal-open" type="button" aria-haspopup="dialog" hidden>复盘</button>
@@ -217,11 +206,45 @@
           <div><dt>上轮伤害</dt><dd id="last-damage">—</dd></div>
           <div><dt>最高连击</dt><dd id="best-combo">—</dd></div>
         </dl>
-        <button id="support" type="button" title="请作者喝可乐（自愿支持）">支持</button>
       </section>
 
       <!-- 浮动通知 Toast -->
       <p id="notice" class="notice" role="status" aria-live="polite"></p>
+
+      <dialog id="settings-dialog" class="hud-dialog" aria-labelledby="settings-title">
+        <div class="dialog-content">
+          <header class="hud-dialog-heading">
+            <h2 id="settings-title">设置</h2>
+            <form method="dialog"><button type="submit" aria-label="关闭设置">×</button></form>
+          </header>
+          <button id="ambient" class="settings-row" type="button" aria-pressed="true">
+            <span>背景音乐</span><span class="settings-value" aria-hidden="true"></span>
+          </button>
+          <button id="sound" class="settings-row" type="button" aria-pressed="true">
+            <span>游戏音效</span><span class="settings-value" aria-hidden="true"></span>
+          </button>
+          <button id="help" class="settings-row" type="button" aria-haspopup="dialog">
+            <span>玩法说明</span><span aria-hidden="true">›</span>
+          </button>
+          <button id="support" class="settings-row" type="button" title="请作者喝可乐">
+            <span>支持作者</span><span aria-hidden="true">›</span>
+          </button>
+        </div>
+      </dialog>
+
+      <dialog id="synergy-dialog" class="hud-dialog" aria-labelledby="synergy-title">
+        <div class="dialog-content">
+          <header class="hud-dialog-heading">
+            <div><p>符文共鸣</p><h2 id="synergy-title"></h2></div>
+            <form method="dialog"><button type="submit" aria-label="关闭共鸣详情">×</button></form>
+          </header>
+          <p id="synergy-status"></p>
+          <div class="synergy-milestones">
+            <section id="synergy-first"><h3></h3><p></p></section>
+            <section id="synergy-second"><h3></h3><p></p></section>
+          </div>
+        </div>
+      </dialog>
 
       <dialog id="daily-dialog" class="daily-dialog" aria-labelledby="daily-title">
         <div class="dialog-content">

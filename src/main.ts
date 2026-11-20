@@ -52,6 +52,8 @@ function element<ElementType extends HTMLElement = HTMLElement>(id: string): Ele
 const button = (id: string) => element<HTMLButtonElement>(id);
 const game = element('game');
 const dialog = element<HTMLDialogElement>('panel');
+const settingsDialog = element<HTMLDialogElement>('settings-dialog');
+const synergyDialog = element<HTMLDialogElement>('synergy-dialog');
 const audio = new SynthAudio();
 const player = new PlaybackController();
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -233,12 +235,12 @@ function showArenaHint() {
     hint.textContent = `放置后 ${formatNumber(placement.result.damage)} 伤害 · ${change ? `${change > 0 ? '+' : '−'}${formatNumber(Math.abs(change))}` : '持平'}`;
   } else if (arranging() && renderer.selection) {
     const rune = runeAt(run, renderer.selection);
-    hint.textContent = rune ? catalog[rune.configId].name : '点符文看作用，点击目标格交换';
+    hint.textContent = rune ? catalog[rune.configId].name : '点符文，再点目标格';
   } else {
     const scanning = renderer.currentScanSlot && runeAt(run, renderer.currentScanSlot);
     hint.textContent = phase === 'PLAYBACK' ? (scanning ? catalog[scanning.configId].name : '按顺序触发符文') : challenge
       ? `同局 · 已过 ${formatNumber(runScore(run).cleared)} / ${formatNumber(challenge.cleared)} 波`
-      : '点符文看作用，点击目标格交换';
+      : '点符文，再点目标格';
   }
 }
 
@@ -302,15 +304,9 @@ function updateHud() {
   element('shield').textContent = `${run.shield}/3`;
   const poison = phase === 'PLAYBACK' ? displayed.poison : showOutcomeState ? run.lastPoison : 0;
   const gold = phase === 'PLAYBACK' ? displayed.gold : run.gold;
-  element('poison').textContent = formatNumber(poison);
   element('gold').textContent = formatNumber(gold);
-
-  const poisonBadge = document.getElementById('hp-poison-badge');
-  const poisonText = document.getElementById('hp-poison-text');
-  if (poisonBadge && poisonText) {
-    poisonBadge.hidden = poison <= 0;
-    poisonText.textContent = formatNumber(poison);
-  }
+  element('hp-poison-badge').hidden = poison <= 0;
+  element('hp-poison-text').textContent = formatNumber(poison);
 
   element('phase').textContent = phase === 'PLAYBACK' ? '连锁中' : run.pendingRelics.length ? '挑选遗物' : run.pendingLoss ? '待结算护盾' :
     run.pendingCamp ? '营地补给' : run.status !== 'active' ? '战斗结束' : '布阵';
@@ -333,17 +329,22 @@ function spawnGoldParticles(sourceEl: HTMLElement) {
   }
 }
 
-const lastSynergyTiers: Record<string, number> = { chain: 0, poison: 0, gold: 0, amplify: 0 };
+const synergyTypes = ['chain', 'poison', 'gold', 'amplify'] as const;
+const lastSynergyTiers = { chain: 0, poison: 0, gold: 0, amplify: 0 };
 
 function updateSynergiesUi() {
-  const container = document.getElementById('hud-synergies');
-  if (!container) return;
+  const container = element('hud-synergies');
+  container.hidden = run.enableSynergies === false;
+  if (container.hidden) {
+    container.replaceChildren();
+    return;
+  }
   const synergies = countSynergies(run.board, catalog);
   let newTierUnlocked = false;
   let unlockedName = '';
   let unlockedDesc = '';
 
-  for (const type of ['chain', 'poison', 'gold', 'amplify'] as const) {
+  for (const type of synergyTypes) {
     const syn = synergies[type];
     const prevTier = lastSynergyTiers[type] ?? 0;
     if (syn.tier > prevTier && arranging()) {
@@ -360,31 +361,44 @@ function updateSynergiesUi() {
     notice(`【${unlockedName}】共鸣激活！${unlockedDesc}`);
   }
 
-  const items = (['chain', 'poison', 'gold', 'amplify'] as const).map(type => {
+  const items = synergyTypes.map(type => {
     const syn = synergies[type];
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = `synergy-hud-chip synergy-${type} tier-${syn.tier}`;
     chip.dataset.tier = String(syn.tier);
-    chip.title = `${syn.name} (${syn.count}件)\n${syn.activeDesc}\n• 3件套：${syn.tier1Desc}\n• 5件套：${syn.tier2Desc}`;
+    chip.setAttribute('aria-haspopup', 'dialog');
+    chip.setAttribute('aria-label', `${archetypeLabel[type]}共鸣，已布阵 ${syn.count} 枚`);
 
     const icon = document.createElement('span');
     icon.className = 'synergy-icon';
-    icon.textContent = type === 'chain' ? '⚡' : type === 'poison' ? '💧' : type === 'gold' ? '◆' : '✦';
+    iconPath(icon, getArchetypeEmblemPath(type));
 
     const name = document.createElement('span');
     name.className = 'synergy-name';
-    name.textContent = syn.name.slice(0, 2);
+    name.textContent = archetypeLabel[type];
 
     const count = document.createElement('span');
     count.className = 'synergy-count';
-    count.textContent = `${syn.count}/${syn.tier >= 1 ? (syn.tier >= 2 ? 5 : 3) : 3}`;
+    const next = syn.tier === 0 ? syn.tier1Threshold : syn.tier2Threshold;
+    count.textContent = syn.tier === 2 ? `${next} 件套` : `${syn.count}/${next}`;
 
     chip.append(icon, name, count);
     chip.onclick = () => {
-      audio.unlock();
-      audio.synergyChime();
-      notice(`【${syn.name}】已布阵 ${syn.count} 件 · ${syn.activeDesc}`);
+      if (phase === 'PLAYBACK') return;
+      click();
+      element('synergy-title').textContent = `${archetypeLabel[type]} · ${syn.name}`;
+      const status = syn.tier === 2 ? `${next} 件套已激活` : `还差 ${next - syn.count} 枚激活 ${next} 件套`;
+      element('synergy-status').textContent = `棋盘上有 ${syn.count} 枚 · ${status}`;
+      const first = element('synergy-first');
+      const second = element('synergy-second');
+      first.dataset.state = syn.tier === 1 ? 'active' : syn.tier === 2 ? 'reached' : 'locked';
+      second.dataset.state = syn.tier === 2 ? 'active' : 'locked';
+      first.querySelector('h3')!.textContent = `${syn.tier1Threshold} 件套${syn.tier === 1 ? ' · 当前' : ''}`;
+      second.querySelector('h3')!.textContent = `${syn.tier2Threshold} 件套${syn.tier === 2 ? ' · 当前' : ''}`;
+      first.querySelector('p')!.textContent = syn.tier1Desc;
+      second.querySelector('p')!.textContent = syn.tier2Desc;
+      synergyDialog.showModal();
     };
     return chip;
   });
@@ -484,11 +498,10 @@ function syncControls() {
   game.classList.toggle('skin', skin);
   game.dataset.phase = phase.toLowerCase();
   button('sound').setAttribute('aria-pressed', String(!audio.muted));
-  button('sound').textContent = audio.muted ? '静音' : '音效';
   button('ambient').setAttribute('aria-pressed', String(!audio.ambientMuted));
-  button('ambient').textContent = audio.ambientMuted ? '雅乐·静' : '雅乐';
-  button('ambient').disabled = phase === 'PLAYBACK';
+  button('settings-open').disabled = phase === 'PLAYBACK';
   button('codex').disabled = phase === 'PLAYBACK';
+  for (const chip of element('hud-synergies').querySelectorAll('button')) chip.disabled = phase === 'PLAYBACK';
   button('speed').textContent = player.speed === 0 ? '即结' : `${player.speed}×`;
   button('speed').setAttribute('aria-label', player.speed === 0 ? '立即结算，点击切回一倍速' : `播放速度 ${player.speed} 倍，点击切换`);
   button('undo').hidden = phase === 'PLAYBACK';
@@ -507,8 +520,6 @@ function syncControls() {
   focus.value = run.shopFocus;
   focus.disabled = !arranging();
   button('reward').disabled = !arranging();
-  button('support').disabled = phase === 'PLAYBACK';
-  button('help').disabled = phase === 'PLAYBACK';
   button('share-open').disabled = phase === 'PLAYBACK';
   button('journal-open').hidden = !run.lastJournal || phase === 'PLAYBACK';
   button('daily-open').disabled = phase === 'PLAYBACK';
@@ -939,7 +950,7 @@ function startOpening(id: OpeningId, customSeed?: string, quick = false, archive
   renderer.cursor = null;
   resetTimeline();
   select(null);
-  for (const k of ['chain', 'poison', 'gold', 'amplify']) lastSynergyTiers[k] = 0;
+  for (const type of synergyTypes) lastSynergyTiers[type] = 0;
   redraw();
   window.scrollTo({ top: 0 });
   if (quick) {
@@ -1277,6 +1288,7 @@ button('skip').onclick = () => { if (player.skip()) click(); };
 button('market-jump').onclick = () => { click(); element('market').focus(); };
 button('inspect-jump').onclick = () => { click(); element('inspector').focus(); };
 button('board-jump').onclick = () => { click(); element('arena').focus(); };
+button('settings-open').onclick = () => { click(); settingsDialog.showModal(); };
 button('sound').onclick = () => { audio.muted = !audio.muted; click(); syncControls(); persist(); };
 button('reward').onclick = async () => {
   click();
@@ -1284,6 +1296,7 @@ button('reward').onclick = async () => {
 };
 button('support').onclick = async () => {
   click();
+  settingsDialog.close();
   if (await platform.showRewardedVideo('support')) {
     skin = true; redraw(); showPanel('谢谢这瓶可乐', '送你一套紫铜配色。下次打开游戏还在。', [{ label: '回棋盘', primary: true, act: () => dialog.close() }], true);
   }
@@ -1540,11 +1553,10 @@ document.querySelectorAll<HTMLButtonElement>('.codex-filter-btn').forEach(btn =>
 
 button('ambient').onclick = () => {
   audio.unlock();
-  const active = audio.toggleAmbient();
+  audio.toggleAmbient();
   click();
   syncControls();
   persist();
-  notice(active ? '五音雅乐：禅音悠扬' : '五音雅乐：已静音');
 };
 
 function openLanding(archive = true) {

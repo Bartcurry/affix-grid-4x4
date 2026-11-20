@@ -89,7 +89,7 @@ button:focus-visible, canvas:focus-visible {
 #wave,
 #hp-text,
 #shield,
-#poison,
+#hp-poison-text,
 #gold,
 #board-count,
 #bench-count,
@@ -128,16 +128,14 @@ button:focus-visible, canvas:focus-visible {
   border-radius: 6px;
 }
 
-/* ─── 顶部精简两行高质感战况栏 ─── */
 .hud-top {
   display: flex;
   flex-direction: column;
-  gap: 0.16rem;
-  padding: 0.22rem 0.45rem;
-  background: var(--bg-panel);
-  border: 1px solid var(--gold-dark);
-  border-radius: 6px;
-  box-shadow: inset 0 1px 0 rgba(212, 175, 55, 0.15), 0 4px 12px rgba(0, 0, 0, 0.6);
+  gap: 0.28rem;
+  padding: 0.38rem 0.5rem;
+  background: linear-gradient(120deg, #1b1c24, #11151e 65%);
+  border: 1px solid #393949;
+  border-radius: 8px;
   flex-shrink: 0;
 }
 
@@ -152,7 +150,7 @@ button:focus-visible, canvas:focus-visible {
 .boss-identity {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.5rem;
   flex: 1;
   min-width: 0;
 }
@@ -212,7 +210,7 @@ button:focus-visible, canvas:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  margin-left: 2px;
+  flex: none;
   vertical-align: middle;
 }
 
@@ -252,13 +250,14 @@ button:focus-visible, canvas:focus-visible {
   font-family: var(--mono-font);
   font-size: 0.64rem;
   font-weight: 700;
-  color: var(--gold-bright);
+  color: #b6aa96;
+  margin-left: auto;
   white-space: nowrap;
 }
 
 .boss-name {
   font-family: var(--display-font);
-  font-size: 0.82rem;
+  font-size: 1rem;
   font-weight: 800;
   color: var(--text-main);
   letter-spacing: 0.04em;
@@ -328,11 +327,6 @@ button:focus-visible, canvas:focus-visible {
   animation: poison-mist-pulse 2s infinite ease-in-out;
 }
 
-.poison-mini-icon {
-  width: 8px;
-  height: 8px;
-}
-
 @keyframes poison-mist-pulse {
   0%, 100% {
     box-shadow: 0 0 4px rgba(52, 211, 153, 0.3);
@@ -347,56 +341,55 @@ button:focus-visible, canvas:focus-visible {
 
 .hp-text {
   font-family: var(--mono-font);
-  font-size: 0.64rem;
+  font-size: 0.7rem;
   font-weight: 700;
   color: #e2e8f0;
 }
 
 /* 玩家资源指示 */
 .player-resources {
-  display: flex;
-  align-items: center;
-  gap: 0.28rem;
-  background: var(--bg-recessed);
-  border: 1px solid var(--gold-dark);
-  border-radius: 4px;
-  padding: 0.1rem 0.25rem;
-  flex-shrink: 0;
+  display: grid;
+  grid-auto-flow: column;
+  flex: none;
+  border-left: 1px solid #393949;
+  margin-left: 0.28rem;
 }
 
 .res-item {
-  display: flex;
-  align-items: center;
-  gap: 0.12rem;
-  font-family: var(--mono-font);
-  font-size: 0.7rem;
-  font-weight: 750;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  min-width: 2.6rem;
+  padding-inline: 0.22rem;
+  color: #b6bdcb;
+  font-size: 0.64rem;
+  white-space: nowrap;
 }
 
-.res-icon {
-  width: 0.72rem;
-  height: 0.72rem;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.res-item strong {
+  font: 750 0.97rem/1.15 var(--mono-font);
+  color: #e1e6ef;
 }
 
-.res-shield { color: #94a3b8; }
-.res-poison { color: var(--color-poison); }
-.res-gold { color: var(--gold-bright); }
+.res-gold strong { color: #f4cc79; }
 
 /* 功能按钮 */
 .hud-utility {
   display: flex;
   align-items: center;
-  gap: 0.16rem;
-  flex-shrink: 0;
+  gap: 0.2rem;
+  flex: none;
+  margin-left: auto;
 }
 
-.hud-utility button {
-  min-height: 1.5rem;
-  font-size: 0.62rem;
-  padding: 0.1rem 0.24rem;
+#relic-inventory-open, .hud-utility button {
+  min-height: 1.8rem;
+  padding: 0.08rem 0.4rem;
+  color: #d7dce6;
+  font-size: 0.69rem;
   white-space: nowrap;
+  border-color: #414253;
+  background: #1c202b;
 }
 
 /* 战况栏第二行：紧凑芯片条 */
@@ -404,8 +397,6 @@ button:focus-visible, canvas:focus-visible {
   display: flex;
   align-items: center;
   gap: 0.28rem;
-  padding-top: 0.12rem;
-  border-top: 1px solid rgba(120, 90, 40, 0.25);
   font-size: 0.66rem;
 }
 
@@ -414,8 +405,7 @@ button:focus-visible, canvas:focus-visible {
   align-items: center;
   gap: .3rem;
   min-width: 0;
-  min-height: 1.55rem;
-  max-width: 57%;
+  min-height: 1.8rem;
   padding: .08rem .35rem;
   color: #f2ca88;
   border-color: #8b6a435d;
@@ -437,7 +427,7 @@ button:focus-visible, canvas:focus-visible {
   display: grid;
   grid-template-columns: repeat(var(--wave-steps, 20), minmax(0, 1fr));
   gap: 2px;
-  flex: 1;
+  margin: 0.02rem 0 0.06rem;
 }
 
 .wave-track span {
@@ -454,14 +444,6 @@ button:focus-visible, canvas:focus-visible {
   align-items: center;
   gap: 0.2rem;
   flex-shrink: 0;
-}
-
-.relic-chip-list button {
-  min-height: 1.25rem;
-  padding: 0.05rem 0.25rem;
-  font-size: 0.6rem;
-  color: var(--gold-bright);
-  border-color: var(--gold-dark);
 }
 
 /* ─── 核心黄金区域：法阵棋盘 ─── */
@@ -1453,15 +1435,6 @@ canvas {
   color: var(--text-main);
 }
 
-#support {
-  border: 0;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 0.68rem;
-  min-height: auto;
-  padding: 0;
-}
-
 /* 浮动通知 */
 .notice {
   position: fixed;
@@ -1523,6 +1496,61 @@ dialog::backdrop {
   line-height: 1.5;
   white-space: pre-line;
 }
+
+.hud-dialog {
+  width: min(calc(100% - 1.5rem), 24rem);
+  border-color: #777064;
+  background: #171b24;
+}
+
+.hud-dialog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.hud-dialog-heading p { color: #b6aa96; font-size: 0.75rem; }
+.hud-dialog-heading button { min-width: 2.4rem; min-height: 2.4rem; font-size: 1.15rem; }
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  min-height: 2.75rem;
+  padding-inline: 0.7rem;
+  border-color: #414253;
+  background: #202531;
+  text-align: left;
+}
+
+.settings-value {
+  padding: 0.12rem 0.48rem;
+  border-radius: 1rem;
+  background: #303644;
+  color: #dce1eb;
+  font-size: 0.75rem;
+}
+
+.settings-row[aria-pressed=false] .settings-value::before { content: "关闭"; }
+.settings-row[aria-pressed=true] .settings-value { background: #244134; color: #a5edc9; }
+.settings-row[aria-pressed=true] .settings-value::before { content: "开启"; }
+
+.synergy-milestones { display: grid; gap: 0.4rem; }
+
+.synergy-milestones section {
+  display: grid;
+  gap: 0.24rem;
+  padding: 0.56rem 0.65rem;
+  border: 1px solid #414253;
+  border-radius: 4px;
+  background: #202531;
+}
+
+.synergy-milestones h3 { font-size: 0.85rem; }
+.synergy-milestones p { color: #c3cbd9; font-size: 0.8rem; line-height: 1.45; }
+.synergy-milestones section[data-state=active] { background: #29251e; border-color: #927646; color: #f4cc79; }
 
 #encounter-dialog {
   width: min(29rem, calc(100% - 1.25rem));
@@ -1918,8 +1946,8 @@ dialog::backdrop {
     gap: 0.12rem;
   }
   .hud-top {
-    padding: 0.14rem 0.35rem;
-    gap: 0.1rem;
+    padding: 0.25rem 0.35rem;
+    gap: 0.17rem;
   }
   .boss-emblem-wrap {
     width: 1.55rem;
@@ -1930,7 +1958,7 @@ dialog::backdrop {
     height: 1rem;
   }
   .boss-name {
-    font-size: 0.76rem;
+    font-size: 0.87rem;
   }
   .wave-pill {
     font-size: 0.6rem;
@@ -1939,23 +1967,10 @@ dialog::backdrop {
     height: 0.28rem;
   }
   .hp-text {
-    font-size: 0.58rem;
+    font-size: 0.65rem;
   }
-  .player-resources {
-    padding: 0.08rem 0.2rem;
-    gap: 0.2rem;
-  }
-  .res-item {
-    font-size: 0.64rem;
-  }
-  .res-icon {
-    width: 0.64rem;
-    height: 0.64rem;
-  }
-  .hud-utility button {
-    min-height: 1.35rem;
-    font-size: 0.58rem;
-    padding: 0.06rem 0.18rem;
+  #relic-inventory-open, .hud-utility button, .boss-intel {
+    min-height: 1.55rem;
   }
   .hud-row-chips {
     padding-top: 0.08rem;
@@ -1964,15 +1979,6 @@ dialog::backdrop {
   }
   .boss-intel-text {
     font-size: 0.6rem;
-  }
-  .hud-row-synergies {
-    padding: 0.02rem 0;
-    gap: 0.2rem;
-  }
-  .synergy-hud-chip {
-    min-height: 1.1rem;
-    padding: 0.02rem 0.24rem;
-    font-size: 0.58rem;
   }
   .arena-bar {
     height: 1.15rem;
@@ -2044,8 +2050,6 @@ dialog::backdrop {
 @media (max-width: 350px) {
   .game { padding: 0.15rem 0.25rem; gap: 0.15rem; }
   .boss-emblem-wrap { width: 1.45rem; height: 1.45rem; }
-  .boss-name { font-size: 0.74rem; }
-  .res-item { font-size: 0.62rem; }
   .ctrl-btn { min-height: 2rem; font-size: 0.68rem; }
   .primary.battle-btn { min-height: 2rem; font-size: 0.88rem; }
 }
@@ -2055,30 +2059,8 @@ dialog::backdrop {
   .hud-row-status {
     gap: 0.12rem;
   }
-  .hud-utility {
-    gap: 0.05rem;
-    flex-shrink: 0;
-  }
-  .hud-utility button {
-    padding: 0.04rem 0.12rem;
-    font-size: 0.52rem;
-    min-height: 1.25rem;
-    line-height: 1;
-  }
   .player-resources {
-    gap: 0.1rem;
-    padding: 0.04rem 0.16rem;
-    flex-shrink: 0;
-  }
-  .res-item {
-    font-size: 0.58rem;
-    gap: 0.04rem;
-    white-space: nowrap;
-  }
-  .res-icon {
-    width: 0.56rem;
-    height: 0.56rem;
-    flex-shrink: 0;
+    margin-left: 0.2rem;
   }
   .boss-emblem-wrap {
     width: 1.4rem;
@@ -2091,13 +2073,6 @@ dialog::backdrop {
   .boss-title-row {
     gap: 0.12rem;
   }
-  .wave-pill {
-    font-size: 0.56rem;
-    letter-spacing: -0.02em;
-  }
-  .boss-name {
-    font-size: 0.72rem;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2107,33 +2082,25 @@ dialog::backdrop {
 
 /* ─── 流派共鸣羁绊徽条 (Synergy Resonance Strip) ─── */
 .hud-row-synergies {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.25rem;
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding: 0.04rem 0;
-  flex-wrap: nowrap;
-}
-
-.hud-row-synergies::-webkit-scrollbar {
-  display: none;
 }
 
 .synergy-hud-chip {
   display: flex;
   align-items: center;
+  justify-content: center;
+  min-width: 0;
   gap: 0.18rem;
-  min-height: 1.2rem;
-  padding: 0.04rem 0.32rem;
+  min-height: 1.38rem;
+  padding: 0.06rem 0.12rem;
   border-radius: 3px;
   font-size: 0.62rem;
   font-weight: 700;
-  background: var(--bg-card);
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  color: #94a3b8;
+  background: #1a1e29;
+  border-color: #373b49;
   white-space: nowrap;
-  flex-shrink: 0;
   transition: all 0.18s ease;
   cursor: pointer;
 }
@@ -2143,26 +2110,33 @@ dialog::backdrop {
 }
 
 .synergy-hud-chip .synergy-icon {
-  font-size: 0.66rem;
+  display: grid;
+  place-items: center;
 }
 
-.synergy-hud-chip.synergy-chain { color: #38bdf8; border-color: rgba(56, 189, 248, 0.28); }
-.synergy-hud-chip.synergy-poison { color: #34d399; border-color: rgba(52, 211, 153, 0.28); }
-.synergy-hud-chip.synergy-gold { color: #f59e0b; border-color: rgba(245, 158, 11, 0.28); }
-.synergy-hud-chip.synergy-amplify { color: #f43f5e; border-color: rgba(244, 63, 94, 0.28); }
+.synergy-icon .rune-icon-svg { width: 0.84rem; height: 0.84rem; }
+.synergy-hud-chip.tier-0 .synergy-count { color: #a6afbd; }
+.synergy-hud-chip.synergy-chain { color: #89cfee; }
+.synergy-hud-chip.synergy-poison { color: #78e0b7; }
+.synergy-hud-chip.synergy-gold { color: #eec579; }
+.synergy-hud-chip.synergy-amplify { color: #e9a5b7; }
 
 .synergy-hud-chip.tier-1 {
   background: rgba(24, 29, 42, 0.9);
-  box-shadow: 0 0 8px currentColor;
   border-color: currentColor;
   font-weight: 850;
 }
 
 .synergy-hud-chip.tier-2 {
   background: rgba(24, 29, 42, 0.95);
-  box-shadow: 0 0 12px currentColor, inset 0 0 6px rgba(253, 224, 71, 0.4);
-  border-color: var(--gold-bright);
+  border-color: currentColor;
+  box-shadow: inset 0 -2px currentColor;
   font-weight: 900;
+}
+
+@media (max-width: 350px) {
+  .synergy-hud-chip { gap: 0.12rem; font-size: 0.57rem; }
+  .synergy-icon .rune-icon-svg { width: 0.73rem; height: 0.73rem; }
 }
 
 /* ─── 商店刷新 3D 推牌翻转动效 (Shop Card Flip) ─── */
