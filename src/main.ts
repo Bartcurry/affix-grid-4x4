@@ -107,15 +107,6 @@ const states = new Map<number, RuneState>();
 const renderer = new CanvasRenderer(element('arena'), run, catalog);
 const undoStack = new UndoStack();
 
-const bossColors: Record<string, string> = {
-  sentry: '#fde047',
-  armor: '#94a3b8',
-  cistern: '#34d399',
-  flanks: '#f59e0b',
-  bell: '#38bdf8',
-  regent: '#f43f5e',
-};
-
 const rarityLabel = { common: '普通', rare: '稀有', epic: '史诗' };
 
 const arranging = () => challengeEntered && !sideLanding && phase === 'ARRANGE' && canArrange(run);
@@ -662,10 +653,8 @@ function redraw(save = true) {
     : run.pendingLoss || run.status !== 'active' ? run.lastJournal?.events.filter(isArmorHit).length ?? 0 : 0;
   updateBossArmorUi(hits);
 
-  const bossPath = document.getElementById('boss-emblem-path');
-  if (bossPath) bossPath.setAttribute('d', getBossSvgPath(encounter));
-  const emblemWrap = document.getElementById('boss-emblem-wrap');
-  if (emblemWrap) emblemWrap.style.color = bossColors[encounter] ?? '#d4af37';
+  element('game').dataset.enemy = encounter;
+  document.getElementById('boss-emblem-path')?.setAttribute('d', getBossSvgPath(encounter));
 
   const affix = affixAt(run.wave);
   element('boss-intel-text').textContent = affix?.name ?? enemy.trait;
@@ -673,7 +662,6 @@ function redraw(save = true) {
   button('bounty-open').hidden = !arranging() || !offersBounties(run);
   element('bounty-current').textContent = bounty?.name ?? '可挑战额外奖励';
 
-  element('game').dataset.enemy = encounter;
   element('board-count').textContent = `已布阵 ${run.board.filter(Boolean).length}/16`;
   element('bench-count').textContent = `备战区 ${run.bench.filter(Boolean).length}/4`;
   element('last-damage').textContent = run.bestCombo || run.lastDamage || run.attempts ? formatNumber(run.lastDamage) : '—';

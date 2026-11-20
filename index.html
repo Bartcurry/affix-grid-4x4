@@ -26,11 +26,11 @@
     <title>4×4 词条法阵 · 玄墨鎏金</title>
   </head>
   <body>
-    <main class="game" id="game" aria-label="4×4 词条法阵">
+    <main class="game" id="game" aria-label="4×4 词条法阵" data-enemy="sentry">
       <header class="hud-top">
         <div class="hud-row-status">
           <div class="boss-identity">
-            <div class="boss-emblem-wrap" id="boss-emblem-wrap" title="敌人专属图腾徽记">
+            <div class="enemy-portrait boss-emblem-wrap" id="boss-emblem-wrap" aria-hidden="true">
               <svg class="boss-emblem-svg" id="boss-emblem-svg" viewBox="0 0 32 32" aria-hidden="true">
                 <path id="boss-emblem-path" d="" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
@@ -490,12 +490,14 @@
           </header>
           <section class="encounter-detail" id="encounter-detail" aria-live="polite">
             <div class="encounter-boss">
-              <svg viewBox="0 0 32 32" aria-hidden="true"><path id="encounter-icon"/></svg>
-              <div>
+              <div class="enemy-portrait encounter-portrait" aria-hidden="true">
+                <svg viewBox="0 0 32 32"><path id="encounter-icon"/></svg>
+              </div>
+              <div class="encounter-identity">
                 <p id="encounter-step"></p>
                 <h3 id="encounter-name"></h3>
+                <p id="encounter-hp" class="encounter-hp"></p>
               </div>
-              <span id="encounter-hp" class="encounter-hp"></span>
             </div>
             <p id="encounter-trait"></p>
             <p id="encounter-affix" class="encounter-affix" hidden></p>

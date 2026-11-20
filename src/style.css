@@ -128,12 +128,44 @@ button:focus-visible, canvas:focus-visible {
   border-radius: 6px;
 }
 
+[data-enemy] {
+  --portrait-x: 0%;
+  --portrait-y: 0%;
+  --enemy-ink: #e5bd78;
+  --enemy-wash: #2b211c;
+}
+[data-enemy=armor] { --portrait-x: 50%; --enemy-ink: #aebdce; --enemy-wash: #242934; }
+[data-enemy=cistern] { --portrait-x: 100%; --enemy-ink: #74ceb0; --enemy-wash: #1b2a24; }
+[data-enemy=flanks] { --portrait-y: 100%; --enemy-ink: #eda454; --enemy-wash: #31251e; }
+[data-enemy=bell] { --portrait-x: 50%; --portrait-y: 100%; --enemy-ink: #73c6ef; --enemy-wash: #1d2933; }
+[data-enemy=regent] { --portrait-x: 100%; --portrait-y: 100%; --enemy-ink: #ed8c89; --enemy-wash: #341f25; }
+
+.enemy-portrait {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  overflow: hidden;
+  color: var(--enemy-ink);
+  background: #11131a;
+  border: 1px solid var(--enemy-ink);
+  border-radius: 5px;
+  aspect-ratio: 1;
+}
+
+.enemy-portrait::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("./assets/enemy-portraits-v1.webp") var(--portrait-x) var(--portrait-y) / 300% 200% no-repeat;
+}
+
 .hud-top {
   display: flex;
   flex-direction: column;
   gap: 0.28rem;
   padding: 0.38rem 0.5rem;
-  background: linear-gradient(120deg, #1b1c24, #11151e 65%);
+  background: linear-gradient(112deg, var(--enemy-wash), #11151e 57%);
   border: 1px solid #393949;
   border-radius: 8px;
   flex-shrink: 0;
@@ -156,17 +188,7 @@ button:focus-visible, canvas:focus-visible {
 }
 
 .boss-emblem-wrap {
-  width: 1.85rem;
-  height: 1.85rem;
-  flex: none;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: radial-gradient(circle, #251e16 0%, #0d1018 100%);
-  border: 1.5px solid var(--gold-primary);
-  box-shadow: 0 0 8px var(--gold-glow);
-  color: var(--gold-bright);
-  transition: transform 0.15s ease, filter 0.15s ease;
+  width: 2.38rem;
 }
 
 .boss-emblem-svg {
@@ -437,7 +459,7 @@ button:focus-visible, canvas:focus-visible {
 }
 
 .wave-track span[data-state=cleared] { background: #785a28; }
-.wave-track span[data-state=current] { background: var(--gold-bright); box-shadow: 0 0 4px var(--gold-bright); }
+.wave-track span[data-state=current] { background: var(--enemy-ink); box-shadow: 0 0 4px var(--enemy-ink); }
 
 .relic-chip-list {
   display: flex;
@@ -1668,7 +1690,6 @@ dialog::backdrop {
 #encounter-close { width: 2.2rem; min-height: 2.2rem; padding: 0; font-size: 1.35rem; }
 
 .encounter-detail {
-  --enemy-ink: #e5bd78;
   display: grid;
   gap: .5rem;
   min-width: 0;
@@ -1676,34 +1697,23 @@ dialog::backdrop {
   border: 1px solid #a88b6459;
   border-top-color: var(--enemy-ink);
   border-radius: .38rem;
-  background: #101219;
+  background: linear-gradient(120deg, var(--enemy-wash), #101219 68%);
   line-height: 1.4;
 }
 
-.encounter-detail[data-enemy=armor], #encounter-wave-list [data-enemy=armor] { --enemy-ink: #aebdce; }
-.encounter-detail[data-enemy=cistern], #encounter-wave-list [data-enemy=cistern] { --enemy-ink: #74ceb0; }
-.encounter-detail[data-enemy=flanks], #encounter-wave-list [data-enemy=flanks] { --enemy-ink: #eda454; }
-.encounter-detail[data-enemy=bell], #encounter-wave-list [data-enemy=bell] { --enemy-ink: #73c6ef; }
-.encounter-detail[data-enemy=regent], #encounter-wave-list [data-enemy=regent] { --enemy-ink: #ed8c89; }
-
-.encounter-boss > svg {
-  flex: 0 0 2.65rem;
-  width: 2.65rem;
-  padding: .33rem;
-  color: var(--enemy-ink);
+.encounter-portrait { width: clamp(3.55rem, 20vw, 5.35rem); }
+.encounter-portrait svg {
+  width: 62%;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
-  border: 1px solid #b9976466;
-  border-radius: .33rem;
-  background: #24242e;
 }
-.encounter-boss > div { flex: 1; min-width: 0; }
-.encounter-boss h3 { color: #f6e9d2; font: 700 1.22rem/1.25 var(--display-font); }
+.encounter-identity { display: grid; flex: 1; min-width: 0; gap: .16rem; }
+.encounter-boss h3 { color: #f6e9d2; font: 750 clamp(1.16rem, 5vw, 1.56rem)/1.2 var(--display-font); }
 #encounter-step { color: #b6a78f; font-size: .72rem; }
-.encounter-hp { color: #f0d8a8; font-size: .76rem; font-variant-numeric: tabular-nums; text-align: right; }
+.encounter-hp { color: var(--enemy-ink); font-size: .8rem; font-variant-numeric: tabular-nums; }
 #encounter-trait { color: var(--enemy-ink); font-weight: 700; font-size: .86rem; }
 #encounter-tip { color: #ded4c4; font-size: .81rem; }
 .encounter-affix { color: #f3c69f; padding-left: .5rem; border-left: 2px solid #bd8d61; font-size: .79rem; }
@@ -1728,7 +1738,6 @@ dialog::backdrop {
 .encounter-waves legend { margin-bottom: .35rem; padding: 0; color: #dbcaad; font-size: .77rem; }
 #encounter-wave-list { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: clamp(2px, .9vw, 5px); }
 #encounter-wave-list label {
-  --enemy-ink: #e5bd78;
   position: relative;
   display: grid;
   justify-items: center;
@@ -1999,8 +2008,7 @@ dialog::backdrop {
     gap: 0.17rem;
   }
   .boss-emblem-wrap {
-    width: 1.55rem;
-    height: 1.55rem;
+    width: 1.98rem;
   }
   .boss-emblem-svg {
     width: 1rem;
@@ -2098,7 +2106,6 @@ dialog::backdrop {
 /* 极小屏幕微调 (350px 以下) */
 @media (max-width: 350px) {
   .game { padding: 0.15rem 0.25rem; gap: 0.15rem; }
-  .boss-emblem-wrap { width: 1.45rem; height: 1.45rem; }
   .ctrl-btn { min-height: 2rem; font-size: 0.68rem; }
   .primary.battle-btn { min-height: 2rem; font-size: 0.88rem; }
 }
@@ -2110,10 +2117,6 @@ dialog::backdrop {
   }
   .player-resources {
     margin-left: 0.2rem;
-  }
-  .boss-emblem-wrap {
-    width: 1.4rem;
-    height: 1.4rem;
   }
   .boss-emblem-svg {
     width: 0.95rem;
@@ -2127,6 +2130,7 @@ dialog::backdrop {
 @media (prefers-reduced-motion: reduce) {
   .hp-fill, .hp-ghost, #forecast-fill { transition: none !important; }
   .primary.battle-btn::after, .stamp-slam { animation: none !important; }
+  .boss-emblem-wrap.boss-hit { animation: none; }
 }
 
 /* ─── 流派共鸣羁绊徽条 (Synergy Resonance Strip) ─── */
