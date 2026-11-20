@@ -12,6 +12,7 @@ export function bindDragDrop(renderer: CanvasRenderer, actions: {
   move(from: Slot, to: Slot): void;
   sell(from: Slot): void;
   preview(from: Slot | null, to: Slot | null): void;
+  describeCursor(slot: Slot | null): void;
 }) {
   const canvas = renderer.canvas;
   let pointer: Position | null = null;
@@ -34,6 +35,7 @@ export function bindDragDrop(renderer: CanvasRenderer, actions: {
     if (keyboardPick) actions.preview(null, null);
     keyboardPick = null;
     renderer.cursor = null;
+    actions.describeCursor(null);
     renderer.invalidate();
   });
 
@@ -98,11 +100,17 @@ export function bindDragDrop(renderer: CanvasRenderer, actions: {
   });
 
   canvas.addEventListener('focus', () => {
-    if (canvas.matches(':focus-visible')) { renderer.cursor = { zone: 'board', index: 0 }; renderer.invalidate(); }
+    if (canvas.matches(':focus-visible') && actions.enabled()) {
+      renderer.cursor = renderer.selection ?? { zone: 'board', index: 0 };
+      actions.describeCursor(renderer.cursor);
+      renderer.invalidate();
+    }
   });
   canvas.addEventListener('blur', () => {
     if (keyboardPick) actions.preview(null, null);
-    renderer.cursor = null; keyboardPick = null; renderer.invalidate();
+    renderer.cursor = null; keyboardPick = null;
+    actions.describeCursor(null);
+    renderer.invalidate();
   });
   canvas.addEventListener('keydown', event => {
     if (!actions.enabled()) return;
@@ -116,7 +124,10 @@ export function bindDragDrop(renderer: CanvasRenderer, actions: {
       case 'ArrowLeft': nextCol = Math.max(0, col - 1); break;
       case 'ArrowRight': nextCol = Math.min(3, col + 1); break;
       case 'Enter': case ' ':
-        if (keyboardPick) { actions.move(keyboardPick, cursor); keyboardPick = null; }
+        if (keyboardPick) {
+          if (!sameSlot(keyboardPick, cursor)) actions.move(keyboardPick, cursor);
+          keyboardPick = null;
+        }
         else if (actions.hasRune(cursor)) { keyboardPick = cursor; actions.select(cursor); }
         break;
       case 'Delete': actions.sell(keyboardPick ?? cursor); keyboardPick = null; break;
@@ -124,7 +135,12 @@ export function bindDragDrop(renderer: CanvasRenderer, actions: {
       default: return;
     }
     event.preventDefault();
-    renderer.cursor = row === 4 ? { zone: 'bench', index: nextCol } : { zone: 'board', index: row * 4 + nextCol };
+    const next: Slot = row === 4 ? { zone: 'bench', index: nextCol } : { zone: 'board', index: row * 4 + nextCol };
+    if (keyboardPick || /^(Enter| |Escape|Delete)$/.test(event.key)) {
+      actions.preview(keyboardPick, keyboardPick && !sameSlot(keyboardPick, next) ? next : null);
+    }
+    renderer.cursor = next;
+    actions.describeCursor(next);
     renderer.invalidate();
   });
 }

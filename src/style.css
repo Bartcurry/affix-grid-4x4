@@ -508,6 +508,8 @@ button:focus-visible, canvas:focus-visible {
   border-radius: 6px;
 }
 
+#board-cursor-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
 .arena-bar {
   display: flex;
   align-items: center;
@@ -544,6 +546,8 @@ button:focus-visible, canvas:focus-visible {
   color: #34d399;
   font-weight: 700;
 }
+.arena-hint-text[data-preview=true][data-delta="down"] { color: #f2b48a; }
+.arena-hint-text[data-preview=true][data-delta="same"] { color: #d8cfb9; }
 
 .phase-pill {
   font-family: var(--mono-font);
@@ -584,6 +588,7 @@ button:focus-visible, canvas:focus-visible {
 }
 
 .inspector.floating-card[data-visible="false"] {
+  visibility: hidden;
   opacity: 0;
   pointer-events: none;
   transform: translateY(8px);
@@ -628,6 +633,7 @@ button:focus-visible, canvas:focus-visible {
 .inspect-tags {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.35rem;
   font-size: 0.68rem;
   color: var(--text-sub);
@@ -636,11 +642,13 @@ button:focus-visible, canvas:focus-visible {
 .rune-stats {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.25rem;
 }
 
 .rune-stats span {
   color: var(--gold-bright);
+  white-space: nowrap;
 }
 
 .rune-stats span + span::before {

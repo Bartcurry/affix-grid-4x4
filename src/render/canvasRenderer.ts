@@ -1,7 +1,7 @@
 import { battleTarget } from '../core/bounties';
 import { runeAt } from '../core/shopEngine';
 import { runeFootprint } from '../core/tactics';
-import type { BattleEvent, Catalog, Rune, Run, RuneState, Slot } from '../core/types';
+import type { BattleEvent, Catalog, Rune, Run, RuneState, Slot, TileModifier } from '../core/types';
 import { drawRuneGlyph, RUNE_GLYPHS } from './glyphs';
 
 export { RUNE_GLYPHS as runeVectors };
@@ -29,37 +29,17 @@ const slotList: Slot[] = [
   ...Array.from({ length: 4 }, (_, index): Slot => ({ zone: 'bench', index })),
 ];
 
-// 「玄墨鎏金」四大流派专属质感色盘
 const pigment = {
-  chain: {
-    stone: '#0c1520',
-    edge: '#1e3a8a',
-    ink: '#38bdf8',
-    glow: '#38bdf8',
-    accent: '#f97316',
-  },
-  poison: {
-    stone: '#081710',
-    edge: '#064e3b',
-    ink: '#34d399',
-    glow: '#34d399',
-    accent: '#10b981',
-  },
-  gold: {
-    stone: '#1a1309',
-    edge: '#78350f',
-    ink: '#f59e0b',
-    glow: '#fbbf24',
-    accent: '#d4af37',
-  },
-  amplify: {
-    stone: '#1c0a13',
-    edge: '#831843',
-    ink: '#e11d48',
-    glow: '#f43f5e',
-    accent: '#c084fc',
-  },
+  chain: { stone: '#23394b', edge: '#4b667a', ink: '#a0deff' },
+  poison: { stone: '#213e35', edge: '#437361', ink: '#a0ebc4' },
+  gold: { stone: '#443523', edge: '#876748', ink: '#ffce83' },
+  amplify: { stone: '#432d3b', edge: '#835769', ink: '#ffc3d6' },
 } as const;
+export const tileStamp = {
+  li_fire: { name: '离火位', color: '#f6a579' },
+  xuan_ice: { name: '玄冰位', color: '#9cddfa' },
+  spirit_gathering: { name: '聚灵位', color: '#eccc83' },
+} as const satisfies Record<TileModifier, { name: string; color: string }>;
 
 export function formatNumber(value: number): string {
   if (!Number.isFinite(value)) return '0';
@@ -124,6 +104,7 @@ export class CanvasRenderer {
   get currentScanSlot(): Slot | null { return this.activeScanSlot; }
   selection: Slot | null = null;
   cursor: Slot | null = null;
+  placementTarget: Slot | null = null;
   drag: { from: Slot; point: Point; target: Target; isTouch?: boolean } | null = null;
   sellLabel = '拖到此处回收符文';
   waveComplete = false;
@@ -239,7 +220,7 @@ export class CanvasRenderer {
       case 'CELL_ACTIVATE':
         this.comboCount = event.combo;
         this.activeScanSlot = boardSlot(event.index);
-        this.animations.push({ kind: 'scan', at, life: 280, slot: boardSlot(event.index), tone: '#fde047' });
+        if (!event.isChain) this.animations.push({ kind: 'scan', at, life: 280, slot: boardSlot(event.index), tone: '#fde047' });
         this.flash(boardSlot(event.index), color(event.index));
         break;
 
@@ -268,7 +249,7 @@ export class CanvasRenderer {
           this.shakeAt = at;
           this.spawnCritSparks(anchor(event.source));
         }
-        const maxHp = battleTarget(this.run.wave, this.run.bountyRoute).hp;
+        const maxHp = battleTarget(this.run.wave, this.run.bountyRoute, this.run.finaleRule).hp;
         const dmgRatio = event.amount / maxHp;
         const isPoison = event.kind === 'poison';
         if (isPoison) {
@@ -382,7 +363,7 @@ export class CanvasRenderer {
       ? this.drag.target !== 'sell' && this.drag.target?.zone === 'board'
         ? this.drag.target
         : null
-      : this.selection;
+      : this.placementTarget ?? this.selection;
     const source = this.drag?.from ?? this.selection;
     const originRune = source && runeAt(this.run, source);
     const footprint =
@@ -397,10 +378,8 @@ export class CanvasRenderer {
       const selected = sameSlot(this.selection, slot);
       const linked = slot.zone === 'board' && !!footprint?.links.has(slot.index);
       const hinted = slot.zone === 'board' && !!footprint?.effects.has(slot.index);
-      const drop =
-        this.drag?.target &&
-        this.drag.target !== 'sell' &&
-        sameSlot(this.drag.target, slot);
+      const dropTarget = this.drag ? this.drag.target : this.placementTarget;
+      const drop = dropTarget && dropTarget !== 'sell' && sameSlot(dropTarget, slot);
       const tileMod =
         slot.zone === 'board' ? this.run.tileModifiers?.[slot.index] : undefined;
 
@@ -418,7 +397,7 @@ export class CanvasRenderer {
       }
 
       // 底槽绘制（内凹石槽质感）
-      this.drawSlotBase(bounds, slot, tileMod, hinted, selected, now);
+      this.drawSlotBase(bounds, slot, tileMod, now);
 
       // 阵牌绘制
       if (rune) {
@@ -427,12 +406,11 @@ export class CanvasRenderer {
         const state =
           slot.zone === 'board' ? this.states.get(slot.index) : undefined;
         this.drawEntityTile(bounds, rune, alpha, state, scalePop, selected, now);
-      } else {
-        this.drawEmptySlot(bounds, slot, tileMod, now);
       }
+      if (slot.zone === 'board') this.drawBoardMark(bounds, slot.index, tileMod, !!rune);
 
       // 联动瞄准与高亮流动蚂蚁线 (Marching Ants)
-      if (linked || hinted || selected || sameSlot(this.cursor, slot) || drop) {
+      if (linked || hinted || selected || drop) {
         ctx.save();
         if (drop) {
           ctx.strokeStyle = '#6ee7b7';
@@ -456,8 +434,6 @@ export class CanvasRenderer {
           ctx.shadowBlur = 8;
           this.roundRect(bounds.x, bounds.y, bounds.width, bounds.height, 5);
           ctx.stroke();
-          // 角标能量符号
-          this.text('↯', bounds.x + bounds.width - 10, bounds.y + bounds.height - 10, 14, '#38bdf8');
         } else if (hinted) {
           // 作用范围：流动蚂蚁线
           ctx.setLineDash([5, 4]);
@@ -469,6 +445,13 @@ export class CanvasRenderer {
         }
         ctx.restore();
       }
+    }
+    if (origin?.zone === 'board' && footprint?.links.size) {
+      for (const index of footprint.links) this.drawLinkPreview(origin.index, index);
+    }
+    if (this.cursor) {
+      const bounds = cellRect(this.cursor);
+      this.drawCornerBrackets({ x: bounds.x + 4, y: bounds.y + 4, width: bounds.width - 8, height: bounds.height - 8 }, 10, '#fff5dc', 2.2);
     }
 
     // 4. 底部回收槽（暗金内凹托槽）
@@ -678,9 +661,7 @@ export class CanvasRenderer {
   private drawSlotBase(
     bounds: Rect,
     slot: Slot,
-    tileMod: string | undefined,
-    _hinted: boolean,
-    _selected: boolean,
+    tileMod: TileModifier | undefined,
     now: number
   ) {
     const ctx = this.ctx;
@@ -696,17 +677,22 @@ export class CanvasRenderer {
       bounds.y + bounds.height / 2,
       bounds.width * 0.7
     );
-    slotGrad.addColorStop(0, '#10141f');
-    slotGrad.addColorStop(1, '#090c12');
+    slotGrad.addColorStop(0, '#1a2025');
+    slotGrad.addColorStop(1, '#0e1218');
 
     ctx.fillStyle = slotGrad;
     this.roundRect(bounds.x, bounds.y, bounds.width, bounds.height, 5);
     ctx.fill();
 
     // 细微凹槽内阴影边
-    ctx.strokeStyle = '#1e2433';
+    ctx.strokeStyle = '#3c3934';
     ctx.lineWidth = 1;
     this.roundRect(bounds.x, bounds.y, bounds.width, bounds.height, 5);
+    ctx.stroke();
+    ctx.strokeStyle = '#040608';
+    ctx.beginPath();
+    ctx.moveTo(bounds.x + 4, bounds.y + 1.5);
+    ctx.lineTo(bounds.x + bounds.width - 4, bounds.y + 1.5);
     ctx.stroke();
 
     // 特殊阵眼动态辨识
@@ -755,18 +741,19 @@ export class CanvasRenderer {
   /**
    * 绘制空格提示与扫描序号（01 - 16）
    */
-  private drawEmptySlot(bounds: Rect, slot: Slot, tileMod: string | undefined, _now: number) {
-    if (slot.zone !== 'board') return;
+  private drawBoardMark(bounds: Rect, index: number, tileMod: TileModifier | undefined, occupied: boolean) {
     const ctx = this.ctx;
-    const mark = String(slot.index + 1).padStart(2, '0');
+    const mark = String(index + 1).padStart(2, '0');
 
-    // 左上角淡色扫描序号
-    this.text(mark, bounds.x + 12, bounds.y + 11, 9.5, '#475569', 'left', true);
+    this.text(mark, bounds.x + 9, bounds.y + 11, 9.5, occupied ? '#e2d9c8' : '#9a9b94', 'left', true);
+    const stamp = tileMod && tileStamp[tileMod];
+    if (stamp) this.text(stamp.name, bounds.x + bounds.width - 8, bounds.y + 11, 8.6, stamp.color, 'right');
+    if (occupied) return;
 
     // 中心微弱准星点
     const { x, y } = center(bounds);
     ctx.save();
-    ctx.strokeStyle = '#334155';
+    ctx.strokeStyle = '#50544f';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(x - 3, y);
@@ -775,13 +762,32 @@ export class CanvasRenderer {
     ctx.lineTo(x, y + 3);
     ctx.stroke();
     ctx.restore();
+  }
 
-    // 阵眼中文徽记
-    if (tileMod) {
-      const badgeText = tileMod === 'li_fire' ? '离火位' : tileMod === 'xuan_ice' ? '玄冰位' : '聚灵位';
-      const badgeColor = tileMod === 'li_fire' ? '#f87171' : tileMod === 'xuan_ice' ? '#38bdf8' : '#fbbf24';
-      this.text(badgeText, bounds.x + bounds.width - 10, bounds.y + 11, 8.5, badgeColor, 'right');
-    }
+  private drawLinkPreview(from: number, to: number) {
+    const ctx = this.ctx;
+    const source = center(cellRect({ zone: 'board', index: from }));
+    const target = center(cellRect({ zone: 'board', index: to }));
+    const angle = Math.atan2(target.y - source.y, target.x - source.x);
+    const distance = Math.hypot(target.x - source.x, target.y - source.y);
+    ctx.save();
+    ctx.translate(source.x, source.y);
+    ctx.rotate(angle);
+    ctx.strokeStyle = '#10171e';
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(24, 0);
+    ctx.lineTo(distance - 23, 0);
+    ctx.moveTo(distance - 30, -5);
+    ctx.lineTo(distance - 23, 0);
+    ctx.lineTo(distance - 30, 5);
+    ctx.stroke();
+    ctx.strokeStyle = this.run.board[to] ? '#9ce3f3' : '#80a8b5';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
   }
 
   /**
@@ -815,62 +821,47 @@ export class CanvasRenderer {
       ctx.translate(-cx, -cy);
     }
 
-    // 1. 玉牌底板：暗色径向渐变
-    const tileGrad = ctx.createRadialGradient(
-      bounds.x + bounds.width / 2,
-      bounds.y + bounds.height / 2,
-      6,
-      bounds.x + bounds.width / 2,
-      bounds.y + bounds.height / 2,
-      bounds.width * 0.75
-    );
-    tileGrad.addColorStop(0, p.stone);
-    tileGrad.addColorStop(1, '#090c12');
-
-    ctx.fillStyle = tileGrad;
-    this.roundRect(bounds.x + 1, bounds.y + 1, bounds.width - 2, bounds.height - 2, 5);
+    const { x, y, width, height } = bounds;
+    const depth = compact ? 3 : 5;
+    const left = x + 2, top = y + 2, right = x + width - 2, bottom = y + height - depth - 1;
+    const faceWidth = right - left, faceHeight = bottom - top;
+    const edge = ctx.createLinearGradient(0, bottom - depth, 0, bottom + depth);
+    edge.addColorStop(0, p.edge);
+    edge.addColorStop(1, '#131318');
+    ctx.fillStyle = edge;
+    this.roundRect(left, top + depth, faceWidth, faceHeight, 6);
     ctx.fill();
 
-    // 细微内描边
-    ctx.strokeStyle = `${p.ink}26`;
-    ctx.lineWidth = 1;
-    this.roundRect(bounds.x + 2, bounds.y + 2, bounds.width - 4, bounds.height - 4, 4);
+    const tileGrad = ctx.createLinearGradient(left, top, right, bottom);
+    tileGrad.addColorStop(0, p.stone);
+    tileGrad.addColorStop(.53, '#20252b');
+    tileGrad.addColorStop(1, '#11161e');
+    ctx.fillStyle = tileGrad;
+    this.roundRect(left, top, faceWidth, faceHeight, 6);
+    ctx.fill();
+
+    // A lit bevel and a darker front edge give depth without moving the hit area.
+    ctx.fillStyle = `${p.ink}1e`;
+    ctx.beginPath();
+    ctx.moveTo(left + 6, top + 1);
+    ctx.lineTo(right - 6, top + 1);
+    ctx.lineTo(right - 10, top + depth);
+    ctx.lineTo(left + 10, top + depth);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = rarity === 'epic' ? '#d9af6d' : rarity === 'rare' ? '#84bca8' : p.edge;
+    ctx.lineWidth = rarity === 'epic' ? 1.5 : 1;
+    this.roundRect(left, top, faceWidth, faceHeight, 6);
     ctx.stroke();
-
-    // 2. 按稀有度区分外框与四角纹饰
-    if (rarity === 'epic') {
-      // 史诗：鎏金双线刻角框
-      ctx.strokeStyle = '#d4af37';
-      ctx.lineWidth = 1.5;
-      this.roundRect(bounds.x + 1, bounds.y + 1, bounds.width - 2, bounds.height - 2, 5);
-      ctx.stroke();
-
-      // 内金线
-      ctx.strokeStyle = '#fde04755';
-      ctx.lineWidth = 1;
-      this.roundRect(bounds.x + 3, bounds.y + 3, bounds.width - 6, bounds.height - 6, 3);
-      ctx.stroke();
-
-      this.drawCornerBrackets(bounds, 8, '#fde047');
-    } else if (rarity === 'rare') {
-      // 罕见：碧玉流光框
-      ctx.strokeStyle = '#10b981';
-      ctx.lineWidth = 1.3;
-      this.roundRect(bounds.x + 1, bounds.y + 1, bounds.width - 2, bounds.height - 2, 5);
-      ctx.stroke();
-
-      this.drawCornerBrackets(bounds, 6, '#34d399');
-    } else {
-      // 普通：素银青铁框
-      ctx.strokeStyle = '#475569';
-      ctx.lineWidth = 1.1;
-      this.roundRect(bounds.x + 1, bounds.y + 1, bounds.width - 2, bounds.height - 2, 5);
-      ctx.stroke();
-    }
+    if (rarity !== 'common') this.drawCornerBrackets(
+      { x: left + 3, y: top + 3, width: faceWidth - 6, height: faceHeight - 6 },
+      rarity === 'epic' ? 7 : 5,
+      rarity === 'epic' ? '#efd09a' : '#a2d6c2'
+    );
 
     // 3. 绘制中心纯 Canvas 矢量图腾（三层高光）
     const iconSize = compact ? 22 : 28;
-    const iconCy = bounds.y + (compact ? bounds.height / 2 - 2 : 27);
+    const iconCy = bounds.y + (compact ? bounds.height / 2 - 2 : 33);
     drawRuneGlyph(
       ctx,
       rune.configId,
@@ -879,7 +870,7 @@ export class CanvasRenderer {
       iconCy,
       iconSize,
       p.ink,
-      selected ? 1.4 : 0.9
+      selected ? .9 : .56
     );
 
     // 4. 星级展示升级为底部居中镶嵌的发光星钻与皇冠
@@ -890,7 +881,7 @@ export class CanvasRenderer {
       this.text(
         name,
         bounds.x + bounds.width / 2,
-        bounds.y + 53,
+        bounds.y + 55,
         9.5,
         '#f1ece1',
         'center'
@@ -913,7 +904,7 @@ export class CanvasRenderer {
       const w = Math.max(18, text.length * 5.8 + 8);
       this.drawPillBadge(
         bounds.x + bounds.width - w - 4,
-        bounds.y + 4,
+        bounds.y + (compact ? 4 : 16),
         text,
         '#f59e0b',
         '#221606cc'
@@ -923,8 +914,8 @@ export class CanvasRenderer {
     if (rune.bonusPower) {
       this.drawPillBadge(
         bounds.x + 4,
-        bounds.y + 4,
-        `+${rune.bonusPower}`,
+        bounds.y + (compact ? 4 : 16),
+        `+${formatNumber(rune.bonusPower)}`,
         '#fbbf24',
         '#1f1807cc'
       );
@@ -1065,18 +1056,17 @@ export class CanvasRenderer {
   /**
    * 绘制四角折角准星 (Corner Brackets)
    */
-  private drawCornerBrackets(rect: Rect, len: number, color: string) {
+  private drawCornerBrackets(rect: Rect, len: number, color: string, width = 1.2) {
     const ctx = this.ctx;
     ctx.save();
     ctx.strokeStyle = color;
-    ctx.lineWidth = 1.2;
+    ctx.lineWidth = width;
     ctx.beginPath();
 
     // 左上
     ctx.moveTo(rect.x + len, rect.y + 2);
-    ctx.lineTo(rect.y + 2, rect.y + 2);
-    ctx.moveTo(rect.x + 2, rect.y + len);
     ctx.lineTo(rect.x + 2, rect.y + 2);
+    ctx.lineTo(rect.x + 2, rect.y + len);
 
     // 右上
     ctx.moveTo(rect.x + rect.width - len, rect.y + 2);

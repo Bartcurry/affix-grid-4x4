@@ -16,7 +16,7 @@ import { canArrange, chooseRelic, createSnapshot, newRun, purchaseInfo, refreshS
 import { preparePurchase } from './core/purchasePreview';
 import { STAR_MULT, initialRuneState, type BattleEvent, type OpeningId, type Rune, type Run, type RuneState, type Slot } from './core/types';
 import { catalog } from './data/catalog';
-import { CanvasRenderer, formatNumber, runeVectors } from './render/canvasRenderer';
+import { CanvasRenderer, formatNumber, runeVectors, tileStamp } from './render/canvasRenderer';
 import { getArchetypeEmblemPath, getBossSvgPath, getRelicSvgPath } from './render/glyphs';
 import { archetypeLabel, countSynergies, synergyTypes } from './core/synergy';
 import { bindDragDrop } from './render/dragDrop';
@@ -102,6 +102,7 @@ let phase: 'ARRANGE' | 'PLAYBACK' = 'ARRANGE';
 const currentTarget = () => battleTarget(run.wave, run.bountyRoute, run.finaleRule);
 let displayed = { hp: currentTarget().hp, poison: 0, gold: run.gold, combo: 0 };
 let shopInspect: number | null = null;
+let inspectorOpen = false;
 let noticeTimer: ReturnType<typeof setTimeout>;
 let victoryTimer: ReturnType<typeof setTimeout>;
 let ghostTimer: ReturnType<typeof setTimeout>;
@@ -264,6 +265,7 @@ function showArenaHint() {
   hint.dataset.preview = String(!!placement);
   if (placement && forecast) {
     const change = placement.result.damage - forecast.result.damage;
+    hint.dataset.delta = change > 0 ? 'up' : change < 0 ? 'down' : 'same';
     hint.textContent = `放置后 ${formatNumber(placement.result.damage)} 伤害 · ${change ? `${change > 0 ? '+' : '−'}${formatNumber(Math.abs(change))}` : '持平'}`;
   } else if (arranging() && renderer.selection) {
     const rune = runeAt(run, renderer.selection);
@@ -283,12 +285,13 @@ function showForecast() {
   if (panel.hidden || !forecast) return;
   const { hp, result } = placement ?? forecast;
   const change = result.damage - forecast.result.damage;
-  panel.dataset.verdict = forecast.verdict;
+  const exactVerdict = exactForecast || !!placement;
+  panel.dataset.verdict = exactVerdict ? (result.win ? 'win' : 'gap') : forecast.verdict;
   const verdict = element('forecast-verdict');
   const scout = button('forecast-scout');
   scout.hidden = !!placement || forecast.result.win || (!run.board.some(Boolean) && !run.bench.some(Boolean));
   verdict.hidden = !scout.hidden;
-  verdict.textContent = forecast.verdictText;
+  verdict.textContent = exactVerdict ? (result.win ? '可击破' : '伤害不足') : forecast.verdictText;
   scout.setAttribute('aria-label', `还差 ${formatNumber(forecast.result.hp)} 伤害，找打法`);
   element('forecast-fill').style.width = `${Math.min(100, 100 * result.damage / hp)}%`;
 
@@ -506,7 +509,7 @@ function inspect() {
     if (contribution?.damage) stats.push(`预计伤害 ${formatNumber(contribution.damage)}`);
     const { links, effects } = runeFootprint(config, slot.index);
     const labels = [];
-    if (links.size) labels.push('实线 · 连锁目标');
+    if (links.size) labels.push('箭头 · 连锁方向');
     if (effects.size) labels.push('虚线 · 作用范围');
     if (!labels.length && config.triggers.some(rule => rule.effect === 'RETRIGGER_TARGET')) labels.push('当前位置没有连锁目标');
     legend.textContent = labels.join(' / ');
@@ -521,20 +524,24 @@ function inspect() {
   }));
   const price = selected ? sellValue(selected, catalog) : 0;
   const sell = button('sell-selected');
-  button('inspect-jump').hidden = !selected || !arranging();
+  const jump = button('inspect-jump');
+  jump.hidden = !slot || !arranging() || !(selected || emptyTileMod);
+  jump.setAttribute('aria-expanded', String(inspectorOpen && !jump.hidden));
   sell.hidden = !selected;
   sell.disabled = !arranging();
   sell.textContent = `回收 +${price} 金`;
   sell.setAttribute('aria-label', selected ? `回收 ${config?.name}，获得 ${price} 金` : '回收符文');
   showArenaHint();
-  const hasSelection = Boolean(selected || offer || emptyTileMod);
-  element('inspector').dataset.visible = String(hasSelection);
+  const inspector = element('inspector');
+  const visible = arranging() && inspectorOpen && Boolean(selected || offer || emptyTileMod);
+  inspector.dataset.visible = String(visible);
+  inspector.inert = !visible;
   renderer.sellLabel = selected ? `拖到此处回收 · +${price} 金` : '拖到此处回收符文';
   for (const [index, card] of offers.entries()) card.card.dataset.selected = String(index === shopInspect);
   renderer.invalidate();
 }
 
-function select(slot: Slot | null) { shopInspect = null; renderer.selection = slot; inspect(); }
+function select(slot: Slot | null) { shopInspect = null; inspectorOpen = false; renderer.selection = slot; inspect(); }
 
 function syncControls() {
   game.classList.toggle('skin', skin);
@@ -617,7 +624,7 @@ const offers = Array.from({ length: 3 }, (_, index) => {
   const look = () => {
     const offer = run.shop[index];
     if (!offer) return;
-    renderer.selection = null; shopInspect = index; inspect();
+    renderer.selection = null; shopInspect = index; inspectorOpen = true; inspect();
   };
   preview.addEventListener('click', () => { click(); look(); element('inspector').scrollIntoView({ block: 'nearest' }); });
   lock.addEventListener('click', () => {
@@ -689,6 +696,7 @@ button('first-clear-close').onclick = () => {
 function redraw(save = true) {
   if (arranging()) forecast = planTurn(run, catalog);
   placement = null;
+  renderer.placementTarget = null;
   updateHud(); updateSynergiesUi(); markWaves(); syncControls(); showForecast(); inspect();
   const { encounter, bounty } = currentTarget();
   const enemy = encounters[encounter];
@@ -753,8 +761,21 @@ function sellFrom(from: Slot) {
 }
 
 button('sell-selected').onclick = () => { if (renderer.selection) sellFrom(renderer.selection); };
-const inspectClose = document.getElementById('inspect-close');
-if (inspectClose) inspectClose.onclick = () => select(null);
+function closeInspector() {
+  const previousOffer = shopInspect;
+  inspectorOpen = false;
+  shopInspect = null;
+  inspect();
+  if (previousOffer !== null) offers[previousOffer]?.preview.focus({ preventScroll: true });
+  else if (!button('inspect-jump').hidden) button('inspect-jump').focus({ preventScroll: true });
+}
+button('inspect-close').onclick = closeInspector;
+element('inspector').addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closeInspector();
+  }
+});
 
 bindDragDrop(renderer, {
   enabled: arranging, hasRune: slot => !!runeAt(run, slot), select,
@@ -774,7 +795,17 @@ bindDragDrop(renderer, {
     if (!arranging()) return;
     const hypothetical = from && to ? previewPlacement(run, from, to) : null;
     placement = hypothetical ? planTurn(hypothetical, catalog) : null;
+    renderer.placementTarget = hypothetical ? to : null;
     showForecast();
+  },
+  describeCursor(slot) {
+    const status = element('board-cursor-status');
+    if (!slot) { status.textContent = ''; return; }
+    const rune = runeAt(run, slot);
+    const place = `${slot.zone === 'board' ? '棋盘' : '备战区'}第 ${slot.index + 1} 格`;
+    const mark = slot.zone === 'board' ? run.tileModifiers[slot.index] : undefined;
+    const tile = mark && tileStamp[mark];
+    status.textContent = `${place}，${rune ? `${catalog[rune.configId].name}，${rune.star} 星` : '空格'}${tile ? `，${tile.name}` : ''}${placement ? `。放置后 ${formatNumber(placement.result.damage)} 伤害。` : ''}`;
   },
 });
 
@@ -1376,7 +1407,13 @@ element<HTMLSelectElement>('shop-focus').onchange = event => {
 button('speed').onclick = () => { click(); player.speed = player.speed === 1 ? 2 : player.speed === 2 ? 0 : 1; syncControls(); persist(); };
 button('skip').onclick = () => { if (player.skip()) click(); };
 button('market-jump').onclick = () => { click(); element('market').focus(); };
-button('inspect-jump').onclick = () => { click(); element('inspector').focus(); };
+button('inspect-jump').onclick = () => {
+  if (inspectorOpen) { closeInspector(); return; }
+  click();
+  inspectorOpen = true;
+  inspect();
+  element('inspector').focus({ preventScroll: true });
+};
 button('board-jump').onclick = () => { click(); element('arena').focus(); };
 button('settings-open').onclick = () => { click(); settingsDialog.showModal(); };
 button('sound').onclick = () => { audio.muted = !audio.muted; click(); syncControls(); persist(); };

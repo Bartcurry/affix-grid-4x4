@@ -102,7 +102,7 @@
           <button id="daily-open" type="button" aria-haspopup="dialog">每日</button>
           <button id="journal-open" type="button" aria-haspopup="dialog" hidden>复盘</button>
           <button id="share-open" type="button" aria-haspopup="dialog">分享</button>
-          <button id="inspect-jump" type="button" hidden>看词条</button>
+          <button id="inspect-jump" type="button" aria-controls="inspector" aria-expanded="false" hidden>看词条</button>
         </div>
         <div id="first-clear" class="first-clear" hidden>
           <span id="first-clear-score"></span>
@@ -117,9 +117,10 @@
         </button>
 
         <canvas id="arena" tabindex="0" aria-label="4×4 词条法阵棋盘与备战区。方向键选择格子，回车选中或放置，Delete 回收，Escape 取消。">此浏览器不支持 Canvas。</canvas>
+        <span id="board-cursor-status" role="status"></span>
 
         <!-- 悬浮半透明磨砂暗金词条详情卡片（避免撑坏界面） -->
-        <section class="inspector floating-card" id="inspector" tabindex="-1" aria-label="词条详情" data-visible="false">
+        <section class="inspector floating-card" id="inspector" tabindex="-1" aria-label="词条详情" data-visible="false" inert>
           <div class="inspector-header">
             <div id="rune-icon" class="inspect-icon-wrap" aria-hidden="true"></div>
             <div class="inspect-title-block">
