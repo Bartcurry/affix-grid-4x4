@@ -272,11 +272,20 @@
         </div>
       </dialog>
 
+      <dialog id="formation-guide" class="formation-guide" aria-labelledby="formation-guide-title">
+        <div class="dialog-content">
+          <header class="daily-heading"><div><p id="formation-progress" class="daily-date"></p><h2 id="formation-guide-title">阵谱练习</h2></div><button id="formation-guide-close" type="button" aria-label="关闭阵谱" autofocus>×</button></header>
+          <div id="formation-filter" class="formation-filter" hidden><span id="formation-filter-name"></span><button id="formation-show-all" type="button">看全部</button></div>
+          <div id="formation-lessons" class="formation-lessons"></div>
+        </div>
+      </dialog>
+
       <dialog id="shared-board-dialog" class="shared-board-dialog" aria-labelledby="shared-board-title">
         <div class="dialog-content">
           <div class="daily-heading"><div><p id="shared-board-wave" class="daily-date"></p><h2 id="shared-board-title">接手这一波</h2></div><button id="shared-board-close" type="button" aria-label="退出试阵" autofocus>×</button></div>
-          <div class="shared-board-scores"><div><span>原阵伤害</span><strong id="shared-board-original"></strong></div><div><span>你的最高伤害</span><strong id="shared-board-best">—</strong></div></div>
+          <div class="shared-board-scores"><div><span>原阵伤害</span><strong id="shared-board-original"></strong></div><div id="shared-board-goal" hidden><span>练习目标</span><strong id="shared-board-target"></strong></div><div><span>你的最高伤害</span><strong id="shared-board-best">—</strong></div></div>
           <p id="shared-board-rules"></p>
+          <p id="shared-board-clue" class="shared-board-clue" hidden></p>
           <div id="shared-board-grid" class="daily-board shared-board-grid" role="group" aria-label="试阵棋盘"></div>
           <section id="shared-board-reserves" class="shared-board-reserves" hidden>
             <p id="shared-board-bench-label">备战区</p>
@@ -328,7 +337,7 @@
             <div><small id="market-preview-meta"></small><h2 id="market-preview-title"></h2></div>
             <button id="market-preview-close" type="button" aria-label="关闭试摆" autofocus>×</button>
           </header>
-          <p id="market-preview-description"></p>
+          <div class="market-preview-reading"><p id="market-preview-description"></p><button id="market-preview-guide" type="button" aria-haspopup="dialog" hidden>看搭配</button></div>
           <p id="market-preview-blocked" hidden></p>
           <div id="market-preview-options" class="market-preview-options" hidden>
             <div id="market-preview-grid" class="market-preview-grid" role="group" aria-label="选择试摆格子"></div>

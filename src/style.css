@@ -1455,19 +1455,46 @@ dialog::backdrop {
 .invite-modes { display: flex; gap: .35rem; }
 .invite-modes button { flex: 1; min-height: 2.35rem; color: #d6c5ad; }
 .invite-modes button[aria-pressed=true] { border-color: #e1b971; background: #33291f; color: #ffdfa2; }
+.formation-guide { width: min(31rem, calc(100% - 1.25rem)); max-height: 93dvh; }
+.formation-guide .dialog-content { gap: .55rem; padding: clamp(.72rem, 4vw, 1.05rem); }
+#formation-guide-close { width: 2.45rem; height: 2.45rem; padding: 0; font-size: 1.35rem; }
+.formation-filter { display: flex; align-items: center; justify-content: space-between; gap: .25rem; color: #bfdae2; font-size: .82rem; }
+.formation-filter button { min-height: 2.15rem; }
+.formation-lessons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem; }
+.formation-card {
+  --formation-ink: #82caee;
+  display: grid; gap: .45rem; text-align: left; padding: .55rem .45rem; min-width: 0;
+  border-color: #465467; border-left: 2px solid var(--formation-ink); background: #181f2b;
+}
+.formation-card[data-style="剧毒"] { --formation-ink: #b3da94; }
+.formation-card[data-style="点金"] { --formation-ink: #f1c17d; }
+.formation-card[data-style="增幅"] { --formation-ink: #efabc7; }
+.formation-card[data-style="混搭"] { --formation-ink: #bbabf1; }
+.formation-card-heading, .formation-card-stats { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: .15rem .25rem; }
+.formation-card-heading strong { color: #f0e5d2; font-size: .83rem; }
+.formation-card-heading small { font-size: .67rem; color: var(--formation-ink); }
+.formation-runes { display: flex; align-items: center; flex-wrap: wrap; gap: .19rem; }
+.formation-runes span { flex: 0 0 1.45rem; height: 1.45rem; display: grid; place-items: center; border: 1px solid #3e4a5a; background: #202936; }
+.formation-runes svg { width: 1.08rem; height: 1.08rem; }
+.formation-card-stats { color: #c1d0dd; font-size: .72rem; }
+.formation-status { color: #bce6ad; font-size: .67rem; }
+.formation-card[data-completed=true] { background: #1b2928; }
 .shared-board-dialog { width: min(29rem, calc(100% - 1.5rem)); }
-.shared-board-dialog[data-live-board] { max-height: 93dvh; }
-.shared-board-dialog[data-live-board] .dialog-content { gap: .42rem; padding: .78rem; }
+.shared-board-dialog:is([data-live-board], [data-practice]) { max-height: 93dvh; }
+.shared-board-dialog:is([data-live-board], [data-practice]) .dialog-content { gap: .42rem; padding: .78rem; }
 #shared-board-close { width: 2.45rem; height: 2.45rem; padding: 0; font-size: 1.35rem; }
 .shared-board-scores { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .38rem; }
 .shared-board-scores > div { display: grid; gap: .22rem; padding: .47rem .62rem; border: 1px solid #695638; background: #27211f; color: #d4ba96; font-size: .77rem; }
 .shared-board-scores > div:last-child { border-color: #497475; background: #1a292c; color: #acd9cf; }
+.shared-board-dialog[data-practice] .shared-board-scores { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#shared-board-goal { border-color: #8f7753; background: #33291f; color: #f1d4a9; }
 .shared-board-scores strong { color: #f8e7bd; font: 750 1.2rem var(--mono-font); overflow-wrap: anywhere; }
 .shared-board-grid.daily-board > button { aspect-ratio: 1.22; }
 .shared-board-reserves { display: grid; gap: .23rem; color: #becbd9; font-size: .73rem; }
 .shared-board-bench.daily-board { background: #101820; border-color: #425568; }
 .shared-board-bench.daily-board > button { aspect-ratio: 1.65; min-height: 2.55rem; border-color: #667585; }
-.shared-board-dialog[data-live-board] #shared-board-grid > button { aspect-ratio: 1.36; }
+.shared-board-dialog:is([data-live-board], [data-practice]) #shared-board-grid > button { aspect-ratio: 1.36; }
+.dialog-content > .shared-board-clue { padding: .35rem .45rem; border-left: 2px solid #67aab7; background: #1a2830; color: #cadfe4; font-size: .77rem; }
 .shared-board-grid button[data-empty=true] { background: #202228; border-style: dashed; color: #657486; }
 .shared-board-grid button[data-empty=true] span { color: #657486; }
 .shared-board-grid button[aria-pressed=true] { outline-color: #ffd28b; }
@@ -1496,6 +1523,9 @@ dialog::backdrop {
 .market-preview-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .55rem; }
 .market-preview-head h2 { margin: .15rem 0 0; }
 .market-preview-head small { color: #c9b38c; font-size: .75rem; }
+.market-preview-reading { display: flex; align-items: flex-start; gap: .45rem; }
+.market-preview-reading p { flex: 1; color: #cbd5e1; font-size: .85rem; line-height: 1.5; }
+#market-preview-guide { flex: none; min-height: 2.2rem; padding-inline: .45rem; color: #bedce7; border-color: #53707b; font-size: .78rem; }
 #market-preview-icon { width: 2.6rem; height: 2.6rem; display: grid; place-items: center; border: 1px solid var(--gold-dark); background: #17202b; color: var(--rune-ink); }
 #market-preview-icon svg { width: 1.55rem; height: 1.55rem; }
 #market-preview-close { width: 2.4rem; height: 2.4rem; min-height: 0; padding: 0; font-size: 1.4rem; }

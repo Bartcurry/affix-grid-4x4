@@ -1,4 +1,5 @@
 import { previewOffer } from '../core/marketPreview';
+import { formationLessons } from '../core/formationGuide';
 import { purchaseInfo } from '../core/shopEngine';
 import { runeFootprint } from '../core/tactics';
 import type { Catalog, Run, TurnResult } from '../core/types';
@@ -10,6 +11,7 @@ export function bindMarketPreview(
   icon: (node: HTMLElement, id: string) => void,
   format: (value: number) => string,
   confirm: (shopIndex: number, configId: string, cell?: number) => boolean,
+  guide: (runeId: string) => void,
 ) {
   const dialog = document.querySelector<HTMLDialogElement>('#market-preview')!;
   const get = <T extends HTMLElement = HTMLElement>(id: string) => dialog.querySelector<T>(`#${id}`)!;
@@ -18,6 +20,7 @@ export function bindMarketPreview(
   const blocked = get('market-preview-blocked');
   const options = get('market-preview-options');
   const links = get('market-preview-link');
+  const recipe = get('market-preview-guide');
   get('market-preview-close').onclick = () => dialog.close();
 
   return (run: Run, shopIndex: number, current: TurnResult, preferred?: number) => {
@@ -32,6 +35,8 @@ export function bindMarketPreview(
     get('market-preview-title').textContent = config.name;
     get('market-preview-meta').textContent = `买前试摆 · ${config.cost} 金`;
     get('market-preview-description').textContent = config.desc;
+    recipe.hidden = !formationLessons.some(lesson => lesson.pieces.some(([, id]) => id === config.id));
+    recipe.onclick = () => guide(config.id);
     blocked.hidden = placements.length > 0;
     options.hidden = !placements.length;
     if (!placements.length) {

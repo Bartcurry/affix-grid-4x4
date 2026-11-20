@@ -9,9 +9,10 @@ const tiles = { li_fire: '离火', xuan_ice: '玄冰', spirit_gathering: '聚灵
 const sameRune = (a: Rune | null, b: Rune | null) => a?.configId === b?.configId && a?.star === b?.star && (a?.bonusPower ?? 0) === (b?.bonusPower ?? 0);
 const spot = (index: number | null) => index === null ? '备战区' : `${index + 1} 格`;
 
-interface TrialOptions {
+export interface TrialOptions {
   leave?: () => void;
   live?: { bench: Slots; suggestion?: [Slot, Slot]; apply: (board: Slots, bench: Slots) => boolean };
+  practice?: { title: string; clue: string; target: number; link: string; complete: () => void };
 }
 
 export function openBoardTrial(
@@ -21,7 +22,7 @@ export function openBoardTrial(
   format: (number: number) => string,
   click: () => void,
   review: (journal: BattleJournal) => void,
-  { leave, live }: TrialOptions = {},
+  { leave, live, practice }: TrialOptions = {},
 ) {
   const dialog = document.querySelector<HTMLDialogElement>('#shared-board-dialog')!;
   if (dialog.open) return;
@@ -34,6 +35,7 @@ export function openBoardTrial(
   const share = dialog.querySelector<HTMLDetailsElement>('#shared-board-share')!;
   const link = dialog.querySelector<HTMLInputElement>('#shared-board-link')!;
   const copy = get('shared-board-copy');
+  const shareTitle = share.querySelector('summary')!;
   const undo = dialog.querySelector<HTMLButtonElement>('#shared-board-undo')!;
   const compare = dialog.querySelector<HTMLDetailsElement>('#shared-board-compare')!;
   const inspect = get('shared-board-inspect');
@@ -56,9 +58,10 @@ export function openBoardTrial(
   function clearAttempt() {
     journal = undefined;
     journalButton.hidden = true;
-    share.hidden = true;
+    share.hidden = !practice?.link;
     share.open = false;
-    link.value = '';
+    link.value = practice?.link ?? '';
+    copy.textContent = '复制';
     compare.hidden = true;
     compare.open = false;
     apply.disabled = true;
@@ -148,10 +151,16 @@ export function openBoardTrial(
   }
 
   dialog.toggleAttribute('data-live-board', !!live);
-  get('shared-board-title').textContent = live ? '试摆当前阵容' : '接手这一波';
+  dialog.toggleAttribute('data-practice', !!practice);
+  get('shared-board-title').textContent = practice?.title ?? (live ? '试摆当前阵容' : '接手这一波');
+  shareTitle.textContent = practice ? '分享这道阵谱' : '分享改好的阵容';
+  get('shared-board-goal').hidden = !practice;
+  get('shared-board-target').textContent = practice ? format(practice.target) : '';
+  get('shared-board-clue').hidden = !practice;
+  get('shared-board-clue').textContent = practice?.clue ?? '';
   get('shared-board-reserves').hidden = !live;
   apply.hidden = !live;
-  get('shared-board-wave').textContent = `第 ${snapshot.wave} 波 · ${trial?.name ?? encounters[encounter].name} · ${format(hp)} 生命`;
+  get('shared-board-wave').textContent = `${practice ? '阵谱练习' : `第 ${snapshot.wave} 波`} · ${trial?.name ?? encounters[encounter].name} · ${format(hp)} 生命`;
   get('shared-board-original').textContent = format(originalDamage);
   get('shared-board-best').textContent = '—';
   get('shared-board-rules').textContent = `${format(snapshot.gold)} 金${snapshot.relics.length ? ` · ${snapshot.relics.map(id => relics[id].name).join('、')}` : ''}`;
@@ -179,11 +188,14 @@ export function openBoardTrial(
     get('shared-board-best').textContent = format(best);
     const change = turn.damage - originalDamage;
     const comparison = change > 0 ? `比原阵多 ${format(change)}` : change < 0 ? `比原阵少 ${format(-change)}` : '追平原阵';
-    result.textContent = `${format(turn.damage)} 伤害 · ${comparison}。${turn.win ? '打过了。' : `还差 ${format(turn.hp)} 点。`}`;
-    result.dataset.win = String(turn.win);
+    const success = practice ? turn.damage >= practice.target : turn.win;
+    const outcome = practice ? success ? '练习完成。' : `离目标还差 ${format(practice.target - turn.damage)} 点。` : success ? '打过了。' : `还差 ${format(turn.hp)} 点。`;
+    result.textContent = `${format(turn.damage)} 伤害 · ${comparison}。${outcome}`;
+    result.dataset.win = String(success);
+    if (practice && success) practice.complete();
     const changed = board.some((rune, index) => !sameRune(rune, snapshot.board[index]));
     apply.disabled = !live || !slots.some((rune, index) => !sameRune(rune, originalSlots[index]));
-    link.value = changed ? boardShareUrl(location.href, { ...snapshot, board }) ?? '' : '';
+    link.value = practice?.link ?? (changed ? boardShareUrl(location.href, { ...snapshot, board }) ?? '' : '');
     share.hidden = !link.value;
     copy.textContent = '复制';
   }

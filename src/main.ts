@@ -1,7 +1,8 @@
 import './style.css';
 import { affixAt, armorLayers, encounters, lastGate, relics, upcomingEncounter } from './core/expedition';
 import { challengeParam, challengeSaveKey, readChallenge } from './core/challenge';
-import { boardFromJournal, boardSharePrefix, boardShareUrl, readSharedBoard } from './core/boardShare';
+import { boardFromJournal, boardSharePrefix, boardShareUrl, readSharedBoard, type SharedBoard } from './core/boardShare';
+import { findLesson } from './core/formationGuide';
 import { previewRelics } from './core/relicPreview';
 import { isOpening, openingIds, openings, runScore, updateRecords } from './core/openings';
 import { foughtHealth } from './core/journal';
@@ -20,9 +21,10 @@ import { bindBattleJournal } from './render/battleJournal';
 import { bindChallengeRoom, bindInviteRoom } from './render/challengeRoom';
 import { bindTrialRoom } from './render/trialRoom';
 import { bindMarketPreview } from './render/marketPreviewRoom';
+import { bindFormationGuide } from './render/formationGuide';
 import { renderOpeningPreview } from './render/openingPreview';
 import { bindResultRoom, type ResultAction } from './render/resultRoom';
-import { openBoardTrial } from './render/sharedBoardRoom';
+import { openBoardTrial, type TrialOptions } from './render/sharedBoardRoom';
 import { bindRouteRoom } from './render/routeRoom';
 import { PlaybackController } from './render/playbackController';
 import { SynthAudio } from './audio/synthAudio';
@@ -45,8 +47,9 @@ const challenge = readChallenge(challengeQuery);
 const invalidChallenge = challengeQuery !== null && !challenge;
 const sharedBoard = readSharedBoard(location.hash, catalog);
 const invalidBoard = location.hash.startsWith(boardSharePrefix) && !sharedBoard;
+const directLesson = !sharedBoard && !challenge ? findLesson(new URLSearchParams(location.search).get('lesson')) : undefined;
 const platform = new WebMockAdapter(catalog, element('ad'), element('ad-text'), button('cancel-ad'), challenge ? challengeSaveKey(challenge) : undefined);
-const loaded = sharedBoard ? null : platform.load();
+const loaded = sharedBoard || directLesson ? null : platform.load();
 const saved = challenge && loaded && (loaded.run.seed !== challenge.seed || loaded.run.opening !== challenge.opening ||
   loaded.run.relicRule !== challenge.relicRule || loaded.run.trialRule !== challenge.trialRule) ? null : loaded;
 
@@ -140,8 +143,12 @@ function iconPath(owner: HTMLElement, pathData: string) {
 }
 
 const emptyIcon = 'M16 3l13 13-13 13L3 16 16 3Zm0 6v14m-7-7h14';
-const openMarketPreview = bindMarketPreview(catalog, (owner, id) => iconPath(owner, runeVectors[id] ?? emptyIcon), formatNumber,
-  (index, configId, cell) => run.shop[index]?.configId === configId && buyOffer(index, cell));
+const runeGlyph = (owner: HTMLElement, id: string) => iconPath(owner, runeVectors[id] ?? emptyIcon);
+const showBoardTrial = (snapshot: SharedBoard, options?: TrialOptions) => openBoardTrial(snapshot, catalog, runeGlyph, formatNumber, click, journal, options);
+const formationGuide = bindFormationGuide(catalog, runeGlyph, formatNumber, click, showBoardTrial);
+const openMarketPreview = bindMarketPreview(catalog, runeGlyph, formatNumber,
+  (index, configId, cell) => run.shop[index]?.configId === configId && buyOffer(index, cell),
+  id => { click(); formationGuide.show(id); });
 const openRoute = bindRouteRoom((owner, encounter) => iconPath(owner, getBossSvgPath(encounter)));
 button('route-open').onclick = () => { if (phase !== 'PLAYBACK') { click(); openRoute(run); } };
 const dailyRoom = bindDailyRoom(catalog, (owner, id) => iconPath(owner, runeVectors[id] ?? emptyIcon), click,
@@ -458,7 +465,7 @@ function tryCurrentBoard(suggestion?: [Slot, Slot]) {
   click();
   const current = run;
   const snapshot = { ...run, board: [...run.board], bench: [...run.bench] };
-  openBoardTrial(snapshot, catalog, (owner, id) => iconPath(owner, runeVectors[id] ?? emptyIcon), formatNumber, click, journal, {
+  showBoardTrial(snapshot, {
     live: {
       bench: snapshot.bench,
       suggestion,
@@ -1042,7 +1049,8 @@ button('support').onclick = async () => {
 };
 button('help').onclick = () => {
   click(); showPanel('怎么玩', '符文从左上角开始，逐行触发。折射镜会让右边的符文当场再触发一次。起手阵都已经摆好，可以直接打第一波。\n\n拖动符文可以换位，也可以先点符文，再点目标格。三枚同名同星的符文会自动升一星。\n\n离火位多触发一次。玄冰位增加 45% 暴击率。聚灵位上的符文在相邻符文激活时，永久威力 +2。',
-    [{ label: '知道了', primary: true, act: () => dialog.close() }], true);
+    [{ label: '去阵谱练习', primary: true, act: () => { dialog.close(); formationGuide.show(); } },
+      { label: '回到布阵', act: () => dialog.close() }], true);
 };
 
 redraw(!!saved);
@@ -1055,14 +1063,16 @@ function showLanding() {
   }
   else openOpenings(true);
 }
-if (sharedBoard) {
-  openBoardTrial(sharedBoard, catalog, (owner, id) => iconPath(owner, runeVectors[id] ?? emptyIcon), formatNumber, click, journal, { leave: () => {
-    const address = new URL(location.href);
-    address.hash = '';
-    history.replaceState(history.state, '', address);
-    location.reload();
-  } });
-} else if (!dailyRoom.openShared()) showLanding();
+function leaveDirectTrial() {
+  const address = new URL(location.href);
+  address.hash = '';
+  address.searchParams.delete('lesson');
+  history.replaceState(history.state, '', address);
+  location.reload();
+}
+if (sharedBoard) showBoardTrial(sharedBoard, { leave: leaveDirectTrial });
+else if (directLesson) formationGuide.train(directLesson, leaveDirectTrial);
+else if (!dailyRoom.openShared()) showLanding();
 window.addEventListener('hashchange', () => {
   if (location.hash.startsWith(boardSharePrefix) || sharedBoard) location.reload();
 });
