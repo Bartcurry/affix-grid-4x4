@@ -482,7 +482,7 @@ button:focus-visible, canvas:focus-visible {
   width: 100%;
 }
 
-canvas {
+#arena {
   display: block;
   flex: 1 1 0;
   min-height: 0;
@@ -1326,7 +1326,7 @@ canvas {
   line-height: 1.38;
 }
 .daily-tools { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.25fr); gap: .3rem; }
-.daily-tools button, #daily-copy, #relay-open, #opening-daily { min-height: 2.55rem; padding: .2rem .3rem; font-size: .78rem; }
+.daily-tools button, #daily-copy, #relay-open, #opening-daily, .puzzle-card-open { min-height: 2.55rem; padding: .2rem .3rem; font-size: .78rem; }
 .daily-tools .primary { color: #221a12; background: #efc682; border-color: #f8d498; }
 .daily-tools .primary:hover { background: #f7d79e; }
 .daily-archive { border: 1px solid #535849; background: #171e21; }
@@ -1342,6 +1342,9 @@ canvas {
 #opening-daily { color: #dce8cc; background: #232d27; border-color: #6c805e; }
 #relay-open { flex: none; padding-inline: .5rem; color: #ebcf9f; background: #31271f; border-color: #947649; }
 .daily-footer > span { margin-right: auto; }
+.daily-footer:has(.puzzle-card-open:not([hidden])) { flex-wrap: wrap; justify-content: stretch; }
+.daily-footer:has(.puzzle-card-open:not([hidden])) > span { flex-basis: 100%; order: 1; }
+.daily-footer:has(.puzzle-card-open:not([hidden])) > button { flex: 1; }
 
 .relay-dialog { border-color: #8f896f; background: linear-gradient(145deg, #222823, #151a23 63%); }
 #relay-date { color: #bac9b7; font: .72rem var(--mono-font); }
@@ -1369,8 +1372,21 @@ canvas {
 #relay-best { margin-right: auto; color: #c8d8be; font-size: .74rem; }
 #relay-restart, #relay-copy { flex: none; }
 #relay-copy { color: #d1e8d4; border-color: #6d8e71; }
+.relay-footer:has(.puzzle-card-open:not([hidden])) { flex-wrap: wrap; }
+.relay-footer:has(.puzzle-card-open:not([hidden])) #relay-best { flex-basis: 100%; }
+.relay-footer:has(.puzzle-card-open:not([hidden])) > button { flex: 1; }
 .relay-dialog .relay-share { color: #cedebd; font-size: .73rem; }
 #relay-link { width: 100%; padding: .44rem; color: #e7e5dc; background: #11171b; border: 1px solid #64725c; font: .72rem var(--mono-font); }
+
+.puzzle-card-open, #puzzle-share-download { background: #e9c38b; border-color: #f3d6a9; color: #231a13; font-weight: 750; }
+.puzzle-card-open:not(:disabled):hover, #puzzle-share-download:not(:disabled):hover { background: #f3d6a9; color: #231a13; }
+.puzzle-share-dialog { width: min(27rem, calc(100% - 1.3rem)); max-height: 94dvh; border-color: #9c815a; background: #191b23; }
+.puzzle-share-dialog .dialog-content { padding: clamp(.64rem, 3.4vw, 1rem); gap: .58rem; }
+#puzzle-share-canvas { display: block; width: min(100%, 37dvh, 19rem); height: auto; margin-inline: auto; background: #101116; border-radius: 4px; }
+.puzzle-share-actions { display: flex; flex-wrap: wrap; gap: .36rem; }
+.puzzle-share-actions button { flex: 1; min-height: 2.65rem; padding: .24rem .35rem; font-size: .8rem; white-space: nowrap; }
+#puzzle-share-status { color: #cfc6b5; font-size: .75rem; }
+#puzzle-share-link { width: 100%; padding: .44rem; color: #e7e5dc; background: #11171b; border: 1px solid #64725c; font: .72rem var(--mono-font); }
 
 .invite-dialog { width: min(29rem, calc(100% - 1.5rem)); max-height: 93dvh; }
 .invite-dialog .dialog-content { padding: clamp(.75rem, 4vw, 1.15rem); gap: .7rem; }
@@ -1990,7 +2006,7 @@ dialog::backdrop {
   }
   .report { grid-area: report; }
 
-  canvas {
+  #arena {
     width: min(100%, calc((100dvh - 12rem) * 0.8796));
     max-height: 100%;
     margin: 0 auto;
@@ -2042,7 +2058,7 @@ dialog::backdrop {
     min-height: 1.15rem;
     font-size: 0.64rem;
   }
-  canvas {
+  #arena {
     max-height: 100%;
   }
   .deck-station {

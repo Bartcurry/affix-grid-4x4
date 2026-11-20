@@ -3,11 +3,13 @@ import { betterDailyRecord, dailyHint, dailyInviteScore, dailyLink, dailyPuzzle,
 import { encounters } from '../core/expedition';
 import type { Catalog } from '../core/types';
 import { drawPuzzleBoard } from './puzzleBoard';
+import type { PuzzleShareCard } from './puzzleShareCard';
 
 const storageKey = 'affix-grid-4x4.daily.v2';
 type Move = [number, number];
 
-export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: string) => void, click: () => void) {
+export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: string) => void, click: () => void,
+  shareCard: (card: PuzzleShareCard) => void) {
   const dialog = document.querySelector<HTMLDialogElement>('#daily-dialog')!;
   const get = <T extends HTMLElement = HTMLElement>(id: string) => dialog.querySelector<T>(`#daily-${id}`)!;
   const board = get('board');
@@ -48,6 +50,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     get('moves').textContent = `已换 ${moves.length} 步 · 最少 ${puzzle.par} 步`;
     const best = records.get(puzzle.day);
     get('goals').hidden = !best;
+    get('card').hidden = !dailyInviteScore(puzzle, best);
     goalButtons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.goal === goal)));
     get('hint').textContent = goal === 'peak' ? '伤害提示' : '提示';
     if (!best) return;
@@ -221,6 +224,10 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
       link.focus();
       link.select();
     }
+  };
+  get('card').onclick = () => {
+    const score = dailyInviteScore(puzzle, records.get(puzzle.day));
+    if (score) shareCard({ kind: 'daily', puzzle, score, url: dailyLink(location.href, puzzle.day, score) });
   };
   dialog.addEventListener('close', () => {
     drafts.set(puzzle.day, { pieces, moves, goal });

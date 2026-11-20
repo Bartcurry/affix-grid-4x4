@@ -5,11 +5,13 @@ import { relayLink, relayPosition, relayWeek, restoreRelayDraft, stageAllowance,
 import type { Catalog, TurnResult } from '../core/types';
 import { formatNumber as format } from './canvasRenderer';
 import { drawPuzzleBoard } from './puzzleBoard';
+import type { PuzzleShareCard } from './puzzleShareCard';
 
 const prefix = 'affix-grid-4x4.relay.v1.';
 const ordinal = ['第一阵', '第二阵', '第三阵'];
 
-export function bindWeeklyRelay(catalog: Catalog, glyph: (cell: HTMLElement, id: string) => void, click: () => void) {
+export function bindWeeklyRelay(catalog: Catalog, glyph: (cell: HTMLElement, id: string) => void, click: () => void,
+  shareCard: (card: PuzzleShareCard) => void) {
   const dialog = document.querySelector<HTMLDialogElement>('#relay-dialog')!;
   const get = <T extends HTMLElement = HTMLElement>(id: string) => dialog.querySelector<T>(`#relay-${id}`)!;
   const board = get('board');
@@ -70,6 +72,7 @@ export function bindWeeklyRelay(catalog: Catalog, glyph: (cell: HTMLElement, id:
     }));
     const target = relay.ceilings.at(-1)!;
     get('best').textContent = best ? `最佳 ${format(best.damage)} / ${format(target)} · ${best.moves} 步` : `本期满分 ${format(target)}`;
+    get('card').hidden = !best;
     get('stage').hidden = !current;
     get('tools').hidden = !current;
     get('restart').hidden = !used;
@@ -171,6 +174,9 @@ export function bindWeeklyRelay(catalog: Catalog, glyph: (cell: HTMLElement, id:
       link.focus();
       link.select();
     }
+  };
+  get('card').onclick = () => {
+    if (best) shareCard({ kind: 'relay', relay, score: best, url: relayLink(location.href, relay.day, best) });
   };
 
   return { dialog, open(day = relayWeek(), score?: RelayScore) {

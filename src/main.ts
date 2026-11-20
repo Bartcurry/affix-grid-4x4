@@ -22,6 +22,7 @@ import { bindUpgradeBook } from './render/upgradeBook';
 import { bindChallengeRoom, bindShareRoom } from './render/challengeRoom';
 import { bindDailyRoom } from './render/dailyRoom';
 import { bindWeeklyRelay } from './render/weeklyRelayRoom';
+import { bindPuzzleShareRoom } from './render/puzzleShareRoom';
 import { bindBoardTrial } from './render/boardTrialRoom';
 import { bindBattleJournal } from './render/battleJournal';
 import { bindEncounterRoom } from './render/encounterRoom';
@@ -169,8 +170,9 @@ function iconPath(owner: HTMLElement, pathData: string) {
 
 const emptyIcon = 'M16 3l13 13-13 13L3 16 16 3Zm0 6v14m-7-7h14';
 const runeGlyph = (node: HTMLElement, id: string) => iconPath(node, runeVectors[id] ?? emptyIcon);
-const daily = bindDailyRoom(catalog, runeGlyph, click);
-const relay = bindWeeklyRelay(catalog, runeGlyph, click);
+const puzzleShare = bindPuzzleShareRoom(catalog, click);
+const daily = bindDailyRoom(catalog, runeGlyph, click, puzzleShare);
+const relay = bindWeeklyRelay(catalog, runeGlyph, click, puzzleShare);
 const boardTrial = bindBoardTrial(catalog, runeGlyph, formatNumber, click);
 const showPurchase = bindPurchaseRoom(catalog, runeGlyph, click);
 const showEndlessCamp = bindEndlessCampRoom(catalog, runeGlyph, click, choice => {
