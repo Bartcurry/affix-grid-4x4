@@ -96,6 +96,7 @@
           <span id="board-count" class="board-counter">已布阵 0/16</span>
           <span id="arena-hint" class="arena-hint-text">点符文看作用，拖动或轻击换位</span>
           <span id="phase" class="phase-pill">布阵</span>
+          <button id="share-open" type="button" aria-haspopup="dialog">分享</button>
           <button id="inspect-jump" type="button" hidden>看词条</button>
         </div>
 
@@ -189,6 +190,42 @@
 
       <!-- 浮动通知 Toast -->
       <p id="notice" class="notice" role="status" aria-live="polite"></p>
+
+      <dialog id="challenge-dialog" class="invite-dialog" aria-labelledby="challenge-title">
+        <div class="dialog-content">
+          <header class="invite-heading">
+            <div><h2 id="challenge-title">同局挑战</h2><p id="challenge-opening"></p></div>
+            <button id="challenge-close" type="button" aria-label="关闭同局挑战">×</button>
+          </header>
+          <dl class="challenge-scores">
+            <div><dt>好友战绩</dt><dd id="challenge-target"></dd><small id="challenge-target-combo"></small></div>
+            <div><dt id="challenge-player-label">你的战绩</dt><dd id="challenge-player"></dd><small id="challenge-player-combo"></small></div>
+          </dl>
+          <p id="challenge-status"></p>
+          <div class="challenge-actions">
+            <button id="challenge-quick" class="primary" type="button">开打首波</button>
+            <button id="challenge-enter" type="button">先布阵</button>
+            <button id="challenge-reply" type="button" hidden>发回战绩</button>
+            <button id="challenge-leave" type="button">回主线</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="share-dialog" class="invite-dialog" aria-labelledby="share-title">
+        <div class="dialog-content">
+          <header class="invite-heading">
+            <div><h2 id="share-title">邀请朋友打同局</h2><p id="share-score"></p></div>
+            <button id="share-close" type="button" aria-label="关闭分享">×</button>
+          </header>
+          <p>朋友点开可用同种子、同开局开打。先比通关波数，波数相同再比连击。</p>
+          <input id="share-link" type="url" readonly aria-label="同局挑战链接" />
+          <p id="share-status" role="status" hidden></p>
+          <div class="challenge-actions">
+            <button id="share-copy" class="primary" type="button">复制链接</button>
+            <button id="share-native" type="button" hidden>转发</button>
+          </div>
+        </div>
+      </dialog>
 
       <!-- 弹窗：结果结算面板 -->
       <dialog id="panel">

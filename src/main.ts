@@ -1,7 +1,8 @@
 import './style.css';
 import { bossHealth, simulateBattle } from './core/battleEngine';
 import { affixAt, encounterAt, encounters, relics, upcomingEncounter } from './core/expedition';
-import { isOpening, openingIds, openings, updateRecords } from './core/openings';
+import { isOpening, openingIds, openings, runScore, updateRecords } from './core/openings';
+import { challengeParam, challengeSaveKey, matchesChallenge, readChallenge } from './core/challenge';
 import { createMulberry32, decodeSeed, generateSeedCode } from './core/rng';
 import { planTurn, previewPlacement, runeFootprint, usesTutorial } from './core/tactics';
 import { buyRune, canArrange, chooseRelic, newRun, purchaseInfo, refreshShop, resolveLoss, runeAt, sellRune, sellValue, settleTurn, startEndless, swapRunes, toggleLock, UndoStack, victoryPayout } from './core/shopEngine';
@@ -12,6 +13,7 @@ import { getArchetypeEmblemPath, getBossSvgPath, getRelicSvgPath } from './rende
 import { countSynergies } from './core/synergy';
 import { bindDragDrop } from './render/dragDrop';
 import { bindUpgradeBook } from './render/upgradeBook';
+import { bindChallengeRoom, bindShareRoom } from './render/challengeRoom';
 import { PlaybackController } from './render/playbackController';
 import { SynthAudio } from './audio/synthAudio';
 import { WebMockAdapter } from './platform/webMockAdapter';
@@ -35,11 +37,18 @@ const game = element('game');
 const dialog = element<HTMLDialogElement>('panel');
 const audio = new SynthAudio();
 const player = new PlaybackController();
-const platform = new WebMockAdapter(catalog, element('ad'), element('ad-text'), button('cancel-ad'));
-const saved = platform.load();
+const invite = new URLSearchParams(location.search).get(challengeParam);
+const challenge = readChallenge(invite);
+const createPlatform = (key?: string) => new WebMockAdapter(catalog, element('ad'), element('ad-text'), button('cancel-ad'), key);
+const platform = createPlatform(challenge ? challengeSaveKey(challenge) : undefined);
+const loaded = platform.load();
+const saved = challenge && loaded && !matchesChallenge(loaded.run, challenge) ? null : loaded;
+const mainRun = challenge && !saved ? createPlatform().load(false)?.run : undefined;
+const matchingMain = challenge && mainRun && matchesChallenge(mainRun, challenge) ? mainRun : undefined;
+let challengeEntered = !challenge;
 
-const initialSeed = generateSeedCode();
-let run = saved?.run ?? newRun(catalog, createMulberry32(initialSeed.seed), 'chain', initialSeed.code);
+const initialSeed = challenge ? { code: challenge.seed, seed: decodeSeed(challenge.seed) } : generateSeedCode();
+let run = saved?.run ?? newRun(catalog, createMulberry32(initialSeed.seed), challenge?.opening ?? 'chain', initialSeed.code);
 let records = saved?.records ?? {};
 let history: RunArchive[] = saved?.history ?? [];
 let forecast: ReturnType<typeof planTurn> | null = null;
@@ -75,8 +84,9 @@ const bossColors: Record<string, string> = {
 const rarityLabel = { common: '普通', rare: '稀有', epic: '史诗' };
 const archetypeLabel = { chain: '连锁', poison: '剧毒', gold: '金币', amplify: '增幅' };
 
-const arranging = () => phase === 'ARRANGE' && canArrange(run);
+const arranging = () => challengeEntered && phase === 'ARRANGE' && canArrange(run);
 const persist = () => {
+  if (!challengeEntered) return;
   records = updateRecords(records, run);
   platform.save({
     schemaVersion: 2,
@@ -93,6 +103,26 @@ const persist = () => {
 };
 const tutorials = () => usesTutorial(run);
 const click = () => { audio.unlock(); audio.click(); };
+const shareRoom = bindShareRoom();
+const showChallenge = bindChallengeRoom(quick => {
+  click();
+  if (!challengeEntered) {
+    challengeEntered = true;
+    redraw();
+  }
+  if (quick) button('battle').click();
+  else showOutcome();
+}, leaveChallenge, local => { click(); shareRoom(local, true); });
+
+function leaveChallenge() {
+  const address = new URL(location.href);
+  address.searchParams.delete(challengeParam);
+  location.assign(address.href);
+}
+
+button('share-open').onclick = () => {
+  if (phase === 'ARRANGE') { click(); shareRoom(run, !!challenge); }
+};
 
 function iconPath(owner: HTMLElement, pathData: string) {
   const namespace = 'http://www.w3.org/2000/svg';
@@ -132,7 +162,9 @@ function showArenaHint() {
     const rune = runeAt(run, renderer.selection);
     hint.textContent = rune ? catalog[rune.configId].name : '点符文看作用，点击目标格交换';
   } else {
-    hint.textContent = phase === 'PLAYBACK' ? '按顺序触发符文' : '点符文看作用，点击目标格交换';
+    hint.textContent = phase === 'PLAYBACK' ? '按顺序触发符文' : challenge
+      ? `同局 · 已过 ${formatNumber(runScore(run).cleared)} / ${formatNumber(challenge.cleared)} 波`
+      : '点符文看作用，点击目标格交换';
   }
 }
 
@@ -393,7 +425,14 @@ function syncControls() {
   button('reward').disabled = !arranging();
   button('support').disabled = phase === 'PLAYBACK';
   button('help').disabled = phase === 'PLAYBACK';
-  button('openings').disabled = !arranging();
+  button('share-open').disabled = phase === 'PLAYBACK';
+  button('share-open').hidden = run.enableSynergies === false;
+  button('share-open').textContent = challenge ? '发战绩' : '分享';
+  button('openings').disabled = challenge ? !challengeEntered || phase === 'PLAYBACK' : !arranging();
+  if (challenge) {
+    button('openings').textContent = '同局';
+    button('openings').title = '查看同局战绩';
+  }
   const toggle = element<HTMLInputElement>('exact-toggle');
   if (toggle) toggle.checked = exactForecast;
 }
@@ -763,9 +802,9 @@ function startOpening(id: OpeningId, customSeed?: string) {
   }
   if (openingDialog.open) openingDialog.close();
   if (dialog.open) dialog.close();
-  const seed = customSeed || element<HTMLInputElement>('opening-seed')?.value.trim() || undefined;
+  const seed = challenge?.seed || customSeed || element<HTMLInputElement>('opening-seed')?.value.trim() || undefined;
   const initialPrng = createMulberry32(seed ? decodeSeed(seed) : 1);
-  run = newRun(catalog, initialPrng, id, seed);
+  run = newRun(catalog, initialPrng, challenge?.opening ?? id, seed);
   trackedUpgrade = undefined;
   undoStack.clear();
   renderer.setRun(run);
@@ -790,6 +829,7 @@ function openOpenings(first = false) {
   const replacing = run.status === 'active' && !first;
   element('opening-note').textContent = replacing
     ? '换开局会另开一局。现在这局的最高纪录会保留。'
+    : first && invite !== null ? '这个邀请来自旧版或已失效。你可以选一套阵直接开局。'
     : '四套阵都能直接打第一波，后面怎么摆由你。';
   button('opening-close').textContent = first ? '用借火开局' : '回到当前局';
   openingDialog.dataset.first = String(first);
@@ -873,7 +913,10 @@ function openOpenings(first = false) {
   openingDialog.showModal();
 }
 
-button('openings').onclick = () => { if (arranging()) { click(); openOpenings(); } };
+button('openings').onclick = () => {
+  if (challenge && challengeEntered && phase === 'ARRANGE') { click(); showChallenge(challenge, run, false, false); }
+  else if (arranging()) { click(); openOpenings(); }
+};
 button('opening-start').onclick = () => { if (openingCandidate) { click(); startOpening(openingCandidate); } };
 button('opening-back').onclick = () => { click(); resetOpeningChoice(); element('opening-choices').querySelector('button')?.focus(); };
 button('opening-close').onclick = () => {
@@ -931,9 +974,11 @@ function showOutcome() {
     }
     const actions: Action[] = [
       { label: '导出战绩 PNG', act: async () => { if (!await platform.exportScore(run)) notice('战绩导出失败，请再试一次。'); } },
-      { label: '复制种子码', act: () => { void navigator.clipboard?.writeText(run.seed); notice(`已复制种子码：${run.seed}`); } },
-      { label: '新开一局', act: () => openOpenings(), primary: !won },
+      ...(run.enableSynergies !== false ? [{ label: '分享战绩', act: () => shareRoom(run, !!challenge) }] : []),
+      challenge ? { label: '再打一次', act: () => startOpening(challenge.opening), primary: !won }
+        : { label: '新开一局', act: () => openOpenings(), primary: !won },
     ];
+    if (challenge) actions.push({ label: '回主线', act: leaveChallenge });
     if (won) actions.unshift({ label: '继续无尽模式', primary: true, act: () => {
       dialog.close();
       const prng = createMulberry32(run.rngState);
@@ -1362,6 +1407,10 @@ button('ambient').onclick = () => {
   notice(active ? '五音雅乐：禅音悠扬' : '五音雅乐：已静音');
 };
 
-redraw(!!saved);
-if (saved) showOutcome();
-else openOpenings(true);
+redraw(!!saved && !challenge);
+if (challenge) showChallenge(challenge, run, true, !saved, matchingMain);
+else {
+  if (saved) showOutcome();
+  else openOpenings(true);
+  if (invite !== null) notice('这个邀请来自旧版或已失效。');
+}

@@ -139,6 +139,9 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       pendingLoss: !!rawRun.pendingLoss,
       relics: relicsList,
       pendingRelics: pendingRelicsList,
+      enableSynergies: rawRun.enableSynergies !== false,
+      ...(Array.isArray(rawRun.lastCellDamage) && rawRun.lastCellDamage.length === CELL_COUNT && rawRun.lastCellDamage.every(damageCount)
+        ? { lastCellDamage: rawRun.lastCellDamage } : {}),
     };
 
     return {
@@ -160,18 +163,20 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
 
 export class WebMockAdapter implements PlatformAdapter {
   constructor(private readonly catalog: Catalog, private readonly ad: HTMLDialogElement, private readonly adText: HTMLElement,
-    private readonly cancelButton: HTMLButtonElement) {}
+    private readonly cancelButton: HTMLButtonElement,
+    private readonly saveKey = SAVE_KEY_V2) {}
 
-  load(): SaveData | null {
+  load(saveMigration = true): SaveData | null {
     try {
-      const rawV2 = localStorage.getItem(SAVE_KEY_V2);
+      const rawV2 = localStorage.getItem(this.saveKey);
       if (rawV2) {
         return migrateSave(rawV2, this.catalog);
       }
+      if (this.saveKey !== SAVE_KEY_V2) return null;
       const rawV1 = localStorage.getItem(SAVE_KEY_V1);
       if (rawV1) {
         const migrated = migrateSave(rawV1, this.catalog);
-        this.save(migrated);
+        if (saveMigration) this.save(migrated);
         return migrated;
       }
       return null;
@@ -182,7 +187,7 @@ export class WebMockAdapter implements PlatformAdapter {
 
   save(data: SaveData) {
     try {
-      localStorage.setItem(SAVE_KEY_V2, JSON.stringify(data));
+      localStorage.setItem(this.saveKey, JSON.stringify(data));
     } catch {
       return;
     }

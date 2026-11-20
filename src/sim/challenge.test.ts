@@ -1,0 +1,50 @@
+import { describe, expect, it } from 'vitest';
+import { challengeFromRun, challengeProgress, challengeSaveKey, challengeUrl, matchesChallenge, readChallenge } from '../core/challenge';
+import { createMulberry32, decodeSeed } from '../core/rng';
+import { newRun, victoryPayout } from '../core/shopEngine';
+import { planTurn } from '../core/tactics';
+import { catalog } from '../data/catalog';
+import { migrateSave } from '../platform/webMockAdapter';
+
+describe('same-seed challenges', () => {
+  it('encodes a handwritten seed and reproduces the newest setup and first battle', () => {
+    const seed = '借火借到家';
+    const host = newRun(catalog, createMulberry32(decodeSeed(seed)), 'gold', seed);
+    const score = challengeFromRun({ ...host, wave: 7, bestCombo: 22 });
+    const address = new URL(challengeUrl('https://example.org/game/?other=1#old', score));
+    expect(address.pathname).toBe('/game/');
+    expect(address.hash).toBe('');
+    const invite = readChallenge(address.searchParams.get('challenge'));
+    expect(invite).toEqual(score);
+    const guest = newRun(catalog, createMulberry32(decodeSeed(score.seed)), score.opening, score.seed);
+    expect(guest).toEqual({ ...host, seed: score.seed });
+    expect(planTurn(guest, catalog).events).toEqual(planTurn(host, catalog).events);
+    expect(matchesChallenge(host, score)).toBe(true);
+    expect(matchesChallenge({ ...host, enableSynergies: false }, score)).toBe(false);
+    expect(challengeSaveKey(score)).toBe(challengeSaveKey({ ...score, cleared: 50 }));
+    expect(challengeSaveKey(score)).not.toBe(challengeSaveKey({ ...score, opening: 'poison' }));
+  });
+
+  it('rejects old, malformed and oversized scores and ranks waves before combo', () => {
+    const { seed } = challengeFromRun(newRun(catalog, createMulberry32(667)));
+    for (const raw of [null, `v6.chain.${seed}.2.8`, `v7.chain.${seed}.0`,
+      `v7.chain.${seed}.2.-2`, `v7.chain.${seed}.9007199254740992.1`, 'v7.chain.AAAA-AAAA.1.8']) {
+      expect(readChallenge(raw)).toBeUndefined();
+    }
+    expect(challengeProgress({ cleared: 4, combo: 2 }, { cleared: 3, combo: 120 }).reached).toBe(true);
+    expect(challengeProgress({ cleared: 3, combo: 2 }, { cleared: 3, combo: 5 }).text).toContain('再多 3 连击');
+  });
+
+  it('preserves synergy payouts and the last damage breakdown after reloading', () => {
+    const run = newRun(catalog, createMulberry32(667), 'gold');
+    run.board[2] = { configId: 'greed_amplifier', star: 1 };
+    run.lastCellDamage = Array.from({ length: 16 }, (_, index) => index);
+    const original = victoryPayout(run, 40, catalog);
+    expect(original.total).toBeGreaterThan(victoryPayout({ ...run, enableSynergies: false }, 40, catalog).total);
+    const restored = migrateSave({ run }, catalog).run;
+    expect(restored.enableSynergies).toBe(true);
+    expect(restored.lastCellDamage).toEqual(run.lastCellDamage);
+    expect(victoryPayout(restored, 40, catalog)).toEqual(original);
+    expect(migrateSave({ run: { ...run, enableSynergies: false } }, catalog).run.enableSynergies).toBe(false);
+  });
+});

@@ -47,10 +47,15 @@ export const isOpening = (value: unknown): value is OpeningId => typeof value ==
 export interface OpeningRecord { cleared: number; combo: number }
 export type RunRecords = Partial<Record<OpeningId, OpeningRecord>>;
 
+export function runScore(run: Pick<Run, 'wave' | 'status' | 'bestCombo'>): OpeningRecord {
+  return { cleared: run.wave - Number(run.status !== 'victory'), combo: run.bestCombo };
+}
+
 export function updateRecords(records: RunRecords, run: Pick<Run, 'opening' | 'wave' | 'status' | 'bestCombo'>): RunRecords {
   const prior = records[run.opening];
-  const cleared = Math.max(prior?.cleared ?? 0, run.wave - Number(run.status !== 'victory'));
-  const combo = Math.max(prior?.combo ?? 0, run.bestCombo);
+  const score = runScore(run);
+  const cleared = Math.max(prior?.cleared ?? 0, score.cleared);
+  const combo = Math.max(prior?.combo ?? 0, score.combo);
   if ((!cleared && !combo) || (prior?.cleared === cleared && prior?.combo === combo)) return records;
   return { ...records, [run.opening]: { cleared, combo } };
 }

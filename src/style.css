@@ -1147,6 +1147,26 @@ canvas {
   color: var(--text-muted);
 }
 
+#share-open { flex: none; min-height: 1.95rem; padding: .15rem .48rem; color: #f1cb86; font-size: .73rem; border-color: #987548; background: #29221d; }
+.invite-dialog { width: min(29rem, calc(100% - 1.5rem)); max-height: 93dvh; }
+.invite-dialog .dialog-content { padding: clamp(.75rem, 4vw, 1.15rem); gap: .7rem; }
+.invite-heading { display: flex; align-items: start; justify-content: space-between; gap: .5rem; }
+.invite-heading p { color: #dcc4a2; font-size: .8rem; margin-top: .28rem; overflow-wrap: anywhere; }
+.invite-heading button { flex: none; width: 2.5rem; height: 2.5rem; padding: 0; font-size: 1.3rem; }
+.challenge-scores { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .42rem; margin: 0; }
+.challenge-scores > div { display: grid; gap: .2rem; min-width: 0; padding: .55rem .63rem; border: 1px solid #685341; background: #29241f; }
+.challenge-scores > div:last-child { border-color: #527473; background: #1b282c; }
+.challenge-scores dt, .challenge-scores small { font-size: .72rem; color: #ddd0bc; overflow-wrap: anywhere; }
+.challenge-scores dd { margin: 0; font: 700 clamp(1.15rem, 4.5vw, 1.6rem) var(--mono-font); color: #ffe0ac; overflow-wrap: anywhere; }
+.challenge-scores > div:last-child dd { color: #bfe4de; }
+#challenge-status[data-reached=true] { color: #d1e8b1; }
+.challenge-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .37rem; }
+.challenge-actions button { min-height: 2.7rem; padding: .3rem .45rem; font-size: .8rem; }
+.challenge-actions .primary { grid-column: 1 / -1; background: #efbd73; border-color: #f6d59e; color: #281a0f; font-weight: 700; }
+.challenge-actions .primary:hover { background: #f8cc89; }
+#share-link { width: 100%; min-width: 0; min-height: 2.4rem; border: 1px solid #6a5846; border-radius: 4px; padding: .45rem .55rem; color: #e9ddc9; background: #11161d; font: .75rem var(--mono-font); }
+#share-status { color: #d5efbc; }
+
 .report-stats {
   display: flex;
   gap: 0.6rem;
