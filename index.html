@@ -100,6 +100,11 @@
           <button id="share-open" type="button" aria-haspopup="dialog">分享</button>
           <button id="inspect-jump" type="button" hidden>看词条</button>
         </div>
+        <div id="first-clear" class="first-clear" hidden>
+          <span id="first-clear-score"></span>
+          <button id="first-clear-supply" type="button"></button>
+          <button id="first-clear-close" type="button" aria-label="关闭首胜提示">×</button>
+        </div>
 
         <canvas id="arena" tabindex="0" aria-label="4×4 词条法阵棋盘与备战区。方向键选择格子，回车选中或放置，Delete 回收，Escape 取消。">此浏览器不支持 Canvas。</canvas>
 
@@ -316,25 +321,45 @@
       <dialog id="opening-dialog" class="opening-dialog-grand" aria-labelledby="opening-title">
         <div class="dialog-content">
           <div class="opening-hero-banner">
-            <div class="grand-seal">玄墨鎏金</div>
-            <h2 id="opening-title" class="opening-grand-title">四象入局 · 择道启阵</h2>
+            <h2 id="opening-title" class="opening-grand-title">挑一套开局</h2>
             <p id="opening-note" class="opening-grand-subtitle"></p>
           </div>
-          <div class="seed-input-row">
-            <label for="opening-seed">天机玄码：</label>
-            <input type="text" id="opening-seed" placeholder="可选，如 A7K9-M2P4" maxlength="12" spellcheck="false" autocomplete="off" />
-            <button type="button" id="random-seed">摇卦</button>
+          <div id="opening-choices" class="opening-choices-grid" role="group" aria-label="选择起手阵"></div>
+          <section id="opening-preview" class="opening-preview" aria-label="首波推演">
+            <div id="opening-board" class="opening-board" role="group" aria-label="点符文看首波表现"></div>
+            <div class="opening-preview-side">
+              <dl class="opening-preview-stats">
+                <div><dt>首波伤害</dt><dd id="opening-damage"></dd></div>
+                <div><dt>触发</dt><dd id="opening-combo"></dd></div>
+                <div><dt>起始金币</dt><dd id="opening-gold"></dd></div>
+              </dl>
+              <p id="opening-supply"></p>
+              <p id="opening-record" hidden></p>
+            </div>
+            <p id="opening-tip" aria-live="polite"></p>
+          </section>
+          <div id="opening-actions" class="opening-actions">
+            <button id="opening-quick" class="primary" type="button">开局并打首波</button>
+            <button id="opening-prepare" type="button">先布阵</button>
           </div>
-          <div id="opening-choices" class="opening-choices-grid"></div>
+          <details id="opening-settings" class="opening-settings">
+            <summary>种子码</summary>
+            <div class="seed-input-row">
+              <input type="text" id="opening-seed" aria-label="种子码" maxlength="12" spellcheck="false" autocomplete="off" />
+              <button type="button" id="random-seed">换一个</button>
+            </div>
+          </details>
           <div id="opening-confirm" class="opening-confirm" hidden>
             <p id="opening-warning" role="status"></p>
             <div class="dialog-actions">
-              <button id="opening-start" class="primary" type="button">立下誓约 · 启阵</button>
-              <button id="opening-back" type="button">再择良机</button>
+              <button id="opening-start" class="primary" type="button">确认开新局</button>
+              <button id="opening-back" type="button">返回选阵</button>
             </div>
           </div>
-          <button id="opening-daily" type="button" aria-haspopup="dialog">先玩一题每日残局</button>
-          <button id="opening-close" type="button" class="btn-subtle-close">守静笃行 · 回阵</button>
+          <div id="opening-extra" class="opening-extra">
+            <button id="opening-daily" type="button" aria-haspopup="dialog">先玩每日残局</button>
+            <button id="opening-close" type="button">回到当前局</button>
+          </div>
         </div>
       </dialog>
 

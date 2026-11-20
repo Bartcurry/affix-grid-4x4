@@ -16,6 +16,7 @@ import { bindDragDrop } from './render/dragDrop';
 import { bindUpgradeBook } from './render/upgradeBook';
 import { bindChallengeRoom, bindShareRoom } from './render/challengeRoom';
 import { bindDailyRoom } from './render/dailyRoom';
+import { renderOpeningPreview } from './render/openingPreview';
 import { PlaybackController } from './render/playbackController';
 import { SynthAudio } from './audio/synthAudio';
 import { WebMockAdapter } from './platform/webMockAdapter';
@@ -73,6 +74,7 @@ let victoryTimer: ReturnType<typeof setTimeout>;
 let ghostTimer: ReturnType<typeof setTimeout>;
 let dialogDismissible = false;
 let bossArmorHits = 0;
+let firstClearPayout: number | undefined;
 const states = new Map<number, RuneState>();
 const renderer = new CanvasRenderer(element('arena'), run, catalog);
 const undoStack = new UndoStack();
@@ -144,10 +146,11 @@ function iconPath(owner: HTMLElement, pathData: string) {
 }
 
 const emptyIcon = 'M16 3l13 13-13 13L3 16 16 3Zm0 6v14m-7-7h14';
-const daily = bindDailyRoom(catalog, (node, id) => iconPath(node, runeVectors[id] ?? emptyIcon), click);
+const runeGlyph = (node: HTMLElement, id: string) => iconPath(node, runeVectors[id] ?? emptyIcon);
+const daily = bindDailyRoom(catalog, runeGlyph, click);
 const openDaily = () => { if (phase === 'ARRANGE') { click(); daily.open(); } };
 button('daily-open').onclick = button('opening-daily').onclick = openDaily;
-const updateUpgrades = bindUpgradeBook(catalog, (owner, id) => iconPath(owner, runeVectors[id] ?? emptyIcon), formatNumber,
+const updateUpgrades = bindUpgradeBook(catalog, runeGlyph, formatNumber,
   id => { trackedUpgrade = id; click(); redraw(); },
   slot => { click(); select(slot); element('arena').focus(); },
   index => { click(); offers[index].preview.focus(); },
@@ -522,6 +525,24 @@ function buyOffer(index: number) {
   return true;
 }
 
+function showFirstClear() {
+  const banner = element('first-clear');
+  const supply = openings[run.opening].supply;
+  const stock = run.shop.findIndex(offer => offer?.configId === supply);
+  banner.hidden = firstClearPayout === undefined || run.wave !== 2 || stock < 0 || !arranging();
+  if (banner.hidden) return;
+  element('first-clear-score').textContent = `首波拿下 · +${firstClearPayout} 金`;
+  const action = button('first-clear-supply');
+  action.textContent = `补货 · ${catalog[supply].name}`;
+  action.onclick = () => { click(); offers[stock].preview.focus(); };
+}
+
+button('first-clear-close').onclick = () => {
+  click();
+  firstClearPayout = undefined;
+  showFirstClear();
+};
+
 function redraw(save = true) {
   if (arranging()) forecast = planTurn(run, catalog);
   placement = null;
@@ -594,6 +615,7 @@ function redraw(save = true) {
     buy.disabled = !arranging() || blocked !== null;
     buy.setAttribute('aria-label', config ? `购买 ${config.name}，${config.cost} 金${willMerge ? '，买入即可升星' : ''}` : '无库存');
   });
+  showFirstClear();
   if (save) persist();
 }
 
@@ -803,18 +825,23 @@ function recordRunHistory(runToRecord: Run) {
 }
 
 const openingDialog = element<HTMLDialogElement>('opening-dialog');
-let openingCandidate: OpeningId | null = null;
+const openingSeed = element<HTMLInputElement>('opening-seed');
+let fallbackOpeningSeed = initialSeed.code;
+let openingCandidate: OpeningId = 'chain';
+let openingReplacesRun = false;
+let openingQuick = false;
+const chosenSeed = () => openingSeed.value.trim() || fallbackOpeningSeed;
+const makeOpening = (id: OpeningId, seed: string) => newRun(catalog, createMulberry32(decodeSeed(seed)), id, seed);
 
-function startOpening(id: OpeningId, customSeed?: string) {
+function startOpening(id: OpeningId, customSeed?: string, quick = false) {
   if (run && (run.attempts > 0 || run.wave > 1)) {
     recordRunHistory(run);
   }
   if (openingDialog.open) openingDialog.close();
   if (dialog.open) dialog.close();
-  const seed = challenge?.seed || customSeed || element<HTMLInputElement>('opening-seed')?.value.trim() || undefined;
-  const initialPrng = createMulberry32(seed ? decodeSeed(seed) : 1);
-  run = newRun(catalog, initialPrng, challenge?.opening ?? id, seed);
+  run = makeOpening(challenge?.opening ?? id, challenge?.seed || customSeed || chosenSeed());
   trackedUpgrade = undefined;
+  firstClearPayout = undefined;
   undoStack.clear();
   renderer.setRun(run);
   renderer.cursor = null;
@@ -822,123 +849,90 @@ function startOpening(id: OpeningId, customSeed?: string) {
   select(null);
   for (const k of ['chain', 'poison', 'gold', 'amplify']) lastSynergyTiers[k] = 0;
   redraw();
-  element('battle').focus({ preventScroll: true });
   window.scrollTo({ top: 0 });
+  if (quick) {
+    element('arena').focus({ preventScroll: true });
+    void startBattle(true);
+  } else element('battle').focus({ preventScroll: true });
 }
 
-function resetOpeningChoice() {
-  openingCandidate = null;
-  element('opening-confirm').hidden = true;
-  element('opening-choices').hidden = false;
-  element('opening-close').hidden = false;
-  element('opening-daily').hidden = false;
+function openingConfirm(visible: boolean) {
+  element('opening-confirm').hidden = !visible;
+  for (const id of ['opening-choices', 'opening-preview', 'opening-actions', 'opening-settings', 'opening-extra']) element(id).hidden = visible;
+}
+
+const openingChoices = openingIds.map(id => {
+  const route = openings[id];
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.className = `opening-card-grand opening-${id}`;
+  const emblem = document.createElement('span');
+  emblem.className = 'opening-emblem-wrap';
+  iconPath(emblem, getArchetypeEmblemPath(id));
+  const name = document.createElement('strong');
+  name.textContent = `${route.name} · ${route.label}`;
+  const detail = document.createElement('span');
+  detail.textContent = route.play;
+  item.append(emblem, name, detail);
+  item.onclick = () => { click(); openingCandidate = id; showOpeningPreview(); };
+  return item;
+});
+element('opening-choices').replaceChildren(...openingChoices);
+
+function showOpeningPreview() {
+  for (const [index, id] of openingIds.entries()) openingChoices[index].setAttribute('aria-pressed', String(id === openingCandidate));
+  const sample = makeOpening(openingCandidate, chosenSeed());
+  renderOpeningPreview(element('opening-preview'), sample, catalog, records[openingCandidate], runeGlyph, formatNumber, click);
 }
 
 function openOpenings(first = false) {
-  resetOpeningChoice();
-  const replacing = run.status === 'active' && !first;
-  element('opening-note').textContent = replacing
-    ? '换开局会另开一局。现在这局的最高纪录会保留。'
+  openingCandidate = first ? 'chain' : run.opening;
+  openingReplacesRun = run.status === 'active' && !first;
+  openingConfirm(false);
+  fallbackOpeningSeed = generateSeedCode().code;
+  openingSeed.value = fallbackOpeningSeed;
+  element<HTMLDetailsElement>('opening-settings').open = false;
+  element('opening-note').textContent = openingReplacesRun ? '可以先试算起手阵。确认后才会开新局。'
     : first && invite !== null ? '这个邀请来自旧版或已失效。你可以选一套阵直接开局。'
     : first && dailyRequest !== null && !sharedDaily ? '这条每日链接已失效。可以直接玩今天的题。'
-    : '四套阵都能直接打第一波，后面怎么摆由你。';
-  button('opening-close').textContent = first ? '用借火开局' : '回到当前局';
+    : '点一套阵，看它怎么打首波。';
+  button('opening-close').hidden = first || run.status !== 'active';
   openingDialog.dataset.first = String(first);
-
-  const seedInput = element<HTMLInputElement>('opening-seed');
-  if (seedInput && !seedInput.value) {
-    seedInput.value = generateSeedCode().code;
-  }
-  const randomSeedBtn = button('random-seed');
-  if (randomSeedBtn) {
-    randomSeedBtn.onclick = () => {
-      click();
-      seedInput.value = generateSeedCode().code;
-    };
-  }
-
-  element('opening-choices').replaceChildren(...openingIds.map(id => {
-    const route = openings[id];
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.className = `opening-option opening-card-grand opening-${id}`;
-
-    const emblemWrap = document.createElement('div');
-    emblemWrap.className = 'opening-emblem-wrap';
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('viewBox', '0 0 32 32');
-    svg.setAttribute('aria-hidden', 'true');
-    svg.classList.add('opening-emblem-svg');
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', getArchetypeEmblemPath(id));
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', 'currentColor');
-    path.setAttribute('stroke-width', '2');
-    svg.append(path);
-    emblemWrap.append(svg);
-
-    const titleRow = document.createElement('div');
-    titleRow.className = 'opening-title-row';
-    const title = document.createElement('strong');
-    title.className = 'opening-title-text';
-    title.textContent = route.title;
-    const goldPill = document.createElement('span');
-    goldPill.className = 'opening-gold-pill';
-    goldPill.textContent = `${route.gold} 金起手`;
-    titleRow.append(title, goldPill);
-
-    const hook = document.createElement('div');
-    hook.className = 'opening-hook-text';
-    hook.textContent = route.slogan;
-
-    const pieces = document.createElement('div');
-    pieces.className = 'opening-pieces-row';
-    pieces.innerHTML = `<span class="pieces-tag">本命初始：</span>${route.pieces.map(([, configId]) => `<span class="rune-micro-pill">${catalog[configId].name}</span>`).join('')}`;
-
-    const note = document.createElement('p');
-    note.className = 'opening-note-text';
-    note.textContent = route.note;
-
-    item.append(emblemWrap, titleRow, hook, pieces, note);
-
-    const record = records[id];
-    if (record) {
-      const recordEl = document.createElement('small');
-      recordEl.className = 'opening-record-text';
-      recordEl.textContent = `最高纪录：打过 ${record.cleared} 波 · ${record.combo} 连击`;
-      item.append(recordEl);
-    }
-    item.onclick = () => {
-      click();
-      audio.singingBowl();
-      if (!replacing) { startOpening(id); return; }
-      openingCandidate = id;
-      element('opening-warning').textContent = `要以「${route.title}」重开吗？当前局的阵容、金币与遗物将归零。`;
-      element('opening-choices').hidden = true;
-      element('opening-close').hidden = true;
-      element('opening-daily').hidden = true;
-      element('opening-confirm').hidden = false;
-      button('opening-back').focus();
-    };
-    return item;
-  }));
+  showOpeningPreview();
   openingDialog.showModal();
+  button('opening-quick').focus({ preventScroll: true });
+  openingDialog.scrollTop = 0;
+}
+
+function chooseOpening(quick: boolean) {
+  click();
+  if (!openingReplacesRun) { startOpening(openingCandidate, chosenSeed(), quick); return; }
+  openingQuick = quick;
+  element('opening-warning').textContent = `要用「${openings[openingCandidate].name}」开新局吗？当前局会结束，最高纪录会保留。`;
+  button('opening-start').textContent = quick ? '确认开局并打首波' : '确认开新局';
+  openingConfirm(true);
+  button('opening-back').focus();
 }
 
 button('openings').onclick = () => {
   if (challenge && challengeEntered && phase === 'ARRANGE') { click(); showChallenge(challenge, run, false, false); }
   else if (arranging()) { click(); openOpenings(); }
 };
-button('opening-start').onclick = () => { if (openingCandidate) { click(); startOpening(openingCandidate); } };
-button('opening-back').onclick = () => { click(); resetOpeningChoice(); element('opening-choices').querySelector('button')?.focus(); };
-button('opening-close').onclick = () => {
-  if (openingDialog.dataset.first === 'true') startOpening('chain');
-  else openingDialog.close();
+button('opening-quick').onclick = () => chooseOpening(true);
+button('opening-prepare').onclick = () => chooseOpening(false);
+button('opening-start').onclick = () => { click(); startOpening(openingCandidate, chosenSeed(), openingQuick); };
+button('opening-back').onclick = () => { click(); openingConfirm(false); openingChoices[openingIds.indexOf(openingCandidate)].focus(); };
+button('opening-close').onclick = () => openingDialog.close();
+openingSeed.oninput = showOpeningPreview;
+button('random-seed').onclick = () => {
+  click();
+  openingSeed.value = generateSeedCode().code;
+  showOpeningPreview();
 };
 openingDialog.addEventListener('cancel', event => {
   if (openingDialog.dataset.first !== 'true') return;
   event.preventDefault();
-  startOpening('chain');
+  startOpening(openingCandidate, chosenSeed());
 });
 
 function showOutcome() {
@@ -1035,8 +1029,9 @@ function consume(event: BattleEvent) {
   updateHud();
 }
 
-button('battle').onclick = async () => {
+async function startBattle(quick = false) {
   if (!arranging()) return;
+  if (run.wave !== 1) firstClearPayout = undefined;
   undoStack.clear();
   click(); resetTimeline(); phase = 'PLAYBACK'; redraw(false);
   const battlePrng = createMulberry32(run.rngState);
@@ -1073,9 +1068,11 @@ button('battle').onclick = async () => {
     },
   });
   phase = 'ARRANGE'; states.clear(); renderer.clearEffects(); audio.finish(result.win);
+  const payout = victoryPayout(run, result.gold, catalog);
   const prng = createMulberry32(run.rngState);
   settleTurn(run, result, catalog, prng);
   run.rngState = prng.getState();
+  if (quick && result.win && run.wave === 2) firstClearPayout = payout.total;
   redraw();
   if (result.win && run.status === 'active' && !run.pendingRelics.length) {
     if (run.wave - 1 >= 20) {
@@ -1083,10 +1080,11 @@ button('battle').onclick = async () => {
     }
     renderer.waveComplete = true; renderer.invalidate();
     victoryTimer = setTimeout(() => { renderer.waveComplete = false; renderer.invalidate(); }, 1500);
-    notice(`打过第 ${run.wave - 1} 波 · ${formatNumber(result.damage)} 伤害 · 过关 +${victoryPayout(run, result.gold, catalog).total} 金`);
+    notice(`打过第 ${run.wave - 1} 波 · ${formatNumber(result.damage)} 伤害 · 过关 +${payout.total} 金`);
   }
   showOutcome();
-};
+}
+button('battle').onclick = () => { void startBattle(); };
 
 button('refresh').onclick = () => {
   if (!arranging()) return;

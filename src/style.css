@@ -1374,42 +1374,6 @@ dialog::backdrop {
   border-radius: 4px;
 }
 
-.opening-choices {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.opening-option {
-  --route-ink: #38bdf8;
-  display: flex;
-  flex-direction: column;
-  text-align: left;
-  gap: 0.18rem;
-  border-left: 3px solid var(--route-ink);
-  padding: 0.5rem 0.65rem;
-  background: var(--bg-card);
-}
-
-.opening-poison { --route-ink: var(--color-poison); }
-.opening-gold { --route-ink: var(--color-gold); }
-.opening-amplify { --route-ink: var(--color-amplify); }
-
-.opening-option strong {
-  color: var(--route-ink);
-  font-size: 0.88rem;
-}
-
-.opening-option span {
-  font-size: 0.76rem;
-  color: #cbd5e1;
-}
-
-.opening-option small {
-  color: var(--gold-bright);
-  font-size: 0.7rem;
-}
-
 .forecast-sources {
   list-style: none;
   padding: 0;
@@ -1899,36 +1863,15 @@ dialog::backdrop {
 
 /* ─── 挑选开局法阵 (Grand Opening Dialog) ─── */
 .opening-dialog-grand {
-  border: 2px solid var(--gold-primary);
-  border-radius: 8px;
-  box-shadow: 0 0 60px rgba(0, 0, 0, 0.9), inset 0 0 30px rgba(212, 175, 55, 0.15);
-  background: radial-gradient(circle at 50% 5%, #192030 0%, #080a0f 100%);
-  max-width: min(94vw, 40rem);
-  max-height: 90dvh;
+  width: min(30rem, calc(100% - 1.35rem));
+  max-height: 94dvh;
+  background: linear-gradient(150deg, #1d222d, #12171f 68%);
 }
+.opening-dialog-grand .dialog-content { padding: clamp(.64rem, 3vw, 1rem); gap: .47rem; }
 
 .opening-hero-banner {
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-  margin-bottom: 0.3rem;
-}
-
-.grand-seal {
-  display: inline-block;
-  font-family: var(--display-font);
-  font-size: 0.75rem;
-  font-weight: 900;
-  letter-spacing: 0.3em;
-  padding: 0.18rem 0.8rem;
-  border: 1.5px solid #cf222e;
-  color: #ff6b6b;
-  background: rgba(207, 34, 46, 0.12);
-  box-shadow: 0 0 10px rgba(207, 34, 46, 0.25);
-  border-radius: 3px;
-  margin-bottom: 0.15rem;
+  display: grid;
+  gap: .17rem;
 }
 
 .opening-grand-title {
@@ -1942,147 +1885,70 @@ dialog::backdrop {
 }
 
 .opening-grand-subtitle {
-  font-size: 0.8rem;
-  color: #94a3b8;
+  font-size: .77rem;
+  color: #cbd0d8;
   margin: 0;
 }
 
 .opening-choices-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 0.6rem;
-  max-height: 52dvh;
-  overflow-y: auto;
-  padding-right: 0.2rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .32rem;
 }
 
 .opening-card-grand {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: .1rem .36rem;
+  align-content: center;
+  min-height: 3rem;
+  min-width: 0;
   text-align: left;
-  padding: 0.75rem 0.85rem;
-  background: linear-gradient(135deg, rgba(24, 29, 42, 0.95) 0%, rgba(13, 16, 24, 0.95) 100%);
-  border: 1px solid var(--route-border, var(--gold-dark));
-  border-radius: 6px;
-  position: relative;
-  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.3, 1);
-  cursor: pointer;
+  padding: .26rem .38rem;
+  background: #171e28;
+  border: 1px solid #4e5663;
+  color: #e7e3dc;
 }
-
-.opening-card-grand:hover {
+.opening-card-grand:hover, .opening-card-grand[aria-pressed=true] {
   border-color: var(--route-ink);
-  box-shadow: 0 4px 18px var(--route-glow);
-  transform: translateY(-2px);
+  background: #26313c;
 }
-
-.opening-chain {
-  --route-ink: #38bdf8;
-  --route-border: rgba(56, 189, 248, 0.4);
-  --route-glow: rgba(56, 189, 248, 0.25);
-}
-
-.opening-poison {
-  --route-ink: #34d399;
-  --route-border: rgba(52, 211, 153, 0.4);
-  --route-glow: rgba(52, 211, 153, 0.25);
-}
-
-.opening-gold {
-  --route-ink: #f59e0b;
-  --route-border: rgba(245, 158, 11, 0.4);
-  --route-glow: rgba(245, 158, 11, 0.25);
-}
-
-.opening-amplify {
-  --route-ink: #f43f5e;
-  --route-border: rgba(244, 63, 94, 0.4);
-  --route-glow: rgba(244, 63, 94, 0.25);
-}
-
-.opening-emblem-wrap {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.6rem;
-  width: 2.2rem;
-  height: 2.2rem;
-  color: var(--route-ink);
-  opacity: 0.4;
-  transition: opacity 0.2s;
-}
-
-.opening-card-grand:hover .opening-emblem-wrap {
-  opacity: 0.9;
-  transform: scale(1.08);
-}
-
-.opening-emblem-svg {
-  width: 100%;
-  height: 100%;
-}
-
-.opening-title-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.opening-title-text {
-  font-family: var(--display-font);
-  font-size: 0.96rem;
-  font-weight: 800;
-  color: var(--route-ink);
-}
-
-.opening-gold-pill {
-  font-size: 0.66rem;
-  font-weight: 700;
-  color: var(--gold-bright);
-  background: rgba(212, 175, 55, 0.15);
-  border: 1px solid rgba(212, 175, 55, 0.35);
-  padding: 0.08rem 0.35rem;
-  border-radius: 3px;
-}
-
-.opening-hook-text {
-  font-size: 0.76rem;
-  font-weight: 700;
-  color: #fde047;
-  letter-spacing: 0.02em;
-}
-
-.opening-pieces-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.72rem;
-}
-
-.pieces-tag {
-  color: #94a3b8;
-}
-
-.rune-micro-pill {
-  background: var(--bg-deep);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 3px;
-  padding: 0.05rem 0.3rem;
-  color: #f1ece1;
-}
-
-.opening-note-text {
-  font-size: 0.72rem;
-  color: #94a3b8;
-  line-height: 1.35;
-  margin: 0;
-}
-
-.opening-record-text {
-  font-size: 0.68rem;
-  color: var(--gold-bright);
-  font-family: var(--mono-font);
-}
+.opening-card-grand[aria-pressed=true] { box-shadow: inset 0 0 0 1px var(--route-ink); }
+.opening-chain { --route-ink: #82cce9; }
+.opening-poison { --route-ink: #96d9aa; }
+.opening-gold { --route-ink: #e8bb72; }
+.opening-amplify { --route-ink: #e4a7c2; }
+.opening-card-grand strong { font-size: .78rem; color: var(--route-ink); }
+.opening-card-grand span:last-child { font-size: .66rem; color: #c0c9d4; }
+.opening-emblem-wrap { grid-row: span 2; align-self: center; display: grid; place-items: center; color: var(--route-ink); }
+.opening-emblem-wrap svg { width: 1.28rem; height: 1.28rem; }
+.opening-preview { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); gap: .46rem; padding: .55rem; border: 1px solid #665946; background: linear-gradient(135deg, #282524, #181d25 72%); }
+.opening-board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .13rem; width: min(100%, 10rem); align-self: start; }
+.opening-board > * { display: grid; place-items: center; min-width: 0; min-height: 0; aspect-ratio: 1; padding: 0; border: 1px solid #3c4148; border-radius: 3px; background: #161b23; }
+.opening-board button { color: var(--opening-glyph); border-color: #626e73; background: #252e36; }
+.opening-board button[aria-pressed=true] { border-color: #efc280; background: #3d3027; }
+.opening-board [data-link] { border-color: #96d6c4; background: #243732; }
+.opening-board svg { width: 62%; height: 62%; }
+.opening-preview-side { display: grid; align-content: center; gap: .31rem; min-width: 0; }
+.opening-preview-stats { margin: 0; display: grid; gap: .23rem; }
+.opening-preview-stats > div { display: flex; justify-content: space-between; gap: .24rem; align-items: baseline; }
+.opening-preview-stats dt, #opening-supply, #opening-record { margin: 0; color: #c9c6c0; font-size: .7rem; }
+.opening-preview-stats dd { margin: 0; color: #f4dfbc; font: 700 .84rem var(--mono-font); text-align: right; }
+#opening-damage[data-win=true] { color: #cce5af; }
+#opening-supply { color: #e7c893; }
+#opening-tip { grid-column: 1 / -1; margin: 0; min-height: 2.6em; color: #e0d8cc; font-size: .75rem; line-height: 1.36; }
+.opening-actions { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: .34rem; }
+.opening-actions button { min-height: 2.7rem; padding: .3rem .36rem; font-size: .81rem; }
+.opening-actions .primary { background: #efbd77; border-color: #f6d298; color: #271a10; font-weight: 750; }
+.opening-actions .primary:hover { background: #f9ce8d; }
+.opening-settings { border-bottom: 1px solid #40362d; }
+.opening-settings summary { padding: .43rem .24rem; color: #c9c2b6; cursor: pointer; font-size: .75rem; }
+.opening-settings .seed-input-row { margin: 0 0 .4rem; }
+.opening-extra { display: flex; gap: .33rem; }
+.opening-extra > button { flex: 1; min-height: 2.35rem; padding: .22rem; font-size: .75rem; }
+.first-clear { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .25rem .4rem; width: var(--canvas-width, 100%); max-width: 100%; flex-shrink: 0; padding: .25rem .42rem; border: 1px solid #a78756; border-radius: 4px; background: #2b2820; color: #f2cf95; font-size: .73rem; }
+.first-clear > span { flex: 1; font-weight: 700; }
+.first-clear button { min-height: 1.95rem; padding: .12rem .32rem; font-size: .71rem; }
 
 /* ─── 朱砂印章「破阵！」与功勋阵眼 (Vermilion Stamp & MVP) ─── */
 .panel-stamp-wrap {
