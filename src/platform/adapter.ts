@@ -12,6 +12,8 @@ export interface RunArchive {
   date: string;
   relicsCount: number;
   altarRule?: 1;
+  bountyRule?: 1;
+  bountiesCleared?: number;
 }
 
 export interface SaveData {

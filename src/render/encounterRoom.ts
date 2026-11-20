@@ -1,5 +1,5 @@
-import { bossHealth } from '../core/battleEngine';
-import { affixAt, encounterAt, encounters } from '../core/expedition';
+import { battleTarget, bountyWaves } from '../core/bounties';
+import { affixAt, encounters } from '../core/expedition';
 import { planTurn } from '../core/tactics';
 import type { Catalog, Run } from '../core/types';
 import { formatNumber as format } from './canvasRenderer';
@@ -16,16 +16,18 @@ export function bindEncounterRoom(catalog: Catalog, click: () => void, trial: (w
   let canTry: boolean;
 
   function draw() {
-    const encounter = encounterAt(selected);
+    const selectedRoute = selected === run.wave ? run.bountyRoute : undefined;
+    const { encounter, hp, bounty } = battleTarget(selected, selectedRoute);
     const { name, trait, tip } = encounters[encounter];
     const affix = affixAt(selected);
     const milestone = selected % 4 === 0 && selected !== 20;
+    const bountyWave = run.bountyRule && bountyWaves.includes(selected);
     get('detail').dataset.enemy = encounter;
     dialog.querySelector('#encounter-icon')?.setAttribute('d', getBossSvgPath(encounter));
-    get('step').textContent = `第 ${format(selected)} 波${selected === run.wave ? ' · 当前' : ''}${milestone ? ' · 遗物节点' : ''}`;
+    get('step').textContent = `第 ${format(selected)} 波${selected === run.wave ? ' · 当前' : ''}${milestone ? ' · 遗物节点' : ''}${bountyWave ? ' · 悬赏节点' : ''}`;
     get('name').textContent = name;
-    get('hp').textContent = `${format(bossHealth(selected))} 生命`;
-    get('trait').textContent = trait;
+    get('hp').textContent = `${format(hp)} 生命`;
+    get('trait').textContent = bounty ? `${bounty.name} · ${trait}` : trait;
     get('tip').textContent = tip;
     get('affix').hidden = !affix;
     get('affix').textContent = affix ? `${affix.name} · ${affix.desc}` : '';
@@ -33,7 +35,7 @@ export function bindEncounterRoom(catalog: Catalog, click: () => void, trial: (w
     const preview = get('preview');
     preview.hidden = !canTry;
     if (!canTry) return;
-    const { result, enemyDelta } = planTurn({ ...run, wave: selected }, catalog);
+    const { result, enemyDelta } = planTurn({ ...run, wave: selected, bountyRoute: selectedRoute }, catalog);
     get('score').textContent = `${format(result.damage)} 伤害 · ${result.win ? '可击破' : `还差 ${format(result.hp)}`}`;
     get('score').dataset.win = String(result.win);
     const impact = get('impact');
@@ -45,14 +47,15 @@ export function bindEncounterRoom(catalog: Catalog, click: () => void, trial: (w
 
   function waveOption(wave: number) {
     const label = document.createElement('label');
-    label.dataset.enemy = encounterAt(wave);
+    const { encounter } = battleTarget(wave, wave === run.wave ? run.bountyRoute : undefined);
+    label.dataset.enemy = encounter;
     label.dataset.state = wave === run.wave ? 'current' : wave < run.wave ? 'cleared' : 'ahead';
     const radio = document.createElement('input');
     radio.type = 'radio';
     radio.name = 'encounter-wave';
     radio.value = String(wave);
     radio.checked = wave === selected;
-    radio.setAttribute('aria-label', `第 ${format(wave)} 波 ${encounters[encounterAt(wave)].name}${wave === run.wave ? ' 当前波次' : ''}`);
+    radio.setAttribute('aria-label', `第 ${format(wave)} 波 ${encounters[encounter].name}${wave === run.wave ? ' 当前波次' : ''}`);
     radio.onchange = () => {
       click();
       selected = wave;

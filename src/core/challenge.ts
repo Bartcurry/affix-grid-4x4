@@ -5,29 +5,32 @@ import type { OpeningId, Run } from './types';
 export const challengeParam = 'challenge';
 const legacyVersion = 'v7';
 const altarVersion = 'v8';
+const bountyVersion = 'v9';
 
 export interface Challenge extends OpeningRecord {
   opening: OpeningId;
   seed: string;
   altarRule?: 1;
+  bountyRule?: 1;
 }
 
-const version = (challenge: Challenge) => challenge.altarRule === 1 ? altarVersion : legacyVersion;
+const version = (challenge: Challenge) => challenge.bountyRule === 1 ? bountyVersion : challenge.altarRule === 1 ? altarVersion : legacyVersion;
 
 export function challengeFromRun(run: Run): Challenge {
   return { opening: run.opening, seed: encodeSeed(decodeSeed(run.seed)), ...runScore(run),
-    ...(run.altarRule === 1 ? { altarRule: 1 } : {}) };
+    ...(run.altarRule === 1 ? { altarRule: 1 } : {}), ...(run.bountyRule === 1 ? { bountyRule: 1 } : {}) };
 }
 
 export function readChallenge(raw: string | null): Challenge | undefined {
   if (!raw || raw.length > 64) return;
   const [revision, opening, seed, waves, combo, ...remainder] = raw.split('.');
-  if ((revision !== legacyVersion && revision !== altarVersion) || remainder.length || !isOpening(opening) ||
+  if ((revision !== legacyVersion && revision !== altarVersion && revision !== bountyVersion) || remainder.length || !isOpening(opening) ||
       !/^[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/.test(seed) || seed !== encodeSeed(decodeSeed(seed)) ||
       !/^\d+$/.test(waves) || !/^\d+$/.test(combo)) return;
   const score = { cleared: Number(waves), combo: Number(combo) };
   if (!Number.isSafeInteger(score.cleared) || !Number.isSafeInteger(score.combo)) return;
-  return { opening, seed, ...score, ...(revision === altarVersion ? { altarRule: 1 } : {}) };
+  return { opening, seed, ...score, ...(revision !== legacyVersion ? { altarRule: 1 } : {}),
+    ...(revision === bountyVersion ? { bountyRule: 1 } : {}) };
 }
 
 export function challengeUrl(page: string, challenge: Challenge): string {
@@ -44,6 +47,7 @@ export function challengeSaveKey(challenge: Challenge) {
 
 export function matchesChallenge(run: Run, challenge: Challenge) {
   return run.enableSynergies !== false && run.opening === challenge.opening && run.altarRule === challenge.altarRule &&
+    run.bountyRule === challenge.bountyRule &&
     encodeSeed(decodeSeed(run.seed)) === challenge.seed;
 }
 

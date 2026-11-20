@@ -118,6 +118,9 @@
           <button id="first-clear-supply" type="button"></button>
           <button id="first-clear-close" type="button" aria-label="关闭首胜提示">×</button>
         </div>
+        <button class="bounty-open" id="bounty-open" type="button" aria-haspopup="dialog" hidden>
+          <strong>悬赏路线</strong><span id="bounty-current"></span><span aria-hidden="true">›</span>
+        </button>
 
         <canvas id="arena" tabindex="0" aria-label="4×4 词条法阵棋盘与备战区。方向键选择格子，回车选中或放置，Delete 回收，Escape 取消。">此浏览器不支持 Canvas。</canvas>
 
@@ -396,6 +399,17 @@
             <button id="retry-try" class="primary" type="button" aria-haspopup="dialog">先试改阵</button>
           </section>
           <div id="panel-actions" class="dialog-actions"></div>
+        </div>
+      </dialog>
+
+      <dialog id="bounty-dialog" aria-labelledby="bounty-title">
+        <div class="dialog-content bounty-room">
+          <header class="bounty-header">
+            <div><p id="bounty-wave"></p><h2 id="bounty-title">选一条路</h2></div>
+            <button id="bounty-close" type="button" aria-label="关闭悬赏路线">×</button>
+          </header>
+          <div id="bounty-options" class="bounty-options" role="group" aria-label="比较本波路线"></div>
+          <button id="bounty-confirm" type="button" class="primary" disabled></button>
         </div>
       </dialog>
 

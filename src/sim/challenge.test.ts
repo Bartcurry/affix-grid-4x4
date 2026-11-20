@@ -24,11 +24,18 @@ describe('same-seed challenges', () => {
     expect(challengeSaveKey(score)).toBe(challengeSaveKey({ ...score, cleared: 50 }));
     expect(challengeSaveKey(score)).not.toBe(challengeSaveKey({ ...score, opening: 'poison' }));
     const previous = readChallenge(`v7.gold.${score.seed}.6.22`)!;
+    const altar = readChallenge(`v8.gold.${score.seed}.6.22`)!;
     expect(previous.altarRule).toBeUndefined();
     expect(invite?.altarRule).toBe(1);
+    expect(invite?.bountyRule).toBe(1);
+    expect(altar.altarRule).toBe(1);
+    expect(altar.bountyRule).toBeUndefined();
     expect(matchesChallenge(host, previous)).toBe(false);
-    expect(matchesChallenge({ ...host, altarRule: undefined }, previous)).toBe(true);
+    expect(matchesChallenge({ ...host, altarRule: undefined, bountyRule: undefined }, previous)).toBe(true);
+    expect(matchesChallenge(host, altar)).toBe(false);
+    expect(matchesChallenge({ ...host, bountyRule: undefined }, altar)).toBe(true);
     expect(challengeSaveKey(previous)).not.toBe(challengeSaveKey(score));
+    expect(challengeSaveKey(altar)).not.toBe(challengeSaveKey(score));
   });
 
   it('rejects old, malformed and oversized scores and ranks waves before combo', () => {

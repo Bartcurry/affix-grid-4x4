@@ -1,4 +1,5 @@
 import { BENCH_SIZE, generateTileModifiers, newRun, SHOP_SIZE } from '../core/shopEngine';
+import { bountyAt, bountyCount } from '../core/bounties';
 import { CELL_COUNT } from '../core/grid';
 import { readJournal } from '../core/journal';
 import { relics } from '../core/expedition';
@@ -58,6 +59,8 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
         date: typeof item.date === 'string' ? item.date : new Date().toLocaleDateString('zh-CN'),
         relicsCount: natural(item.relicsCount) ? item.relicsCount : 0,
         ...(item.altarRule === 1 ? { altarRule: 1 as const } : {}),
+        ...(item.altarRule === 1 && item.bountyRule === 1 ? { bountyRule: 1 as const } : {}),
+        ...(natural(item.bountiesCleared) && item.bountiesCleared <= bountyCount ? { bountiesCleared: item.bountiesCleared } : {}),
       }));
   };
 
@@ -119,6 +122,8 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       ? rawRun.pendingRelics.filter((id: any) => typeof id === 'string' && Object.hasOwn(relics, id))
       : [];
     const journal = readJournal(rawRun.lastJournal, catalog);
+    const bountyRule = rawRun.altarRule === 1 && rawRun.bountyRule === 1;
+    const bountyRoute = bountyRule && !rawRun.endless && bountyAt(wave, rawRun.bountyRoute) ? rawRun.bountyRoute : undefined;
 
     const migratedRun: Run = {
       seed,
@@ -144,6 +149,9 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       pendingRelics: pendingRelicsList,
       enableSynergies: rawRun.enableSynergies !== false,
       ...(rawRun.altarRule === 1 ? { altarRule: 1 } : {}),
+      ...(bountyRule ? { bountyRule: 1 } : {}),
+      ...(bountyRoute ? { bountyRoute } : {}),
+      ...(bountyRule && natural(rawRun.bountiesCleared) && rawRun.bountiesCleared <= bountyCount ? { bountiesCleared: rawRun.bountiesCleared } : {}),
       ...(Array.isArray(rawRun.lastCellDamage) && rawRun.lastCellDamage.length === CELL_COUNT && rawRun.lastCellDamage.every(damageCount)
         ? { lastCellDamage: rawRun.lastCellDamage } : {}),
       ...(journal ? { lastJournal: journal } : {}),

@@ -1,4 +1,4 @@
-import { bossHealth } from '../core/battleEngine';
+import { battleTarget } from '../core/bounties';
 import { runeAt } from '../core/shopEngine';
 import { runeFootprint } from '../core/tactics';
 import type { BattleEvent, Catalog, Rune, Run, RuneState, Slot } from '../core/types';
@@ -268,7 +268,7 @@ export class CanvasRenderer {
           this.shakeAt = at;
           this.spawnCritSparks(anchor(event.source));
         }
-        const maxHp = Math.max(1, bossHealth(this.run.wave));
+        const maxHp = battleTarget(this.run.wave, this.run.bountyRoute).hp;
         const dmgRatio = event.amount / maxHp;
         const isPoison = event.kind === 'poison';
         if (isPoison) {

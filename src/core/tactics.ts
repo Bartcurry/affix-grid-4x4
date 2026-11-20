@@ -1,5 +1,6 @@
-import { bossHealth, simulateBattle } from './battleEngine';
-import { affixAt, encounterAt } from './expedition';
+import { simulateBattle } from './battleEngine';
+import { battleTarget } from './bounties';
+import { affixAt } from './expedition';
 import { resolveTargets } from './grid';
 import { runeAt } from './shopEngine';
 import type { Catalog, RuneConfig, Run, Scope, Slot } from './types';
@@ -9,14 +10,15 @@ export function usesTutorial(run: Pick<Run, 'wave' | 'board' | 'opening'>) {
 }
 
 type BattleSetup = Pick<Run, 'wave' | 'board' | 'gold' | 'relics' | 'opening' | 'tileModifiers' | 'shield' | 'rngState'> &
-  Partial<Pick<Run, 'bench' | 'enableSynergies'>>;
+  Partial<Pick<Run, 'bench' | 'enableSynergies' | 'bountyRoute'>>;
 
 function battleInput(run: BattleSetup) {
+  const { hp, encounter } = battleTarget(run.wave, run.bountyRoute);
   return {
     board: run.board.map(rune => rune ? { ...rune } : null), bench: run.bench,
-    hp: bossHealth(run.wave), gold: run.gold, shield: run.shield ?? 3,
+    hp, gold: run.gold, shield: run.shield ?? 3,
     seed: Number.isSafeInteger(run.rngState) && run.rngState > 0 ? run.rngState : 1,
-    tutorial: usesTutorial(run), encounter: encounterAt(run.wave), affix: affixAt(run.wave)?.id,
+    tutorial: usesTutorial(run), encounter, affix: affixAt(run.wave)?.id,
     relics: run.relics, tileModifiers: run.tileModifiers, enableSynergies: run.enableSynergies ?? true,
   };
 }

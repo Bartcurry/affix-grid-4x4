@@ -1,14 +1,22 @@
 import { CELL_COUNT } from './grid';
+import { bountyAt, bountyPerkUnavailable, bountyRefreshes, engravingCell, engravingPower, offersBounties } from './bounties';
 import { relicChoices } from './expedition';
 import { openings } from './openings';
 import { countSynergies } from './synergy';
 import { createMulberry32, decodeSeed, encodeSeed, type PRNG } from './rng';
-import type { Archetype, Catalog, Offer, OpeningId, Random, Rarity, RelicId, Run, Rune, Slot, Slots, Star, TileModifierMap, TurnResult } from './types';
+import type { Archetype, BountyRoute, Catalog, Offer, OpeningId, Random, Rarity, RelicId, Run, Rune, Slot, Slots, Star, TileModifierMap, TurnResult } from './types';
 
 export const BENCH_SIZE = 4;
 export const SHOP_SIZE = 3;
 export const REFRESH_COST = 2;
 export const canArrange = (run: Run) => run.status === 'active' && !run.pendingLoss && !run.pendingRelics.length;
+
+export function selectBounty(run: Run, route?: BountyRoute) {
+  if (!canArrange(run) || !offersBounties(run) || route === run.bountyRoute ||
+    (route !== undefined && !bountyAt(run.wave, route))) return false;
+  run.bountyRoute = route;
+  return true;
+}
 
 export function rarityOdds(wave: number): Record<Rarity, number> {
   return wave <= 4 ? { common: 0.75, rare: 0.22, epic: 0.03 }
@@ -104,6 +112,7 @@ export function newRun(catalog: Catalog, rng: Random, opening: OpeningId = 'chai
     pendingRelics: [],
     enableSynergies: true,
     altarRule: 1,
+    bountyRule: 1,
   };
   for (const [index, configId] of setup.pieces) run.board[index] = { configId, star: 1 };
   rollShop(run, catalog, effectiveRng);
@@ -224,16 +233,26 @@ export function settleTurn(run: Run, result: TurnResult, catalog: Catalog, rng: 
   run.bestCombo = Math.max(run.bestCombo, result.combo);
   run.attempts++;
   if (!result.win) { run.pendingLoss = true; return; }
-  run.gold += victoryPayout(run, result.gold, catalog).total;
+  const payout = victoryPayout(run, result.gold, catalog);
+  run.gold += payout.total;
+  if (payout.bounty) run.bountiesCleared = (run.bountiesCleared ?? 0) + 1;
+  if (payout.perk === 'repair') run.shield++;
+  if (payout.perk === 'engrave') {
+    const rune = run.board[engravingCell]!;
+    run.board[engravingCell] = { ...rune, bonusPower: (rune.bonusPower ?? 0) + engravingPower };
+  }
   if (run.wave === 20 && !run.endless) run.status = 'victory';
   else {
     const choices = relicChoices(run.wave, run.relics, run.altarRule === 1 ? decodeSeed(run.seed) : undefined);
     advanceWave(run, catalog, rng);
+    if (payout.perk === 'refresh') run.freeRefreshes += bountyRefreshes;
     run.pendingRelics = choices;
   }
 }
 
-export function victoryPayout(run: Pick<Run, 'relics'> & { board?: Slots; enableSynergies?: boolean }, goldAfterBattle: number, catalog?: Catalog) {
+export function victoryPayout(run: Pick<Run, 'relics'> &
+  Partial<Pick<Run, 'board' | 'enableSynergies' | 'wave' | 'shield' | 'bountyRule' | 'bountyRoute' | 'endless'>>,
+  goldAfterBattle: number, catalog?: Catalog) {
   const base = 8;
   let interestDivisor = 10;
   if (run.enableSynergies && run.board && catalog) {
@@ -242,7 +261,10 @@ export function victoryPayout(run: Pick<Run, 'relics'> & { board?: Slots; enable
   }
   const interest = Math.min(5, Math.floor(goldAfterBattle / interestDivisor));
   const relic = run.relics.includes('gate_tithe') ? 4 : 0;
-  return { base, interest, relic, total: base + interest + relic };
+  const reward = run.bountyRule === 1 && !run.endless && run.wave !== undefined ? bountyAt(run.wave, run.bountyRoute) : undefined;
+  const bounty = reward?.gold ?? 0;
+  const perk = reward?.perk && !bountyPerkUnavailable(reward.perk, run) ? reward.perk : undefined;
+  return { base, interest, relic, ...(bounty ? { bounty } : {}), ...(perk ? { perk } : {}), total: base + interest + relic + bounty };
 }
 
 export function chooseRelic(run: Run, choice: RelicId): boolean {
@@ -256,6 +278,7 @@ export function chooseRelic(run: Run, choice: RelicId): boolean {
 
 function advanceWave(run: Run, catalog: Catalog, rng: Random) {
   run.wave++;
+  delete run.bountyRoute;
   run.attempts = 0;
   run.freeRefreshes = 1;
   if (run.relics.includes('jade_abacus')) {
@@ -295,6 +318,7 @@ export interface RunSnapshot {
   shopFocus: Archetype | 'any';
   rngState: number;
   enableSynergies?: boolean;
+  bountyRoute?: BountyRoute;
   lastCellDamage?: number[];
 }
 
@@ -308,6 +332,7 @@ export function createSnapshot(run: Run): RunSnapshot {
     shopFocus: run.shopFocus,
     rngState: run.rngState,
     enableSynergies: run.enableSynergies,
+    bountyRoute: run.bountyRoute,
     lastCellDamage: run.lastCellDamage ? [...run.lastCellDamage] : undefined,
   };
 }
@@ -321,6 +346,7 @@ export function restoreSnapshot(run: Run, snapshot: RunSnapshot): void {
   run.shopFocus = snapshot.shopFocus;
   run.rngState = snapshot.rngState;
   run.enableSynergies = snapshot.enableSynergies;
+  run.bountyRoute = snapshot.bountyRoute;
   run.lastCellDamage = snapshot.lastCellDamage ? [...snapshot.lastCellDamage] : undefined;
 }
 

@@ -1,11 +1,13 @@
 import { relics } from './expedition';
+import { bountyAt } from './bounties';
 import { CELL_COUNT } from './grid';
 import { isOpening } from './openings';
 import { BENCH_SIZE } from './shopEngine';
-import type { Catalog, RelicId, Run, Rune, Slots, TileModifier, TileModifierMap } from './types';
+import type { BountyRoute, Catalog, RelicId, Run, Rune, Slots, TileModifier, TileModifierMap } from './types';
 
 export const boardShareParam = 'board';
 const revision = 's3';
+const bountyRevision = 's4';
 const tileTypes = new Set<TileModifier>(['li_fire', 'xuan_ice', 'spirit_gathering']);
 const maxTokenLength = 2590;
 const tuple = (rune: Rune | null) => rune ? [rune.configId, rune.star, rune.bonusPower ?? 0] : null;
@@ -13,13 +15,13 @@ const integer = (value: unknown, min: number, max = Number.MAX_SAFE_INTEGER): va
   typeof value === 'number' && Number.isSafeInteger(value) && value >= min && value <= max;
 
 export type SharedBoard = Pick<Run, 'opening' | 'wave' | 'gold' | 'shield' | 'board' | 'bench' |
-  'rngState' | 'relics' | 'tileModifiers' | 'enableSynergies'>;
+  'rngState' | 'relics' | 'tileModifiers' | 'enableSynergies' | 'bountyRoute'>;
 
 const pieceKey = (piece: Rune | null) => JSON.stringify(tuple(piece));
 
 export function sameBattleSetup(a: SharedBoard, b: SharedBoard) {
   return a.wave === b.wave && a.gold === b.gold && a.shield === b.shield && a.rngState === b.rngState &&
-    a.opening === b.opening && (a.enableSynergies !== false) === (b.enableSynergies !== false) &&
+    a.opening === b.opening && a.bountyRoute === b.bountyRoute && (a.enableSynergies !== false) === (b.enableSynergies !== false) &&
     [...a.relics].sort().join('|') === [...b.relics].sort().join('|') &&
     a.board.every((_, index) => a.tileModifiers[index] === b.tileModifiers[index]) &&
     [...a.board, ...a.bench].map(pieceKey).sort().join('|') === [...b.board, ...b.bench].map(pieceKey).sort().join('|');
@@ -32,8 +34,10 @@ export function sameFormation(a: SharedBoard, b: SharedBoard) {
 
 export function encodeBoardToken(run: SharedBoard) {
   try {
-    const raw = [revision, run.opening, run.wave, run.gold, run.shield, run.rngState, run.enableSynergies !== false, run.relics,
-      Object.entries(run.tileModifiers).map(([index, tile]) => [Number(index), tile]), run.board.map(tuple), run.bench.map(tuple)];
+    const route = run.bountyRoute;
+    const raw = [route ? bountyRevision : revision, run.opening, run.wave, run.gold, run.shield, run.rngState, run.enableSynergies !== false, run.relics,
+      Object.entries(run.tileModifiers).map(([index, tile]) => [Number(index), tile]), run.board.map(tuple), run.bench.map(tuple),
+      ...(route ? [route] : [])];
     const token = btoa(JSON.stringify(raw)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
     return token.length <= maxTokenLength ? token : undefined;
   } catch {
@@ -56,9 +60,11 @@ export function readSharedBoard(token: string | null, catalog: Catalog, allowEmp
   if (!token || token.length > maxTokenLength || !/^[A-Za-z0-9_-]+$/.test(token)) return;
   try {
     const raw: unknown = JSON.parse(atob(token.replaceAll('-', '+').replaceAll('_', '/')));
-    if (!Array.isArray(raw) || raw.length !== 11) return;
-    const [version, opening, wave, gold, shield, rngState, enableSynergies, owned, tiles, rawBoard, rawBench] = raw;
-    if (version !== revision || !isOpening(opening) || !integer(wave, 1) || !integer(gold, 0) || !integer(shield, 0, 3) ||
+    if (!Array.isArray(raw)) return;
+    const [version, opening, wave, gold, shield, rngState, enableSynergies, owned, tiles, rawBoard, rawBench, route] = raw;
+    const standard = version === revision && raw.length === 11;
+    const bounty = version === bountyRevision && raw.length === 12 && bountyAt(wave, route);
+    if ((!standard && !bounty) || !isOpening(opening) || !integer(wave, 1) || !integer(gold, 0) || !integer(shield, 0, 3) ||
       !integer(rngState, 0, 0xffffffff) || typeof enableSynergies !== 'boolean' ||
       !Array.isArray(owned) || owned.length > Object.keys(relics).length || new Set(owned).size !== owned.length ||
       !owned.every(id => typeof id === 'string' && Object.hasOwn(relics, id)) ||
@@ -72,7 +78,8 @@ export function readSharedBoard(token: string | null, catalog: Catalog, allowEmp
     const board = readSlots(rawBoard, CELL_COUNT, catalog);
     const bench = readSlots(rawBench, BENCH_SIZE, catalog);
     if (!board || !bench || (!allowEmpty && !board.some(Boolean) && !bench.some(Boolean))) return;
-    return { opening, wave, gold, shield, rngState, enableSynergies, relics: owned as RelicId[], tileModifiers, board, bench };
+    return { opening, wave, gold, shield, rngState, enableSynergies, relics: owned as RelicId[], tileModifiers, board, bench,
+      ...(bounty ? { bountyRoute: route as BountyRoute } : {}) };
   } catch {
     return;
   }

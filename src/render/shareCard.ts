@@ -1,4 +1,5 @@
 import { readSharedBoard } from '../core/boardShare';
+import { bountyAt } from '../core/bounties';
 import { damageLeaders } from '../core/journal';
 import { openings, runScore } from '../core/openings';
 import type { Catalog, Run, Slots, TileModifierMap } from '../core/types';
@@ -131,7 +132,9 @@ export function renderScoreCard(canvas: HTMLCanvasElement, run: Run, catalog: Ca
   });
   rule(56, 343, 608);
 
-  print(snapshot ? `第 ${formatNumber(snapshot.wave)} 波阵容` : '存档阵容', 57, 388, 27, paper, 700);
+  const bounty = snapshot && bountyAt(snapshot.wave, snapshot.bountyRoute);
+  print(snapshot ? `第 ${formatNumber(snapshot.wave)} 波阵容${bounty ? ` · ${bounty.name}` : ''}` : '存档阵容',
+    57, 388, 27, paper, 700, sans, 386);
   drawShareBoard(ctx, board, snapshot?.tileModifiers ?? run.tileModifiers, catalog, 56, 410, 386,
     typeof leadingSource === 'number' ? leadingSource : undefined);
   print('末战输出', 468, 388, 24, paper, 700);

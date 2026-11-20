@@ -1494,6 +1494,55 @@ dialog::backdrop {
   background: linear-gradient(145deg, #20202a, #121318 64%);
 }
 
+.bounty-open {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  gap: .38rem;
+  flex-shrink: 0;
+  min-height: 1.56rem;
+  margin: .12rem .35rem 0;
+  padding: .13rem .38rem;
+  border-color: #a77e50;
+  background: #2f2520;
+  color: #f1cc93;
+  font-size: .69rem;
+  text-align: left;
+}
+.bounty-open span:first-of-type { flex: 1; color: #e3ceb0; }
+#bounty-dialog {
+  width: min(28rem, calc(100% - 1.2rem));
+  max-height: 94dvh;
+  border-color: #ae8551;
+  background: linear-gradient(147deg, #29232d, #11141c 67%);
+}
+.bounty-room { padding: clamp(.66rem, 3.7vw, 1.1rem); gap: .63rem; }
+.bounty-header { display: flex; justify-content: space-between; align-items: center; gap: .4rem; }
+.bounty-header h2 { color: #f1d29e; }
+#bounty-wave { color: #c9af89; font-size: .72rem; }
+#bounty-close { width: 2.2rem; min-height: 2.2rem; padding: 0; font-size: 1.35rem; }
+.bounty-options { display: grid; gap: .35rem; }
+.bounty-options button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: .13rem .32rem;
+  padding: .48rem .52rem;
+  color: #e6d9c6;
+  border-color: #9d7f5383;
+  background: #171c26;
+  text-align: left;
+}
+.bounty-options button[aria-pressed=true] { background: #372b25; border-color: #e4b779; }
+.bounty-options strong { color: #f2e2c6; font: 800 .96rem/1.35 var(--display-font); }
+.bounty-reward { color: #eab978; font-size: .73rem; font-weight: 700; }
+.bounty-enemy, .bounty-estimate, .bounty-perk { grid-column: 1 / -1; font-size: .73rem; line-height: 1.35; }
+.bounty-enemy { color: #c8b79b; }
+.bounty-estimate { color: #f0c798; font-weight: 700; font-variant-numeric: tabular-nums; }
+.bounty-estimate[data-win=true] { color: #bce1a1; }
+.bounty-perk { color: #d6c6a4; }
+#bounty-confirm { min-height: 2.45rem; font-size: .8rem; }
+
 .encounter-room { padding: clamp(.7rem, 3.7vw, 1.1rem); gap: .85rem; }
 .encounter-header, .encounter-boss {
   display: flex;

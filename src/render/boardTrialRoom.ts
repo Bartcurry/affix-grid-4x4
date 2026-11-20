@@ -1,5 +1,6 @@
 import { boardShareUrl, type SharedBoard } from '../core/boardShare';
-import { affixAt, encounterAt, encounters, relics } from '../core/expedition';
+import { battleTarget } from '../core/bounties';
+import { affixAt, encounters, relics } from '../core/expedition';
 import { bestFormationMove } from '../core/formationMove';
 import { toCoords } from '../core/grid';
 import { planTurn, runeFootprint } from '../core/tactics';
@@ -163,7 +164,8 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
     const occupied = !!active[move.to.zone][move.to.index];
     const middle = move.to.zone === 'board' && [1, 2].includes(toCoords(move.to.index).col);
     const fromEdge = move.from.zone === 'board' && [0, 3].includes(toCoords(move.from.index).col);
-    const positional = encounterAt(active.wave) === 'flanks' && middle && fromEdge ? '打石狮时，把主力放在中间两列。' : '';
+    const positional = battleTarget(active.wave, active.bountyRoute).encounter === 'flanks' && middle && fromEdge
+      ? '打石狮时，把主力放在中间两列。' : '';
     suggested = [move.from, move.to];
     moves.push(suggested);
     exchange(suggested);
@@ -225,9 +227,10 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
       originalPieces = new Map(active.board.flatMap((rune, index) => rune ? [[rune, original.byCell[index].damage] as const] : []));
       moves = [];
       selected = undefined;
-      const enemy = encounters[encounterAt(active.wave)];
+      const { encounter, bounty } = battleTarget(active.wave, active.bountyRoute);
+      const enemy = encounters[encounter];
       get('wave').textContent = goal ? `${goal.name} · 练习目标 ${format(goal.damage)} 伤害`
-        : applyToRun?.note ?? `第 ${active.wave} 波 · ${enemy.name} · ${format(original.hp)} 生命`;
+        : applyToRun?.note ?? `第 ${active.wave} 波 · ${bounty?.name ?? enemy.name} · ${format(original.hp)} 生命`;
       get('original').textContent = format(original.result.damage);
       get('original-combo').textContent = `${format(original.result.combo)} 连击`;
       get('resources').textContent = `${format(active.gold)} 金 · ${active.shield} 护盾 · ${active.relics.length} 件遗物`;
