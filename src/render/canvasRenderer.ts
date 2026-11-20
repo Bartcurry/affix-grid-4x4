@@ -11,13 +11,13 @@ interface Rect extends Point { width: number; height: number }
 type Target = Slot | 'sell' | null;
 
 const WIDTH = 380;
-const HEIGHT = 477;
-const SELL: Rect = { x: 19, y: 439, width: 342, height: 31 };
-const BOARD: Rect = { x: 4, y: 4, width: 372, height: 351 };
+const HEIGHT = 444;
+const SELL: Rect = { x: 14, y: 412, width: 352, height: 26 };
+const BOARD: Rect = { x: 4, y: 4, width: 372, height: 346 };
 
 const cellRect = ({ zone, index }: Slot): Rect => zone === 'board'
-  ? { x: 19 + (index % 4) * 87, y: 18 + Math.floor(index / 4) * 82, width: 81, height: 77 }
-  : { x: 19 + index * 87, y: 385, width: 81, height: 46 };
+  ? { x: 14 + (index % 4) * 89, y: 14 + Math.floor(index / 4) * 82, width: 84, height: 78 }
+  : { x: 14 + index * 89, y: 366, width: 84, height: 40 };
 
 const center = ({ x, y, width, height }: Rect): Point => ({ x: x + width / 2, y: y + height / 2 });
 const sameSlot = (left: Slot | null, right: Slot) => left?.zone === right.zone && left.index === right.index;
@@ -351,12 +351,12 @@ export class CanvasRenderer {
     this.drawFrame(now);
 
     // 2. 备战区托盘标题与计数
-    this.text('备战区', 22, 373, 12, '#94a3b8', 'left', true);
+    this.text('备战区', 18, 355, 11, '#94a3b8', 'left', true);
     this.text(
       `${this.run.bench.filter(Boolean).length} / 4`,
-      358,
-      373,
-      12,
+      362,
+      355,
+      11,
       '#d4af37',
       'right',
       true
