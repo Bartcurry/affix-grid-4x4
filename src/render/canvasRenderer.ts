@@ -323,6 +323,12 @@ export class CanvasRenderer {
     const { scale } = this.size;
     if (scale <= 0) return;
 
+    const parent = canvas.parentElement;
+    if (parent) {
+      const renderWidth = Math.round(WIDTH * scale);
+      parent.style.setProperty('--canvas-width', `${renderWidth}px`);
+    }
+
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, pxWidth, pxHeight);
 

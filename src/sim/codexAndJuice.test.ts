@@ -372,9 +372,20 @@ describe('Cycle 5: Arena Layout, Sizing & No-Overlap Invariant', () => {
 
     // Canvas must not take 100% height inside .arena-wrap to avoid crowding out .arena-bar
     expect(css).toContain('max-height: calc(100% - 1.8rem)');
-    // .arena-bar must have controlled height and box-sizing
+    // .arena-bar must have controlled height, box-sizing and dynamic canvas width sync
     expect(css).toContain('.arena-bar');
     expect(css).toContain('min-height: 1.5rem');
     expect(css).toContain('box-sizing: border-box');
+    expect(css).toContain('var(--canvas-width');
+
+    // Compact shop header must not break words across lines on narrow viewports
+    expect(css).toContain('.market-title');
+    expect(css).toContain('white-space: nowrap');
+  });
+
+  it('validates canvasRenderer dynamic width synchronization to parent container', () => {
+    const rendererPath = path.resolve(__dirname, '../../src/render/canvasRenderer.ts');
+    const code = fs.readFileSync(rendererPath, 'utf-8');
+    expect(code).toContain('--canvas-width');
   });
 });
