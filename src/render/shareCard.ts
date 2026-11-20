@@ -1,3 +1,4 @@
+import qrcode from 'qrcode-generator';
 import { readSharedBoard } from '../core/boardShare';
 import { bountyAt } from '../core/bounties';
 import { damageLeaders } from '../core/journal';
@@ -88,9 +89,27 @@ export function drawShareBoard(ctx: CanvasRenderingContext2D, board: Slots, tile
   });
 }
 
-export function renderScoreCard(canvas: HTMLCanvasElement, run: Run, catalog: Catalog) {
+export function drawQrCode(ctx: CanvasRenderingContext2D, url: string, left: number, top: number, width: number) {
+  const code = qrcode(0, 'Q');
+  code.addData(url);
+  code.make();
+  const modules = code.getModuleCount();
+  const quietZone = 4;
+  const unit = Math.floor(width / (modules + 2 * quietZone));
+  const size = (modules + 2 * quietZone) * unit;
+  const x = left + Math.floor((width - size) / 2);
+  const y = top + Math.floor((width - size) / 2);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(x, y, size, size);
+  ctx.fillStyle = '#101016';
+  for (let row = 0; row < modules; row++) for (let col = 0; col < modules; col++) {
+    if (code.isDark(row, col)) ctx.fillRect(x + (col + quietZone) * unit, y + (row + quietZone) * unit, unit, unit);
+  }
+}
+
+export function renderScoreCard(canvas: HTMLCanvasElement, run: Run, catalog: Catalog, url?: string) {
   canvas.width = 720;
-  canvas.height = 960;
+  canvas.height = url ? 1080 : 960;
   const ctx = canvas.getContext('2d');
   if (!ctx) return false;
 
@@ -156,6 +175,12 @@ export function renderScoreCard(canvas: HTMLCanvasElement, run: Run, catalog: Ca
   rule(56, 828, 608);
   print('种子码', 57, 865, 19, muted, 500);
   print(run.seed, 134, 866, 24, paper, 700, 'monospace');
-  print('bartcurry.github.io/affix-grid-4x4', 57, 903, 22, gold, 500, sans, 605);
+  if (url) {
+    print('扫码打同局', 57, 946, 36, paper, 700, serif);
+    print('同一套开局，来试试能过几波。', 57, 993, 23, muted, 500, sans, 370);
+    drawQrCode(ctx, url, 459, 836, 202);
+  } else {
+    print('bartcurry.github.io/affix-grid-4x4', 57, 903, 22, gold, 500, sans, 605);
+  }
   return true;
 }

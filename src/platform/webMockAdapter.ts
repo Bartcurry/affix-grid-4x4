@@ -8,7 +8,6 @@ import { isOpening, openingIds, type RunRecords } from '../core/openings';
 import { createMulberry32, decodeSeed, generateSeedCode } from '../core/rng';
 import type { Catalog, OpeningId, Run, Slots, TileModifierMap } from '../core/types';
 import { catalog as defaultCatalog } from '../data/catalog';
-import { renderScoreCard } from '../render/shareCard';
 import type { PlatformAdapter, Reward, RunArchive, SaveData } from './adapter';
 
 const SAVE_KEY_V2 = 'affix-grid-4x4.v2';
@@ -240,18 +239,5 @@ export class WebMockAdapter implements PlatformAdapter {
       this.ad.showModal();
       const timer = setTimeout(() => finish(true), 1000);
     });
-  }
-
-  async exportScore(run: Run) {
-    const image = document.createElement('canvas');
-    if (!renderScoreCard(image, run, this.catalog)) return false;
-    const blob = await new Promise<Blob | null>(resolve => image.toBlob(resolve, 'image/png'));
-    if (!blob) return false;
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `affix-grid-wave-${run.wave}-${run.seed}.png`;
-    document.body.append(link); link.click(); link.remove();
-    setTimeout(() => URL.revokeObjectURL(link.href), 10_000);
-    return true;
   }
 }

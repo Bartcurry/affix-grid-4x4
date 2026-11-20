@@ -1389,15 +1389,16 @@ button:focus-visible, canvas:focus-visible {
 .relay-dialog .relay-share { color: #cedebd; font-size: .73rem; }
 #relay-link { width: 100%; padding: .44rem; color: #e7e5dc; background: #11171b; border: 1px solid #64725c; font: .72rem var(--mono-font); }
 
-.puzzle-card-open, #puzzle-share-download { background: #e9c38b; border-color: #f3d6a9; color: #231a13; font-weight: 750; }
-.puzzle-card-open:not(:disabled):hover, #puzzle-share-download:not(:disabled):hover { background: #f3d6a9; color: #231a13; }
-.puzzle-share-dialog { width: min(27rem, calc(100% - 1.3rem)); max-height: 94dvh; border-color: #9c815a; background: #191b23; }
-.puzzle-share-dialog .dialog-content { padding: clamp(.64rem, 3.4vw, 1rem); gap: .58rem; }
-#puzzle-share-canvas { display: block; width: min(100%, 37dvh, 19rem); height: auto; margin-inline: auto; background: #101116; border-radius: 4px; }
-.puzzle-share-actions { display: flex; flex-wrap: wrap; gap: .36rem; }
-.puzzle-share-actions button { flex: 1; min-height: 2.65rem; padding: .24rem .35rem; font-size: .8rem; white-space: nowrap; }
-#puzzle-share-status { color: #cfc6b5; font-size: .75rem; }
-#puzzle-share-link { width: 100%; padding: .44rem; color: #e7e5dc; background: #11171b; border: 1px solid #64725c; font: .72rem var(--mono-font); }
+.puzzle-card-open, #score-share-download { background: #e9c38b; border-color: #f3d6a9; color: #231a13; font-weight: 750; }
+.puzzle-card-open:not(:disabled):hover, #score-share-download:not(:disabled):hover { background: #f3d6a9; color: #231a13; }
+.score-share-dialog { width: min(27rem, calc(100% - 1.3rem)); max-height: 94dvh; border-color: #9c815a; background: #191b23; }
+.score-share-dialog .dialog-content { padding: clamp(.64rem, 3.4vw, 1rem); gap: .58rem; }
+#score-share-canvas { display: block; width: min(100%, 43dvh, 20rem); height: auto; margin-inline: auto; background: #101116; border-radius: 4px; }
+.score-share-actions { display: flex; flex-wrap: wrap; gap: .36rem; }
+.score-share-actions button { flex: 1; min-height: 2.75rem; padding: .24rem .35rem; font-size: .8rem; white-space: nowrap; }
+#score-share-status { color: #cfc6b5; font-size: .75rem; }
+#score-share-status:empty { display: none; }
+#score-share-link { width: 100%; padding: .44rem; color: #e7e5dc; background: #11171b; border: 1px solid #64725c; font: .72rem var(--mono-font); }
 
 .invite-dialog { width: min(29rem, calc(100% - 1.5rem)); max-height: 93dvh; }
 .invite-dialog .dialog-content { padding: clamp(.75rem, 4vw, 1.15rem); gap: .7rem; }
@@ -1836,12 +1837,16 @@ dialog::backdrop {
   min-height: 2.6rem;
 }
 
-#panel:has(#panel-stamp-wrap:not([hidden])) #panel-actions {
+#panel-score { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .36rem; margin: 0; }
+#panel-score > div { padding: .53rem clamp(.25rem, 2vw, .68rem); border-top: 1px solid #9c7850; background: #b896630d; }
+#panel-score dt { color: #cabb9f; font-size: .73rem; }
+#panel-score dd { margin: .19rem 0 0; color: #f4d097; font: 700 clamp(1.03rem, 4.7vw, 1.55rem) var(--mono-font); overflow-wrap: anywhere; }
+#panel:has(#panel-score:not([hidden])) #panel-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-#panel:has(#panel-stamp-wrap:not([hidden])) #panel-actions .primary {
+#panel:has(#panel-score:not([hidden])) #panel-actions .primary {
   grid-column: 1 / -1;
   background: #edc089;
   border-color: #f7d6a0;
@@ -1849,7 +1854,7 @@ dialog::backdrop {
   font-weight: 750;
 }
 
-#panel:has(#panel-stamp-wrap:not([hidden])) #panel-actions .primary:hover { background: #f7d6a0; color: #2d1b12; }
+#panel:has(#panel-score:not([hidden])) #panel-actions .primary:hover { background: #f7d6a0; color: #2d1b12; }
 
 #camp-dialog {
   width: min(29rem, calc(100% - 1.2rem));

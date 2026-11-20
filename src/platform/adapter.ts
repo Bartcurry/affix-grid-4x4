@@ -40,5 +40,4 @@ export interface PlatformAdapter {
   load(): SaveData | null;
   save(data: SaveData): void;
   showRewardedVideo(reward: Reward): Promise<boolean>;
-  exportScore(run: Run): Promise<boolean>;
 }

@@ -330,20 +330,20 @@
         </div>
       </dialog>
 
-      <dialog id="puzzle-share-dialog" class="puzzle-share-dialog" aria-labelledby="puzzle-share-title">
+      <dialog id="score-share-dialog" class="score-share-dialog" aria-labelledby="score-share-title">
         <div class="dialog-content">
           <header class="hud-dialog-heading">
-            <h2 id="puzzle-share-title"></h2>
-            <button id="puzzle-share-close" type="button" aria-label="关闭战绩卡">×</button>
+            <h2 id="score-share-title"></h2>
+            <button id="score-share-close" type="button" aria-label="关闭战绩卡">×</button>
           </header>
-          <canvas id="puzzle-share-canvas" role="img" hidden></canvas>
-          <div class="puzzle-share-actions">
-            <button id="puzzle-share-native" type="button" hidden>系统分享</button>
-            <button id="puzzle-share-download" type="button" disabled>保存图片</button>
-            <button id="puzzle-share-copy" type="button">复制挑战</button>
+          <canvas id="score-share-canvas" role="img" hidden></canvas>
+          <div class="score-share-actions">
+            <button id="score-share-download" type="button" disabled>保存图片</button>
+            <button id="score-share-copy" type="button">复制挑战</button>
+            <button id="score-share-native" type="button" hidden>系统分享</button>
           </div>
-          <p id="puzzle-share-status" role="status"></p>
-          <input id="puzzle-share-link" type="url" aria-label="原题链接" readonly hidden />
+          <p id="score-share-status" role="status"></p>
+          <input id="score-share-link" type="url" aria-label="挑战链接" readonly hidden />
         </div>
       </dialog>
 
@@ -477,8 +477,13 @@
             <div class="vermilion-stamp" id="vermilion-stamp">破阵！</div>
           </div>
           <h2 id="panel-title"></h2>
-          <div id="panel-mvp-card" class="panel-mvp-card" hidden></div>
+          <dl id="panel-score" hidden>
+            <div><dt>已过波数</dt><dd id="panel-cleared"></dd></div>
+            <div><dt>最高连击</dt><dd id="panel-combo"></dd></div>
+            <div><dt>末战伤害</dt><dd id="panel-damage"></dd></div>
+          </dl>
           <p id="panel-text"></p>
+          <div id="panel-mvp-card" class="panel-mvp-card" hidden></div>
           <section id="retry-scout" class="retry-scout" aria-labelledby="retry-title" hidden>
             <header>
               <h3 id="retry-title">重打推演</h3>

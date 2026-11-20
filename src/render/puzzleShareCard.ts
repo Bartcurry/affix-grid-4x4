@@ -1,32 +1,13 @@
-import qrcode from 'qrcode-generator';
 import type { DailyPuzzle, DailyRecord } from '../core/daily';
 import { encounters } from '../core/expedition';
 import type { Catalog, Slots } from '../core/types';
 import type { Relay, RelayScore } from '../core/weeklyRelay';
 import { formatNumber as format } from './canvasRenderer';
-import { cardBackdrop, drawShareBoard } from './shareCard';
+import { cardBackdrop, drawQrCode, drawShareBoard } from './shareCard';
 
 export type PuzzleShareCard =
   | { kind: 'daily'; puzzle: DailyPuzzle; score: DailyRecord; url: string }
   | { kind: 'relay'; relay: Relay; score: RelayScore; url: string };
-
-function drawQrCode(ctx: CanvasRenderingContext2D, url: string, left: number, top: number, width: number) {
-  const code = qrcode(0, 'Q');
-  code.addData(url);
-  code.make();
-  const modules = code.getModuleCount();
-  const quietZone = 4;
-  const unit = Math.floor(width / (modules + 2 * quietZone));
-  const size = (modules + 2 * quietZone) * unit;
-  const x = left + Math.floor((width - size) / 2);
-  const y = top + Math.floor((width - size) / 2);
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(x, y, size, size);
-  ctx.fillStyle = '#101016';
-  for (let row = 0; row < modules; row++) for (let col = 0; col < modules; col++) {
-    if (code.isDark(row, col)) ctx.fillRect(x + (col + quietZone) * unit, y + (row + quietZone) * unit, unit, unit);
-  }
-}
 
 export function renderPuzzleShareCard(canvas: HTMLCanvasElement, card: PuzzleShareCard, catalog: Catalog) {
   canvas.width = 720;

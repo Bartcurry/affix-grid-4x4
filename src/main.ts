@@ -24,7 +24,7 @@ import { bindUpgradeBook } from './render/upgradeBook';
 import { bindChallengeRoom, bindShareRoom } from './render/challengeRoom';
 import { bindDailyRoom } from './render/dailyRoom';
 import { bindWeeklyRelay } from './render/weeklyRelayRoom';
-import { bindPuzzleShareRoom } from './render/puzzleShareRoom';
+import { bindScoreShareRoom } from './render/scoreShareRoom';
 import { bindBoardTrial } from './render/boardTrialRoom';
 import { bindBattleJournal } from './render/battleJournal';
 import { bindEncounterRoom } from './render/encounterRoom';
@@ -174,9 +174,9 @@ function iconPath(owner: HTMLElement, pathData: string) {
 
 const emptyIcon = 'M16 3l13 13-13 13L3 16 16 3Zm0 6v14m-7-7h14';
 const runeGlyph = (node: HTMLElement, id: string) => iconPath(node, runeVectors[id] ?? emptyIcon);
-const puzzleShare = bindPuzzleShareRoom(catalog, click);
-const daily = bindDailyRoom(catalog, runeGlyph, click, puzzleShare);
-const relay = bindWeeklyRelay(catalog, runeGlyph, click, puzzleShare);
+const scoreShare = bindScoreShareRoom(catalog, click);
+const daily = bindDailyRoom(catalog, runeGlyph, click, scoreShare.puzzle);
+const relay = bindWeeklyRelay(catalog, runeGlyph, click, scoreShare.puzzle);
 const boardTrial = bindBoardTrial(catalog, runeGlyph, formatNumber, click);
 const showPurchase = bindPurchaseRoom(catalog, runeGlyph, click);
 const showReforge = bindReforgeRoom(catalog, runeGlyph, click);
@@ -879,12 +879,20 @@ function openRetryTrial(source: SharedBoard, preserving: boolean) {
 }
 
 interface Action { label: string; act: () => void | Promise<void>; primary?: boolean }
-function showPanel(title: string, text: string, actions: Action[], dismissible = false, mvpHtml?: string, isVictory = false) {
+function showPanel(title: string, text: string, actions: Action[], dismissible = false, mvpHtml?: string, outcome?: Run) {
   dialogDismissible = dismissible;
   element('panel-title').textContent = title;
   element('panel-text').textContent = text;
   element('retry-scout').hidden = true;
+  element('panel-score').hidden = !outcome;
+  if (outcome) {
+    const score = runScore(outcome);
+    element('panel-cleared').textContent = formatNumber(score.cleared);
+    element('panel-combo').textContent = formatNumber(score.combo);
+    element('panel-damage').textContent = formatNumber(outcome.lastDamage);
+  }
 
+  const isVictory = outcome?.status === 'victory';
   const stampWrap = document.getElementById('panel-stamp-wrap');
   if (stampWrap) {
     stampWrap.hidden = !isVictory;
@@ -1149,8 +1157,8 @@ function showOutcome(archive = true) {
     const finalBoardUrl = finalSetup ? boardShareUrl(location.href, finalSetup) : undefined;
     const actions: Action[] = [
       ...(run.lastJournal ? [{ label: '查看末战复盘', act: reviewLast }] : []),
-      { label: '导出战绩 PNG', act: async () => { if (!await platform.exportScore(run)) notice('战绩导出失败，请再试一次。'); } },
-      ...(run.enableSynergies !== false ? [{ label: '分享战绩', act: () => shareRoom(run, !!challenge, finalBoardUrl) }] : []),
+      { label: '战绩卡', act: () => scoreShare.campaign(run) },
+      ...(run.enableSynergies !== false ? [{ label: '分享链接', act: () => shareRoom(run, !!challenge, finalBoardUrl) }] : []),
       challenge ? { label: '再打一次', act: () => startOpening(challenge.opening), primary: !won }
         : { label: '新开一局', act: () => openOpenings(), primary: !won },
     ];
@@ -1162,8 +1170,11 @@ function showOutcome(archive = true) {
       run.rngState = prng.getState();
       resetTimeline(); redraw(); showOutcome();
     } });
+    const details = [won ? '战役通关' : `止步第 ${formatNumber(run.wave)} 波`];
+    if (run.bountyRule) details.push(`悬赏 ${run.bountiesCleared ?? 0} / ${bountyCount}`);
+    details.push(`种子 ${run.seed}`);
     showPanel(finale ? '闭门王已击破' : won ? '廿重劫尽 · 大获全胜' : '灵气耗竭 · 护盾归零',
-      `${finale ? '守完 20 波' : `破阵至第 ${run.wave} 波`}，最高 ${run.bestCombo} 连击。\n末战打出 ${formatNumber(run.lastDamage)} 点伤害。${run.bountyRule ? `\n完成悬赏 ${run.bountiesCleared ?? 0} / ${bountyCount}` : ''}\n种子码 ${run.seed}`, actions, false, mvpHtml, won);
+      details.join(' · '), actions, false, mvpHtml, run);
   }
 }
 
