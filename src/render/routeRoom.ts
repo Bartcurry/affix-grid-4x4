@@ -1,6 +1,6 @@
 import { affixAt, encounters, endlessCampAt, lastGate, relicChoices } from '../core/expedition';
 import { runScore } from '../core/openings';
-import { battleTarget, trialAt, trialOptions } from '../core/trials';
+import { battleTarget, bountyExtraText, bountyRewardAt, trialAt, trialOptions } from '../core/trials';
 import type { Run } from '../core/types';
 
 export function bindRouteRoom(icon: (node: HTMLElement, encounter: keyof typeof encounters) => void) {
@@ -59,7 +59,10 @@ export function bindRouteRoom(icon: (node: HTMLElement, encounter: keyof typeof 
         affix ? `${foe.hint} ${affix.name} · ${affix.desc}` : foe.hint;
       const bounties = trialOptions({ wave, trialRule: run.trialRule });
       const perk = bounties.length ? (run.clearedTrials?.includes(wave) ? '悬赏已拿下。' :
-        bounties.map(bounty => `${bounty.name} +${bounty.reward} 金`).join(' / ')) :
+        bounties.map((bounty, index) => {
+          const { gold, extra } = bountyRewardAt(wave, index === 1 ? 'alternate' : undefined, run.bountyRewardRule);
+          return `${bounty.name} +${gold} 金${extra ? ` · ${bountyExtraText[extra]}` : ''}`;
+        }).join(' / ')) :
         run.endless && run.endlessRule && endlessCampAt(wave) ? wave === run.wave && !run.pendingCamp ? '本波已完成休整。' : '开战前可休整一次。' :
         relicChoices(wave, []).length ? '打过这一波，可以选一件遗物。' : '';
       reward.hidden = !perk;

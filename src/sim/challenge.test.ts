@@ -15,7 +15,7 @@ describe('shared campaign challenges', () => {
     expect([...url.searchParams.keys()]).toEqual([challengeParam]);
     expect(url.hash).toBe('');
     const invitation = readChallenge(url.searchParams.get(challengeParam))!;
-    expect(invitation).toEqual({ opening: 'poison', seed: challenge.seed, cleared: 14, combo: 29, relicRule: 1, trialRule: 1, endlessRule: 1 });
+    expect(invitation).toEqual({ opening: 'poison', seed: challenge.seed, cleared: 14, combo: 29, relicRule: 1, trialRule: 1, endlessRule: 1, bountyRewardRule: 1 });
     const guest = newRun(catalog, createMulberry32(decodeSeed(invitation.seed)), invitation.opening, invitation.seed);
     expect(guest).toEqual({ ...original, seed: invitation.seed });
     expect(challengeUrl('file:///C:/private/preview.html', challenge)).toBeNull();
@@ -38,13 +38,16 @@ describe('shared campaign challenges', () => {
     const classic = readChallenge(`v2.chain.${seed}.7.22`)!;
     const expanded = readChallenge(`v3.chain.${seed}.7.22`)!;
     const bounties = readChallenge(`v4.chain.${seed}.7.22`)!;
+    const camps = readChallenge(`v5.chain.${seed}.7.22`)!;
     expect(classic).toEqual({ opening: 'chain', seed, cleared: 7, combo: 22 });
     expect(expanded).toEqual({ ...classic, relicRule: 1 });
     expect(bounties).toEqual({ ...expanded, trialRule: 1 });
+    expect(camps).toEqual({ ...bounties, endlessRule: 1 });
     expect(challengeSaveKey(classic)).toBe(`affix-grid-4x4.challenge.v2.chain.${seed}`);
     expect(challengeSaveKey(expanded)).toBe(`affix-grid-4x4.challenge.v3.chain.${seed}`);
     expect(challengeSaveKey(bounties)).toBe(`affix-grid-4x4.challenge.v4.chain.${seed}`);
-    expect(challengeSaveKey(current)).toBe(`affix-grid-4x4.challenge.v5.chain.${seed}`);
+    expect(challengeSaveKey(camps)).toBe(`affix-grid-4x4.challenge.v5.chain.${seed}`);
+    expect(challengeSaveKey(current)).toBe(`affix-grid-4x4.challenge.v6.chain.${seed}`);
     expect(new URL(challengeUrl('https://example.org/', classic)!).searchParams.get(challengeParam)).toBe(`v2.chain.${seed}.7.22`);
   });
 
@@ -64,6 +67,7 @@ describe('shared campaign challenges', () => {
     expect(matchesChallenge(run, target)).toBe(true);
     expect(matchesChallenge({ ...run, opening: 'gold' }, target)).toBe(false);
     expect(matchesChallenge({ ...run, endlessRule: undefined }, target)).toBe(false);
+    expect(matchesChallenge({ ...run, bountyRewardRule: undefined }, target)).toBe(false);
   });
 
   it('distinguishes catching up in waves from catching up in combo', () => {

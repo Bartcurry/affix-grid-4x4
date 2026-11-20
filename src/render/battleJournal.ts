@@ -1,6 +1,6 @@
 import { encounters, relics } from '../core/expedition';
 import { GRID_SIZE, toCoords } from '../core/grid';
-import { battleTarget } from '../core/trials';
+import { battleTarget, bountyExtraBlock, bountyExtraText, bountyRewardAt } from '../core/trials';
 import { damageLeaders, journalPlayback, journalRows, type JournalFilter } from '../core/journal';
 import type { BattleEvent, BattleJournal, Catalog } from '../core/types';
 
@@ -183,7 +183,13 @@ export function bindBattleJournal(catalog: Catalog, format: (value: number) => s
     });
     get('journal-board').replaceChildren(...cells);
     const { trial, encounter } = battleTarget(entry.wave, entry.trialWave, entry.trialRoute);
-    const bounty = trial ? `\n${result.win ? `悬赏已领 · +${trial.reward} 金` : '没拿到这次悬赏。'}` : '';
+    let bounty = '';
+    if (trial) {
+      const reward = bountyRewardAt(entry.wave, entry.trialRoute, entry.bountyRewardRule);
+      const extra = reward.extra && entry.replay && !bountyExtraBlock(reward.extra, { board: entry.board, shield: entry.replay.shield })
+        ? ` · ${bountyExtraText[reward.extra]}` : '';
+      bounty = `\n${result.win ? `悬赏已领 · +${reward.gold} 金${extra}` : '没拿到这次悬赏。'}`;
+    }
     get('journal-title').textContent = `第 ${entry.wave} 波 · ${trial?.name ?? encounters[encounter].name}`;
     get('journal-summary').textContent = `${format(result.damage)} 伤害，${result.combo} 次触发。${result.win ? '打过了。' : `还差 ${format(result.hp)} 点。`}\n战斗金币：${format(entry.gold)} → ${format(result.gold)}（不含过关奖励）。${bounty}`;
     showDamageLeaders(entry);

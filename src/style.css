@@ -1739,6 +1739,9 @@ dialog::backdrop {
 .trial-routes .trial-estimate[data-win=true] { color: #c9e8a9; }
 .trial-reward { color: #f5be64; font-size: .77rem; }
 .trial-routes [data-trial=alternate] h3, .trial-routes [data-trial=alternate] .trial-reward { color: #a7dce1; }
+.trial-routes .trial-extra { grid-column: 1 / -1; display: grid; gap: .1rem; padding: .35rem .48rem; margin-top: .15rem; border-left: 2px solid #97c6c9; background: #111c21; color: #bee2dc; font-size: .75rem; }
+.trial-extra span { color: #cad4df; }
+.trial-routes .trial-extra[data-available=false] { border-color: #ba9670; color: #efd1a6; }
 .trial-routes button { grid-column: 2; grid-row: 3 / span 2; min-height: 2.35rem; font-size: .8rem; }
 .trial-routes button:disabled { color: #b4ad9e; opacity: .85; }
 .trial-routes [data-trial=true] button:enabled { color: #20150e; background: #efbc70; border-color: #f5d598; }
@@ -1747,6 +1750,7 @@ dialog::backdrop {
   .trial-routes { grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); }
   .trial-routes article { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto auto auto; gap: .4rem; align-items: start; padding: .72rem; }
   .trial-routes button { grid-column: 1; grid-row: auto; }
+  .trial-routes .trial-extra { grid-row: 6; }
 }
 
 @media (max-width: 779px) {

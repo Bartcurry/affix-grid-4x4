@@ -118,6 +118,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       relicRule: rawRun.relicRule === 1 ? 1 : undefined,
       trialRule,
       endlessRule,
+      bountyRewardRule: endlessRule && rawRun.bountyRewardRule === 1 ? 1 : undefined,
       shopFocus,
       wave,
       gold,

@@ -73,7 +73,8 @@ export function readJournal(raw: unknown, catalog: Catalog): BattleJournal | und
   const trialRoute = trialWave && data.trialRoute === 'alternate' && trialAt(wave, 'alternate') ? 'alternate' : undefined;
   if (events.every(valid)) {
     const replay = readJournalReplay(data.replay);
-    return { wave, board, gold, events, trialWave, trialRoute, ...(replay ? { replay } : {}) };
+    return { wave, board, gold, events, trialWave, trialRoute, ...(replay ? { replay } : {}),
+      ...(trialRoute && replay && data.bountyRewardRule === 1 ? { bountyRewardRule: 1 } : {}) };
   }
 }
 

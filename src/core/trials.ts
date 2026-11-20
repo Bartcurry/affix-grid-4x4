@@ -26,6 +26,31 @@ const alternates = new Map<number, Trial>([
 export const trialCount = trials.size;
 export const trialAt = (wave: number, route?: 'alternate') => (route === 'alternate' ? alternates : trials).get(wave);
 
+export type BountyExtra = 'refresh' | 'repair' | 'engrave';
+export const bountyRefreshes = 2;
+export const bountyRuneCell = 13;
+export const bountyRunePower = 12;
+export const bountyExtraText: Record<BountyExtra, string> = {
+  refresh: `下波多 ${bountyRefreshes} 次免费刷新`,
+  repair: '修复 1 点护盾',
+  engrave: `第 ${bountyRuneCell + 1} 格符文永久威力 +${bountyRunePower}`,
+};
+const alternatePayout = new Map<number, { gold: number; extra: BountyExtra }>([
+  [5, { gold: 4, extra: 'refresh' }],
+  [10, { gold: 7, extra: 'repair' }],
+  [15, { gold: 10, extra: 'engrave' }],
+]);
+
+export function bountyRewardAt(wave: number, route?: 'alternate', rule?: 1): { gold: number; extra?: BountyExtra } {
+  const upgrade = route === 'alternate' && rule === 1 ? alternatePayout.get(wave) : undefined;
+  return upgrade ?? { gold: trialAt(wave, route)?.reward ?? 0 };
+}
+
+export function bountyExtraBlock(extra: BountyExtra, run: Pick<Run, 'shield' | 'board'>) {
+  if (extra === 'repair' && run.shield >= 3) return '护盾已满';
+  if (extra === 'engrave' && !run.board[bountyRuneCell]) return `第 ${bountyRuneCell + 1} 格为空`;
+}
+
 export function trialOptions(run: Pick<Run, 'wave' | 'trialRule'>) {
   return [trialAt(run.wave), ...(run.trialRule ? [trialAt(run.wave, 'alternate')] : [])].filter(trial => trial !== undefined);
 }

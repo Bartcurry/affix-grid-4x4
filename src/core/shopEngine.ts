@@ -2,7 +2,7 @@ import { CELL_COUNT } from './grid';
 import { endlessCampAt, relicChoices } from './expedition';
 import { openings } from './openings';
 import { createMulberry32, decodeSeed, encodeSeed, type PRNG } from './rng';
-import { trialAt } from './trials';
+import { bountyExtraBlock, bountyRefreshes, bountyRewardAt, bountyRuneCell, bountyRunePower, trialAt } from './trials';
 import type { Archetype, Catalog, Offer, OpeningId, Random, Rarity, RelicId, Run, Rune, Slot, Slots, Star, TileModifierMap, TurnResult } from './types';
 
 export const BENCH_SIZE = 4;
@@ -91,6 +91,7 @@ export function newRun(catalog: Catalog, rng: Random, opening: OpeningId = 'chai
     relicRule: 1,
     trialRule: 1,
     endlessRule: 1,
+    bountyRewardRule: 1,
     shopFocus: opening,
     wave: 1,
     gold: setup.gold,
@@ -166,10 +167,13 @@ export function mergeRunes(run: Run): Merge[] {
     if (!trio) return merges;
     const [keep, ...consumed] = trio;
     const rune = runeAt(run, keep)!;
+    const bonusPower = run.bountyRewardRule === 1
+      ? Math.max(...trio.map(slot => runeAt(run, slot)?.bonusPower ?? 0))
+      : rune.bonusPower;
     const upgraded: Rune = {
       configId: rune.configId,
       star: (rune.star + 1) as Star,
-      ...(rune.bonusPower ? { bonusPower: rune.bonusPower } : {}),
+      ...(bonusPower ? { bonusPower } : {}),
     };
     run[keep.zone][keep.index] = upgraded;
     for (const slot of consumed) run[slot.zone][slot.index] = null;
@@ -231,20 +235,28 @@ export function settleTurn(run: Run, result: TurnResult, catalog: Catalog, rng: 
   const payout = victoryPayout(run, result.gold);
   run.gold += payout.total;
   if (payout.trial) run.clearedTrials = [...(run.clearedTrials ?? []), run.wave];
+  if (payout.extra === 'repair') run.shield++;
+  if (payout.extra === 'engrave') {
+    const rune = run.board[bountyRuneCell]!;
+    run.board[bountyRuneCell] = { ...rune, bonusPower: (rune.bonusPower ?? 0) + bountyRunePower };
+  }
   if (run.wave === 20 && !run.endless) run.status = 'victory';
   else {
     const choices = relicChoices(run.wave, run.relics, run.relicRule);
     advanceWave(run, catalog, rng);
+    if (payout.extra === 'refresh') run.freeRefreshes += bountyRefreshes;
     run.pendingRelics = choices;
   }
 }
 
-export function victoryPayout(run: Pick<Run, 'relics' | 'wave' | 'trialWave' | 'trialRoute' | 'endless'>, goldAfterBattle: number) {
+export function victoryPayout(run: Pick<Run, 'relics' | 'wave' | 'trialWave' | 'trialRoute' | 'endless' | 'bountyRewardRule' | 'board' | 'shield'>, goldAfterBattle: number) {
   const base = 8;
   const interest = Math.min(5, Math.floor(goldAfterBattle / 10));
   const relic = run.relics.includes('gate_tithe') ? 4 : 0;
-  const trial = !run.endless && run.trialWave === run.wave ? trialAt(run.wave, run.trialRoute)?.reward ?? 0 : 0;
-  return { base, interest, relic, trial, total: base + interest + relic + trial };
+  const reward = !run.endless && run.trialWave === run.wave ? bountyRewardAt(run.wave, run.trialRoute, run.bountyRewardRule) : undefined;
+  const trial = reward?.gold ?? 0;
+  const extra = reward?.extra && !bountyExtraBlock(reward.extra, run) ? reward.extra : undefined;
+  return { base, interest, relic, trial, ...(extra ? { extra } : {}), total: base + interest + relic + trial };
 }
 
 export function chooseRelic(run: Run, choice: RelicId): boolean {

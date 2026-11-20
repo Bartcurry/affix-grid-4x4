@@ -10,7 +10,7 @@ import { foughtHealth } from './core/journal';
 import { fieldTip } from './core/fieldGuide';
 import { createMulberry32, decodeSeed, generateSeedCode } from './core/rng';
 import { planTurn, prepareBattle, previewPlacement, runeFootprint } from './core/tactics';
-import { battleTarget, trialOptions } from './core/trials';
+import { battleTarget, bountyExtraText, bountyRewardAt, trialOptions } from './core/trials';
 import { buyRune, canArrange, chooseRelic, newRun, purchaseInfo, refreshShop, resolveLoss, runeAt, selectTrial, sellRune, sellValue, settleTurn, startEndless, swapRunes, toggleLock, UndoStack, victoryPayout } from './core/shopEngine';
 import { STAR_MULT, initialRuneState, type BattleEvent, type OpeningId, type Run, type Rune, type RuneState, type Slot } from './core/types';
 import { catalog } from './data/catalog';
@@ -64,6 +64,7 @@ function createOpeningRun(opening: OpeningId, seed?: string) {
     next.relicRule = challenge.relicRule;
     next.trialRule = challenge.trialRule;
     next.endlessRule = challenge.endlessRule;
+    next.bountyRewardRule = challenge.bountyRewardRule;
   }
   return next;
 }
@@ -574,7 +575,8 @@ function redraw(save = true) {
   const trialButton = button('trial-open');
   trialButton.hidden = !bounties.length || !arranging();
   if (bounties.length) {
-    trialButton.textContent = trial ? `悬赏 · +${trial.reward} 金` : bounties.length > 1 ? '选悬赏' : `悬赏 +${bounties[0].reward} 金`;
+    const reward = bountyRewardAt(run.wave, run.trialRoute, run.bountyRewardRule);
+    trialButton.textContent = trial ? reward.extra ? '悬赏 · 侧路' : `悬赏 · +${reward.gold} 金` : bounties.length > 1 ? '选悬赏' : `悬赏 +${bounties[0].reward} 金`;
     trialButton.dataset.active = String(!!trial);
   }
 
@@ -751,7 +753,7 @@ button('forecast-detail').onclick = () => {
   const deltaGold = result.gold - run.gold;
   const combatGold = deltaGold < 0 ? `战斗花 ${formatNumber(-deltaGold)} 金` : `战斗赚 ${formatNumber(deltaGold)} 金`;
   element('forecast-gold').textContent = result.win
-    ? `${combatGold} · 过关 ${payout.base} 金${payout.interest ? ` · 利息 ${payout.interest} 金` : ''}${payout.relic ? ` · 遗物 ${payout.relic} 金` : ''}${payout.trial ? ` · 悬赏 ${payout.trial} 金` : ''}。结束时有 ${formatNumber(result.gold + payout.total)} 金。`
+    ? `${combatGold} · 过关 ${payout.base} 金${payout.interest ? ` · 利息 ${payout.interest} 金` : ''}${payout.relic ? ` · 遗物 ${payout.relic} 金` : ''}${payout.trial ? ` · 悬赏 ${payout.trial} 金` : ''}。结束时有 ${formatNumber(result.gold + payout.total)} 金。${payout.extra ? `\n悬赏额外奖励 · ${bountyExtraText[payout.extra]}` : ''}`
     : `${combatGold}。打不过也会保留战斗后的 ${formatNumber(result.gold)} 金，但没有过关奖励。`;
   element('forecast-sources').replaceChildren(...sources.map(source => {
     const item = document.createElement('li');
@@ -1004,6 +1006,7 @@ async function startBattle(quick = false) {
   const { events } = prepared;
   const journal = {
     wave: run.wave, trialWave: run.trialWave, trialRoute: run.trialRoute, gold: run.gold,
+    ...(run.bountyRewardRule === 1 && run.trialRoute === 'alternate' ? { bountyRewardRule: 1 as const } : {}),
     board: run.board.map(rune => rune ? { ...rune } : null), events,
     replay: { rngState: run.rngState, shield: run.shield, relics: [...run.relics], tileModifiers: { ...run.tileModifiers } },
   };
@@ -1034,7 +1037,9 @@ async function startBattle(quick = false) {
     renderer.waveComplete = true; renderer.invalidate();
     victoryTimer = setTimeout(() => { renderer.waveComplete = false; renderer.invalidate(); }, 1500);
     if (firstClearReward === undefined) {
-      notice(`打过第 ${run.wave - 1} 波 · ${formatNumber(result.damage)} 伤害 · 过关 +${payout.total} 金${payout.trial ? `（悬赏 +${payout.trial}）` : ''}`);
+      notice(payout.extra
+        ? `打过第 ${run.wave - 1} 波 · 过关 +${payout.total} 金 · ${bountyExtraText[payout.extra]}`
+        : `打过第 ${run.wave - 1} 波 · ${formatNumber(result.damage)} 伤害 · 过关 +${payout.total} 金${payout.trial ? `（悬赏 +${payout.trial}）` : ''}`);
     } else button('first-clear-supply').focus({ preventScroll: true });
   }
   showOutcome();

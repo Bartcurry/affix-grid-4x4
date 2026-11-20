@@ -64,6 +64,7 @@ export interface Run {
   relicRule?: 1;
   trialRule?: 1;
   endlessRule?: 1;
+  bountyRewardRule?: 1;
   shopFocus: Archetype | 'any';
   wave: number;
   gold: number;
@@ -103,6 +104,7 @@ export interface BattleJournal {
   wave: number;
   trialWave?: number;
   trialRoute?: 'alternate';
+  bountyRewardRule?: 1;
   board: Slots;
   gold: number;
   events: BattleEvent[];

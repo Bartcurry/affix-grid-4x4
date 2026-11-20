@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { foughtHealth } from '../core/journal';
 import { createMulberry32 } from '../core/rng';
-import { newRun, resolveLoss, selectTrial, settleTurn, victoryPayout } from '../core/shopEngine';
+import { mergeRunes, newRun, resolveLoss, selectTrial, settleTurn, victoryPayout } from '../core/shopEngine';
 import { planTurn, prepareBattle } from '../core/tactics';
 import { battleTarget, trialOptions } from '../core/trials';
 import { catalog } from '../data/catalog';
@@ -63,7 +63,7 @@ describe('campaign bounties', () => {
     { wave: 10, foe: 'bell', health: 135, reward: 10 },
     { wave: 15, foe: 'regent', health: 135, reward: 14 },
   ])('carries the alternate wave $wave route through save, payout and journal', ({ wave, foe, health, reward }) => {
-    const run = fixture(wave);
+    const run = { ...fixture(wave), bountyRewardRule: undefined };
     const legacy = { ...run, trialRule: undefined };
     expect(trialOptions(legacy)).toHaveLength(1);
     expect(selectTrial(legacy, true, 'alternate')).toBe(false);
@@ -85,6 +85,49 @@ describe('campaign bounties', () => {
     const log = migrateSave({ run: restored }, catalog).run.lastJournal;
     expect(log?.trialRoute).toBe('alternate');
     expect(foughtHealth(log, wave)).toBe(turn.hp);
+  });
+
+  it.each([
+    { wave: 5, trial: 4, extra: 'refresh', shield: 2, power: 500, freeRefreshes: 3, nextShield: 2, nextPower: 500 },
+    { wave: 10, trial: 7, extra: 'repair', shield: 2, power: 500, freeRefreshes: 1, nextShield: 3, nextPower: 500 },
+    { wave: 15, trial: 10, extra: 'engrave', shield: 2, power: 500, freeRefreshes: 1, nextShield: 2, nextPower: 512 },
+    { wave: 10, trial: 7, extra: undefined, shield: 3, power: 500, freeRefreshes: 1, nextShield: 3, nextPower: 500 },
+    { wave: 15, trial: 10, extra: undefined, shield: 2, power: undefined, freeRefreshes: 1, nextShield: 2, nextPower: undefined },
+  ])('settles wave $wave with extra $extra only when eligible', ({ wave, trial, extra, shield, power, freeRefreshes, nextShield, nextPower }) => {
+    const run = fixture(wave);
+    run.shield = shield;
+    run.board = run.board.map(() => ({ configId: 'spark_orb', star: 3, bonusPower: 500 }));
+    run.board[13] = power === undefined ? null : { configId: 'spark_orb', star: 3, bonusPower: power };
+    selectTrial(run, true, 'alternate');
+    const { board, events, rngState } = prepareBattle(run, catalog);
+    const result = events.at(-1);
+    if (result?.type !== 'TURN_RESULT') throw new Error('Missing test result');
+    expect(result.win).toBe(true);
+    const payout = victoryPayout(run, result.gold);
+    expect(payout.trial).toBe(trial);
+    expect(payout.extra).toBe(extra);
+    run.board = board;
+    settleTurn(run, result, catalog, createMulberry32(rngState));
+    const restored = migrateSave({ run }, catalog).run;
+    expect(restored).toMatchObject({ wave: wave + 1, bountyRewardRule: 1, gold: result.gold + payout.total, shield: nextShield, freeRefreshes });
+    expect(restored.board[13]?.bonusPower).toBe(nextPower);
+    expect(restored.board[0]?.bonusPower).toBe(500);
+    expect(victoryPayout(restored, restored.gold).extra).toBeUndefined();
+  });
+
+  it('leaves a failed side route unclaimed and carries a forged rune bonus through a merge', () => {
+    const run = fixture(15);
+    run.board[13] = { configId: 'spark_orb', star: 1, bonusPower: 12 };
+    selectTrial(run, true, 'alternate');
+    const result = planTurn(run, catalog).result;
+    expect(result.win).toBe(false);
+    settleTurn(run, result, catalog, createMulberry32(run.rngState));
+    expect(run).toMatchObject({ wave: 15, pendingLoss: true });
+    expect(run.clearedTrials).toBeUndefined();
+    expect(run.board[13]?.bonusPower).toBe(12);
+    resolveLoss(run, true);
+    run.board[3] = { configId: 'spark_orb', star: 1, bonusPower: 3 };
+    expect(mergeRunes(run)[0]?.rune).toMatchObject({ star: 2, bonusPower: 12 });
   });
 
   it('requires loss resolution before leaving a failed bounty and gives no bounty payment', () => {

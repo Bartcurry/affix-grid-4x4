@@ -1,6 +1,6 @@
 import { encounters } from '../core/expedition';
 import { prepareBattle } from '../core/tactics';
-import { battleTarget, trialAt, type TrialChoice } from '../core/trials';
+import { battleTarget, bountyExtraBlock, bountyExtraText, bountyRewardAt, bountyRuneCell, trialAt, type TrialChoice } from '../core/trials';
 import type { Catalog, Run } from '../core/types';
 
 export function bindTrialRoom(catalog: Catalog, format: (value: number) => string, choose: (choice: TrialChoice) => boolean) {
@@ -20,6 +20,7 @@ export function bindTrialRoom(catalog: Catalog, format: (value: number) => strin
       const trialWave = choice === 'normal' ? undefined : run.wave;
       const trialRoute = choice === 'alternate' ? choice : undefined;
       const { encounter, trial: bounty } = battleTarget(run.wave, trialWave, trialRoute);
+      const reward = bountyRewardAt(run.wave, trialRoute, run.bountyRewardRule);
       const enemy = encounters[encounter];
       const { events, hp } = prepareBattle({ ...run, trialWave, trialRoute }, catalog);
       const result = events.at(-1);
@@ -57,12 +58,29 @@ export function bindTrialRoom(catalog: Catalog, format: (value: number) => strin
       action.disabled = current;
       action.onclick = () => { if (choose(choice)) dialog.close(); };
       if (bounty) {
-        const reward = document.createElement('strong');
-        reward.className = 'trial-reward';
-        reward.textContent = `胜利 +${bounty.reward} 金`;
-        header.append(reward);
+        const gold = document.createElement('strong');
+        gold.className = 'trial-reward';
+        gold.textContent = `胜利 +${reward.gold} 金`;
+        header.append(gold);
       }
       card.append(header, hint, metrics, estimate, action);
+      if (bounty && reward.extra) {
+        const prize = document.createElement('p');
+        const label = document.createElement('strong');
+        const block = bountyExtraBlock(reward.extra, run);
+        const recipient = reward.extra === 'engrave' ? run.board[bountyRuneCell] : null;
+        prize.className = 'trial-extra';
+        prize.dataset.available = String(!block);
+        label.textContent = bountyExtraText[reward.extra];
+        prize.append(label);
+        const line = block ? `当前${block}，过关只领金币` : recipient ? `当前是${catalog[recipient.configId].name}` : '';
+        if (line) {
+          const detail = document.createElement('span');
+          detail.textContent = line;
+          prize.append(detail);
+        }
+        card.append(prize);
+      }
       return card;
     }));
     dialog.showModal();
