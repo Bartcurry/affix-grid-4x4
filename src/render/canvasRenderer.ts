@@ -11,13 +11,13 @@ interface Rect extends Point { width: number; height: number }
 type Target = Slot | 'sell' | null;
 
 const WIDTH = 380;
-const HEIGHT = 444;
-const SELL: Rect = { x: 14, y: 412, width: 352, height: 26 };
-const BOARD: Rect = { x: 4, y: 4, width: 372, height: 346 };
+const HEIGHT = 432;
+const SELL: Rect = { x: 11, y: 407, width: 358, height: 21 };
+const BOARD: Rect = { x: 4, y: 4, width: 372, height: 344 };
 
 const cellRect = ({ zone, index }: Slot): Rect => zone === 'board'
-  ? { x: 14 + (index % 4) * 89, y: 14 + Math.floor(index / 4) * 82, width: 84, height: 78 }
-  : { x: 14 + index * 89, y: 366, width: 84, height: 40 };
+  ? { x: 11 + (index % 4) * 90, y: 10 + Math.floor(index / 4) * 83, width: 86, height: 79 }
+  : { x: 11 + index * 90, y: 366, width: 86, height: 36 };
 
 const center = ({ x, y, width, height }: Rect): Point => ({ x: x + width / 2, y: y + height / 2 });
 const sameSlot = (left: Slot | null, right: Slot) => left?.zone === right.zone && left.index === right.index;
@@ -167,7 +167,23 @@ export class CanvasRenderer {
 
   hit(point: Point): Target {
     if (contains(SELL, point)) return 'sell';
-    return slotList.find(slot => contains(cellRect(slot), point)) ?? null;
+    const exact = slotList.find(slot => contains(cellRect(slot), point));
+    if (exact) return exact;
+
+    // 触控防漏容错：如果点击在棋盘基座内，吸附至最近的格子
+    if (contains(BOARD, point)) {
+      const col = Math.min(3, Math.max(0, Math.floor((point.x - 11 + 2) / 90)));
+      const row = Math.min(3, Math.max(0, Math.floor((point.y - 10 + 2) / 83)));
+      return { zone: 'board', index: row * 4 + col };
+    }
+
+    // 备战区触控容错
+    if (point.y >= 360 && point.y <= 404 && point.x >= 8 && point.x <= 372) {
+      const idx = Math.min(3, Math.max(0, Math.floor((point.x - 11 + 2) / 90)));
+      return { zone: 'bench', index: idx };
+    }
+
+    return null;
   }
 
   clearEffects() {
@@ -351,11 +367,11 @@ export class CanvasRenderer {
     this.drawFrame(now);
 
     // 2. 备战区托盘标题与计数
-    this.text('备战区', 18, 355, 11, '#94a3b8', 'left', true);
+    this.text('备战区', 14, 356, 11, '#94a3b8', 'left', true);
     this.text(
       `${this.run.bench.filter(Boolean).length} / 4`,
-      362,
-      355,
+      366,
+      356,
       11,
       '#d4af37',
       'right',
