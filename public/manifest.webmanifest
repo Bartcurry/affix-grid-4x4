@@ -1,0 +1,32 @@
+{
+  "name": "4×4 词条法阵 · 玄墨鎏金",
+  "short_name": "词条法阵",
+  "description": "在 4×4 法阵中摆放、合成并连锁触发符文，挑战 20 波守门核心。「玄墨鎏金」新中式战术法阵。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#090B10",
+  "theme_color": "#090B10",
+  "orientation": "portrait",
+  "categories": ["games", "strategy"],
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

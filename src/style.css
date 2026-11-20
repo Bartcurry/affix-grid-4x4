@@ -1831,3 +1831,440 @@ dialog::backdrop {
   color: #cbd5e1;
   font-family: var(--mono-font);
 }
+
+/* ==========================================================================
+   天机阁 · 图鉴系统与历劫战史 (Codex & Archives)
+   ========================================================================== */
+
+.codex-dialog-grand {
+  width: min(720px, 95vw);
+  max-height: 88vh;
+  padding: 0;
+  border: 1px solid var(--gold-primary);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #131722 0%, #090b10 100%);
+  color: var(--text-main);
+  box-shadow: 0 0 32px rgba(0, 0, 0, 0.85), 0 0 16px var(--gold-glow);
+}
+
+.codex-dialog-content {
+  display: flex;
+  flex-direction: column;
+  padding: 1.1rem;
+  gap: 0.85rem;
+  max-height: 86vh;
+  overflow: hidden;
+}
+
+.codex-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+}
+
+.codex-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.codex-title {
+  font-family: var(--display-font);
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--gold-bright);
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+/* 导航 Tabs */
+.codex-nav-tabs {
+  display: flex;
+  gap: 0.4rem;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.25);
+  padding-bottom: 0.2rem;
+}
+
+.codex-tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-sub);
+  transition: all 0.16s ease-out;
+}
+
+.codex-tab-btn:hover {
+  color: var(--gold-bright);
+  border-color: rgba(212, 175, 55, 0.4);
+  box-shadow: none;
+}
+
+.codex-tab-btn.active {
+  color: var(--gold-bright);
+  border-bottom: 2px solid var(--gold-primary);
+  text-shadow: 0 0 8px var(--gold-glow);
+}
+
+/* Tab Panels */
+.codex-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gold-dark) transparent;
+}
+
+.codex-panel[hidden] {
+  display: none !important;
+}
+
+/* 符文流派筛选条 */
+.codex-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.codex-filter-btn {
+  font-size: 0.76rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 4px;
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  background: var(--bg-card);
+  color: var(--text-sub);
+}
+
+.codex-filter-btn:hover,
+.codex-filter-btn.active {
+  border-color: var(--gold-primary);
+  color: var(--gold-bright);
+  background: rgba(212, 175, 55, 0.12);
+}
+
+/* 符文宝典卡片网格 */
+.codex-runes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 0.75rem;
+  padding-bottom: 0.5rem;
+}
+
+.codex-rune-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  border-radius: 6px;
+  padding: 0.7rem;
+  gap: 0.5rem;
+  position: relative;
+  transition: transform 0.16s ease, border-color 0.16s ease;
+}
+
+.codex-rune-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--gold-primary);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 8px var(--gold-glow);
+}
+
+.codex-rune-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.codex-rune-icon-wrap {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: var(--bg-recessed);
+  border: 1px solid currentColor;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.6);
+}
+
+.codex-rune-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.codex-rune-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.codex-rune-name {
+  font-family: var(--display-font);
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--gold-bright);
+}
+
+.codex-rune-cost {
+  font-size: 0.75rem;
+  color: var(--color-gold);
+  font-family: var(--mono-font);
+  font-weight: 700;
+}
+
+.codex-rune-tags {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.codex-rune-tag {
+  font-size: 0.68rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-sub);
+}
+
+.codex-rune-desc {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #e2e8f0;
+  margin: 0;
+}
+
+/* 三阶升星预览条 */
+.codex-star-preview {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+  background: var(--bg-recessed);
+  border: 1px solid rgba(212, 175, 55, 0.15);
+  border-radius: 4px;
+  padding: 0.35rem;
+  text-align: center;
+}
+
+.codex-star-step {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.codex-star-label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--gold-bright);
+}
+
+.codex-star-val {
+  font-size: 0.72rem;
+  color: #cbd5e1;
+  font-family: var(--mono-font);
+}
+
+/* 克制与战法提示 */
+.codex-tactical-tip {
+  font-size: 0.74rem;
+  line-height: 1.4;
+  color: #94a3b8;
+  background: rgba(212, 175, 55, 0.06);
+  border-left: 2px solid var(--gold-primary);
+  padding: 0.3rem 0.5rem;
+  border-radius: 0 4px 4px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.codex-tactical-tip strong {
+  color: var(--gold-bright);
+}
+
+/* 仙家灵宝网格 */
+.codex-relics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 0.75rem;
+  padding-bottom: 0.5rem;
+}
+
+.codex-relic-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  border-radius: 6px;
+  padding: 0.75rem;
+  gap: 0.45rem;
+  transition: transform 0.16s ease, border-color 0.16s ease;
+}
+
+.codex-relic-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--gold-primary);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 8px var(--gold-glow);
+}
+
+.codex-relic-head {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.codex-relic-icon-wrap {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 5px;
+  background: var(--bg-recessed);
+  border: 1px solid var(--gold-dark);
+  color: var(--gold-bright);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+}
+
+.codex-relic-title {
+  font-family: var(--display-font);
+  font-size: 0.96rem;
+  font-weight: 800;
+  color: var(--gold-bright);
+}
+
+.codex-relic-desc {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #cbd5e1;
+  margin: 0;
+}
+
+/* 历劫战史列表 */
+.codex-archives-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding-bottom: 0.5rem;
+}
+
+.codex-archive-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  background: var(--bg-card);
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  border-radius: 6px;
+  padding: 0.75rem 0.85rem;
+  transition: border-color 0.14s ease;
+}
+
+.codex-archive-card:hover {
+  border-color: var(--gold-primary);
+}
+
+.codex-archive-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.codex-archive-opening-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.codex-archive-emblem {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.codex-archive-opening-name {
+  font-family: var(--display-font);
+  font-size: 0.94rem;
+  font-weight: 800;
+  color: var(--gold-bright);
+}
+
+.codex-archive-status-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+.codex-archive-status-badge.status-victory {
+  background: rgba(225, 29, 72, 0.2);
+  border: 1px solid #e11d48;
+  color: #fca5a5;
+}
+
+.codex-archive-status-badge.status-defeat {
+  background: rgba(148, 163, 184, 0.15);
+  border: 1px solid #64748b;
+  color: #cbd5e1;
+}
+
+.codex-archive-status-badge.status-active {
+  background: rgba(56, 189, 248, 0.18);
+  border: 1px solid #38bdf8;
+  color: #7dd3fc;
+}
+
+.codex-archive-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  font-size: 0.76rem;
+  color: #cbd5e1;
+  font-family: var(--mono-font);
+  background: var(--bg-recessed);
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+}
+
+.codex-archive-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.codex-archive-seed {
+  font-size: 0.74rem;
+  color: var(--text-sub);
+  font-family: var(--mono-font);
+}
+
+.codex-archive-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.codex-archive-actions button {
+  font-size: 0.74rem;
+  padding: 0.25rem 0.55rem;
+}
+
+.codex-empty-note {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  padding: 2.5rem 1rem;
+  font-family: var(--display-font);
+}
+

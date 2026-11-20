@@ -5,7 +5,7 @@ import { isOpening, openingIds, openings, updateRecords } from './core/openings'
 import { createMulberry32, decodeSeed, generateSeedCode } from './core/rng';
 import { planTurn, previewPlacement, runeFootprint, usesTutorial } from './core/tactics';
 import { buyRune, canArrange, chooseRelic, newRun, purchaseInfo, refreshShop, resolveLoss, runeAt, sellRune, sellValue, settleTurn, startEndless, swapRunes, toggleLock, UndoStack, victoryPayout } from './core/shopEngine';
-import { STAR_MULT, initialRuneState, type BattleEvent, type OpeningId, type Rune, type RuneState, type Slot } from './core/types';
+import { STAR_MULT, initialRuneState, type BattleEvent, type OpeningId, type Rune, type Run, type RuneState, type Slot } from './core/types';
 import { catalog } from './data/catalog';
 import { CanvasRenderer, formatNumber, runeVectors } from './render/canvasRenderer';
 import { getArchetypeEmblemPath, getBossSvgPath, getRelicSvgPath } from './render/glyphs';
@@ -14,6 +14,14 @@ import { bindDragDrop } from './render/dragDrop';
 import { PlaybackController } from './render/playbackController';
 import { SynthAudio } from './audio/synthAudio';
 import { WebMockAdapter } from './platform/webMockAdapter';
+import { getRuneTacticalInfo } from './data/tacticalTips';
+import type { RunArchive } from './platform/adapter';
+
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
 
 function element<ElementType extends HTMLElement = HTMLElement>(id: string): ElementType {
   const node = document.getElementById(id);
@@ -32,11 +40,13 @@ const saved = platform.load();
 const initialSeed = generateSeedCode();
 let run = saved?.run ?? newRun(catalog, createMulberry32(initialSeed.seed), 'chain', initialSeed.code);
 let records = saved?.records ?? {};
+let history: RunArchive[] = saved?.history ?? [];
 let forecast: ReturnType<typeof planTurn> | null = null;
 let placement: ReturnType<typeof planTurn> | null = null;
 let skin = saved?.skin ?? false;
 let exactForecast = saved?.exactForecast ?? false;
 audio.muted = saved?.muted ?? false;
+audio.ambientMuted = saved?.ambientMuted ?? false;
 player.speed = saved?.speed ?? 1;
 
 let phase: 'ARRANGE' | 'PLAYBACK' = 'ARRANGE';
@@ -66,7 +76,17 @@ const archetypeLabel = { chain: '连锁', poison: '剧毒', gold: '金币', ampl
 const arranging = () => phase === 'ARRANGE' && canArrange(run);
 const persist = () => {
   records = updateRecords(records, run);
-  platform.save({ schemaVersion: 2, run, skin, muted: audio.muted, speed: player.speed, exactForecast, records });
+  platform.save({
+    schemaVersion: 2,
+    run,
+    skin,
+    muted: audio.muted,
+    speed: player.speed,
+    exactForecast,
+    records,
+    history,
+    ambientMuted: audio.ambientMuted,
+  });
 };
 const tutorials = () => usesTutorial(run);
 const click = () => { audio.unlock(); audio.click(); };
@@ -344,6 +364,10 @@ function syncControls() {
   game.dataset.phase = phase.toLowerCase();
   button('sound').setAttribute('aria-pressed', String(!audio.muted));
   button('sound').textContent = audio.muted ? '静音' : '音效';
+  button('ambient').setAttribute('aria-pressed', String(!audio.ambientMuted));
+  button('ambient').textContent = audio.ambientMuted ? '雅乐·静' : '雅乐';
+  button('ambient').disabled = phase === 'PLAYBACK';
+  button('codex').disabled = phase === 'PLAYBACK';
   button('speed').textContent = `${player.speed}×`;
   button('speed').setAttribute('aria-label', `播放速度 ${player.speed} 倍，点击切换`);
   button('skip').disabled = phase !== 'PLAYBACK';
@@ -694,10 +718,35 @@ function resetTimeline() {
   if (ghost) ghost.style.width = '100%';
 }
 
+function recordRunHistory(runToRecord: Run) {
+  if (runToRecord.attempts === 0 && runToRecord.wave === 1 && runToRecord.status === 'active') return;
+  const entry: RunArchive = {
+    id: `${runToRecord.seed}-${runToRecord.wave}-${Date.now()}`,
+    seed: runToRecord.seed,
+    wave: runToRecord.wave,
+    opening: runToRecord.opening,
+    status: runToRecord.status,
+    lastDamage: runToRecord.lastDamage,
+    bestCombo: runToRecord.bestCombo,
+    date: new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    relicsCount: runToRecord.relics.length,
+  };
+  if (history.length && history[0].seed === entry.seed && history[0].wave === entry.wave && history[0].status === entry.status) {
+    history[0] = entry;
+  } else {
+    history.unshift(entry);
+    if (history.length > 5) history = history.slice(0, 5);
+  }
+  persist();
+}
+
 const openingDialog = element<HTMLDialogElement>('opening-dialog');
 let openingCandidate: OpeningId | null = null;
 
 function startOpening(id: OpeningId, customSeed?: string) {
+  if (run && (run.attempts > 0 || run.wave > 1)) {
+    recordRunHistory(run);
+  }
   if (openingDialog.open) openingDialog.close();
   if (dialog.open) dialog.close();
   const seed = customSeed || element<HTMLInputElement>('opening-seed')?.value.trim() || undefined;
@@ -788,10 +837,10 @@ function openOpenings(first = false) {
 
     const record = records[id];
     if (record) {
-      const history = document.createElement('small');
-      history.className = 'opening-record-text';
-      history.textContent = `最高纪录：打过 ${record.cleared} 波 · ${record.combo} 连击`;
-      item.append(history);
+      const recordEl = document.createElement('small');
+      recordEl.className = 'opening-record-text';
+      recordEl.textContent = `最高纪录：打过 ${record.cleared} 波 · ${record.combo} 连击`;
+      item.append(recordEl);
     }
     item.onclick = () => {
       click();
@@ -836,6 +885,10 @@ function showOutcome() {
     ]);
   } else if (run.status !== 'active') {
     const won = run.status === 'victory';
+    recordRunHistory(run);
+    if (won) {
+      renderer.spawnVictoryCelebration();
+    }
     let mvpHtml = '';
     const cellDamages = run.lastCellDamage ?? (forecast?.byCell ? forecast.byCell.map(c => c.damage) : null);
     if (cellDamages) {
@@ -892,6 +945,7 @@ function consume(event: BattleEvent) {
       if (event.kind === 'rune' && event.amount > 0 && encounterAt(run.wave) === 'armor' && bossArmorHits < 2) {
         bossArmorHits++;
         updateBossArmorUi(bossArmorHits, true);
+        renderer.spawnBronzeShatter({ x: 190, y: 55 });
       }
       if (event.crit || event.amount >= bossHealth(run.wave) * 0.15) {
         const emblem = document.getElementById('boss-emblem-wrap');
@@ -952,6 +1006,9 @@ button('battle').onclick = async () => {
   run.rngState = prng.getState();
   redraw();
   if (result.win && run.status === 'active' && !run.pendingRelics.length) {
+    if (run.wave - 1 >= 20) {
+      renderer.spawnVictoryCelebration();
+    }
     renderer.waveComplete = true; renderer.invalidate();
     victoryTimer = setTimeout(() => { renderer.waveComplete = false; renderer.invalidate(); }, 1500);
     notice(`打过第 ${run.wave - 1} 波 · ${formatNumber(result.damage)} 伤害 · 过关 +${victoryPayout(run, result.gold, catalog).total} 金`);
@@ -1008,6 +1065,258 @@ button('support').onclick = async () => {
 button('help').onclick = () => {
   click(); showPanel('怎么玩', '先把符文放置在棋盘上。符文从左上角开始，逐行触发；比如折射镜会再触发右边那一枚。\n\n点击已选中的符文，再点击目标格即可快速交换（支持手机单手操作），拖拽换位时悬浮符文自动向上偏移防遮挡。\n\n棋盘中生成了【离火位】（额外触发1次）、【玄冰位】（暴击率+45%）和【聚灵位】（相邻激活永久威力+2）。\n\n三枚同名同星的符文会自动升一级。开局两枚先别挪，直接打就能过第一波。',
     [{ label: '知道了', primary: true, act: () => dialog.close() }], true);
+};
+
+const codexDialog = element<HTMLDialogElement>('codex-dialog');
+let codexRuneFilter = 'all';
+
+function openCodex(tab: 'runes' | 'relics' | 'archives' = 'runes') {
+  click();
+  audio.singingBowl();
+  switchCodexTab(tab);
+  if (!codexDialog.open) codexDialog.showModal();
+}
+
+function switchCodexTab(tab: 'runes' | 'relics' | 'archives') {
+  const tabs = ['runes', 'relics', 'archives'] as const;
+  tabs.forEach(t => {
+    const tabBtn = element(`tab-btn-${t}`);
+    const tabSection = element(`codex-panel-${t}`);
+    const isActive = t === tab;
+    tabBtn.classList.toggle('active', isActive);
+    tabBtn.setAttribute('aria-selected', String(isActive));
+    tabSection.hidden = !isActive;
+    tabSection.classList.toggle('active', isActive);
+  });
+  if (tab === 'runes') renderCodexRunes();
+  if (tab === 'relics') renderCodexRelics();
+  if (tab === 'archives') renderCodexArchives();
+}
+
+function renderCodexRunes() {
+  const grid = element('codex-runes-grid');
+  const allRunes = Object.values(catalog);
+  const filtered = codexRuneFilter === 'all'
+    ? allRunes
+    : allRunes.filter(r => r.archetype === codexRuneFilter);
+
+  grid.replaceChildren(...filtered.map(rune => {
+    const card = document.createElement('div');
+    card.className = `codex-rune-card archetype-${rune.archetype}`;
+    card.style.setProperty('--card-accent', rune.color);
+
+    const head = document.createElement('div');
+    head.className = 'codex-rune-head';
+
+    const iconWrap = document.createElement('div');
+    iconWrap.className = 'codex-rune-icon-wrap';
+    iconWrap.style.color = rune.color;
+    iconPath(iconWrap, runeVectors[rune.id]);
+
+    const meta = document.createElement('div');
+    meta.className = 'codex-rune-meta';
+
+    const titleRow = document.createElement('div');
+    titleRow.className = 'codex-rune-title-row';
+
+    const name = document.createElement('strong');
+    name.className = 'codex-rune-name';
+    name.textContent = rune.name;
+
+    const cost = document.createElement('span');
+    cost.className = 'codex-rune-cost';
+    cost.textContent = `${rune.cost} 金`;
+
+    titleRow.append(name, cost);
+
+    const tags = document.createElement('div');
+    tags.className = 'codex-rune-tags';
+
+    const archTag = document.createElement('span');
+    archTag.className = 'codex-rune-tag';
+    archTag.textContent = archetypeLabel[rune.archetype];
+
+    const rarityTag = document.createElement('span');
+    rarityTag.className = 'codex-rune-tag';
+    rarityTag.textContent = rarityLabel[rune.rarity];
+
+    tags.append(archTag, rarityTag);
+    meta.append(titleRow, tags);
+    head.append(iconWrap, meta);
+
+    const desc = document.createElement('p');
+    desc.className = 'codex-rune-desc';
+    desc.textContent = rune.desc;
+
+    // 3-star Tier Preview
+    const preview = document.createElement('div');
+    preview.className = 'codex-star-preview';
+    const mults: [string, number][] = [['1★ 基础', 1.0], ['2★ 升阶', 2.2], ['3★ 极意', 5.0]];
+    mults.forEach(([label, mult]) => {
+      const step = document.createElement('div');
+      step.className = 'codex-star-step';
+      const stepLabel = document.createElement('span');
+      stepLabel.className = 'codex-star-label';
+      stepLabel.textContent = label;
+      const stepVal = document.createElement('span');
+      stepVal.className = 'codex-star-val';
+      stepVal.textContent = `×${mult}`;
+      step.append(stepLabel, stepVal);
+      preview.append(step);
+    });
+
+    // Tactical Tip
+    const tactical = getRuneTacticalInfo(rune.id);
+    const tipBox = document.createElement('div');
+    tipBox.className = 'codex-tactical-tip';
+    tipBox.innerHTML = `<strong>【战法】</strong>${tactical.tip} · <em>${tactical.recommendedPosition}</em>`;
+
+    card.append(head, desc, preview, tipBox);
+    return card;
+  }));
+}
+
+function renderCodexRelics() {
+  const grid = element('codex-relics-grid');
+  grid.replaceChildren(...Object.entries(relics).map(([id, info]) => {
+    const card = document.createElement('div');
+    card.className = 'codex-relic-card';
+
+    const head = document.createElement('div');
+    head.className = 'codex-relic-head';
+
+    const iconWrap = document.createElement('div');
+    iconWrap.className = 'codex-relic-icon-wrap';
+    iconPath(iconWrap, getRelicSvgPath(id));
+
+    const title = document.createElement('strong');
+    title.className = 'codex-relic-title';
+    title.textContent = info.name;
+
+    head.append(iconWrap, title);
+
+    const desc = document.createElement('p');
+    desc.className = 'codex-relic-desc';
+    desc.textContent = info.text;
+
+    card.append(head, desc);
+    return card;
+  }));
+}
+
+function renderCodexArchives() {
+  const list = element('codex-archives-list');
+  if (!history.length) {
+    list.innerHTML = '<div class="codex-empty-note">天机未启，尚无历劫战史。<br>请先行运转法阵历练，破阵之后自会在此载入青史。</div>';
+    return;
+  }
+
+  list.replaceChildren(...history.map(item => {
+    const card = document.createElement('div');
+    card.className = 'codex-archive-card';
+
+    const head = document.createElement('div');
+    head.className = 'codex-archive-head';
+
+    const openingGroup = document.createElement('div');
+    openingGroup.className = 'codex-archive-opening-group';
+
+    const emblemWrap = document.createElement('div');
+    emblemWrap.className = 'codex-archive-emblem';
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 32 32');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', getArchetypeEmblemPath(item.opening));
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', 'currentColor');
+    path.setAttribute('stroke-width', '2');
+    svg.append(path);
+    emblemWrap.append(svg);
+
+    const openingName = document.createElement('strong');
+    openingName.className = 'codex-archive-opening-name';
+    openingName.textContent = `${openings[item.opening]?.name ?? '法阵'} · ${item.wave >= 20 && item.status === 'victory' ? '廿重破阵' : `止步第 ${item.wave} 波`}`;
+
+    openingGroup.append(emblemWrap, openingName);
+
+    const badge = document.createElement('span');
+    badge.className = `codex-archive-status-badge status-${item.status}`;
+    badge.textContent = item.status === 'victory' ? '破阵胜捷' : item.status === 'defeat' ? '灵气耗竭' : '历练中';
+
+    head.append(openingGroup, badge);
+
+    const body = document.createElement('div');
+    body.className = 'codex-archive-body';
+    body.innerHTML = `
+      <span>巅峰输出：${formatNumber(item.lastDamage)}</span>
+      <span>最高连击：${item.bestCombo} 连击</span>
+      <span>持有灵宝：${item.relicsCount} 件</span>
+      <span>时间：${item.date}</span>
+    `;
+
+    const foot = document.createElement('div');
+    foot.className = 'codex-archive-foot';
+
+    const seedSpan = document.createElement('span');
+    seedSpan.className = 'codex-archive-seed';
+    seedSpan.textContent = `玄码：${item.seed}`;
+
+    const actions = document.createElement('div');
+    actions.className = 'codex-archive-actions';
+
+    const replayBtn = document.createElement('button');
+    replayBtn.type = 'button';
+    replayBtn.className = 'primary';
+    replayBtn.textContent = '复盘启阵';
+    replayBtn.onclick = () => {
+      click();
+      audio.singingBowl();
+      codexDialog.close();
+      startOpening(item.opening, item.seed);
+      notice(`已依玄码【${item.seed}】重开复盘！`);
+    };
+
+    const copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.textContent = '复制玄码';
+    copyBtn.onclick = () => {
+      click();
+      void navigator.clipboard?.writeText(item.seed);
+      notice(`已复制天机玄码：${item.seed}`);
+    };
+
+    actions.append(replayBtn, copyBtn);
+    foot.append(seedSpan, actions);
+
+    card.append(head, body, foot);
+    return card;
+  }));
+}
+
+button('codex').onclick = () => openCodex();
+button('codex-close').onclick = () => codexDialog.close();
+
+element('tab-btn-runes').onclick = () => { click(); switchCodexTab('runes'); };
+element('tab-btn-relics').onclick = () => { click(); switchCodexTab('relics'); };
+element('tab-btn-archives').onclick = () => { click(); switchCodexTab('archives'); };
+
+document.querySelectorAll<HTMLButtonElement>('.codex-filter-btn').forEach(btn => {
+  btn.onclick = () => {
+    click();
+    document.querySelectorAll('.codex-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    codexRuneFilter = btn.dataset.filter ?? 'all';
+    renderCodexRunes();
+  };
+});
+
+button('ambient').onclick = () => {
+  audio.unlock();
+  const active = audio.toggleAmbient();
+  click();
+  syncControls();
+  persist();
+  notice(active ? '五音雅乐：禅音悠扬' : '五音雅乐：已静音');
 };
 
 redraw(!!saved);

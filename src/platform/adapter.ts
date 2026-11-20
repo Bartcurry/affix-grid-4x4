@@ -1,5 +1,17 @@
-import type { Run } from '../core/types';
+import type { OpeningId, Run } from '../core/types';
 import type { RunRecords } from '../core/openings';
+
+export interface RunArchive {
+  id: string;
+  seed: string;
+  wave: number;
+  opening: OpeningId;
+  status: 'victory' | 'defeat' | 'active';
+  lastDamage: number;
+  bestCombo: number;
+  date: string;
+  relicsCount: number;
+}
 
 export interface SaveData {
   schemaVersion: 2;
@@ -9,6 +21,8 @@ export interface SaveData {
   speed: 1 | 2;
   exactForecast?: boolean;
   records: RunRecords;
+  history?: RunArchive[];
+  ambientMuted?: boolean;
 }
 
 export type Reward = 'refresh' | 'retry' | 'support';

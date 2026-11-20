@@ -77,6 +77,27 @@ export function formatNumber(value: number): string {
 }
 
 interface Spark extends Point { vx: number; vy: number }
+export type ParticleKind = 'spark' | 'poison_mist' | 'bronze_shard' | 'coin' | 'confetti';
+
+export interface JuiceParticle {
+  kind: ParticleKind;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  ax: number;
+  ay: number;
+  size: number;
+  color: string;
+  alpha: number;
+  life: number;
+  maxLife: number;
+  rot: number;
+  rotSpeed: number;
+  drag: number;
+  shape?: 'square' | 'circle' | 'triangle' | 'coin' | 'ribbon';
+}
+
 type Animation = { at: number; life: number; tone: string } & (
   | { kind: 'flash'; slot: Slot; merge?: boolean }
   | { kind: 'link'; from: Point; to: Point; sparks: Spark[] }
@@ -87,10 +108,13 @@ type Animation = { at: number; life: number; tone: string } & (
 
 export class CanvasRenderer {
   private readonly ctx: CanvasRenderingContext2D;
-  private readonly reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  private readonly reducedMotion = typeof matchMedia !== 'undefined' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
   private readonly states = new Map<number, RuneState>();
   private readonly popScales = new Map<number, { at: number; amp: number }>();
   private animations: Animation[] = [];
+  private particles: JuiceParticle[] = [];
+  private lastFrameTime = performance.now();
+  private readonly MAX_PARTICLES = 220;
   private frame = 0;
   private shakeAt = -1000;
   private pulseAt = -1000;
@@ -112,7 +136,9 @@ export class CanvasRenderer {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas 2D unavailable');
     this.ctx = ctx;
-    new ResizeObserver(() => this.invalidate()).observe(canvas);
+    if (typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(() => this.invalidate()).observe(canvas);
+    }
     this.invalidate();
   }
 
@@ -146,6 +172,7 @@ export class CanvasRenderer {
 
   clearEffects() {
     this.animations = [];
+    this.particles = [];
     this.states.clear();
     this.popScales.clear();
     this.shakeAt = -1000;
@@ -162,6 +189,7 @@ export class CanvasRenderer {
 
     if (merge) {
       const anchor = center(cellRect(slot));
+      this.spawnCritSparks(anchor);
       this.animations.push({ kind: 'merge_burst', at, life: 820, anchor, tone: '#fde047' });
       this.animations.push({
         kind: 'float',
@@ -220,10 +248,16 @@ export class CanvasRenderer {
       }
 
       case 'DAMAGE': {
-        if (event.crit) this.shakeAt = at;
+        if (event.crit) {
+          this.shakeAt = at;
+          this.spawnCritSparks(anchor(event.source));
+        }
         const maxHp = Math.max(1, bossHealth(this.run.wave));
         const dmgRatio = event.amount / maxHp;
         const isPoison = event.kind === 'poison';
+        if (isPoison) {
+          this.spawnPoisonMist(anchor(event.source));
+        }
         const isCrit = event.crit;
         const isLarge = isCrit || isPoison || dmgRatio >= 0.08;
         const isHuge = isCrit || dmgRatio >= 0.18;
@@ -426,6 +460,9 @@ export class CanvasRenderer {
       this.drawAnimation(animation, now);
     }
 
+    // 5.1 原生高性能粒子池（金芒火星、翡翠毒雾、青铜碎屑、金币雨与彩带）
+    this.updateAndDrawParticles(now);
+
     // 6. 战斗阶段动态 COMBO 计数器展示
     this.drawComboDisplay(now);
 
@@ -453,6 +490,7 @@ export class CanvasRenderer {
     if (
       !this.reducedMotion.matches ||
       this.animations.length ||
+      this.particles.length ||
       shake > 0 ||
       pulseActive ||
       this.comboCount > 0 ||
@@ -462,6 +500,7 @@ export class CanvasRenderer {
     ) {
       this.invalidate();
     }
+    this.lastFrameTime = now;
   };
 
   /**
@@ -1303,5 +1342,244 @@ export class CanvasRenderer {
     ctx.textAlign = align;
     ctx.textBaseline = 'middle';
     ctx.fillText(text, x, y);
+  }
+
+  /**
+   * 暴击斩杀时的四散金芒火星粒子池喷发
+   */
+  spawnCritSparks(anchor: Point) {
+    if (this.reducedMotion.matches) return;
+    const count = 22;
+    const colors = ['#ffffff', '#fde047', '#fbbf24', '#f59e0b', '#ffd700'];
+    for (let i = 0; i < count; i++) {
+      if (this.particles.length >= this.MAX_PARTICLES) this.particles.shift();
+      const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
+      const speed = 75 + Math.random() * 140;
+      this.particles.push({
+        kind: 'spark',
+        x: anchor.x,
+        y: anchor.y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        ax: 0,
+        ay: 130,
+        size: 2.4 + Math.random() * 2.6,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        alpha: 1,
+        life: 0,
+        maxLife: 420 + Math.random() * 320,
+        rot: Math.random() * Math.PI,
+        rotSpeed: (Math.random() - 0.5) * 8,
+        drag: 0.94,
+        shape: 'square',
+      });
+    }
+    this.invalidate();
+  }
+
+  /**
+   * 剧毒引爆时的翡翠毒雾扩散粒子池
+   */
+  spawnPoisonMist(anchor: Point) {
+    if (this.reducedMotion.matches) return;
+    const count = 16;
+    const colors = ['#34d399', '#10b981', '#059669', '#6ee7b7', '#a7f3d0'];
+    for (let i = 0; i < count; i++) {
+      if (this.particles.length >= this.MAX_PARTICLES) this.particles.shift();
+      this.particles.push({
+        kind: 'poison_mist',
+        x: anchor.x + (Math.random() - 0.5) * 16,
+        y: anchor.y + (Math.random() - 0.5) * 16,
+        vx: (Math.random() - 0.5) * 55,
+        vy: -22 - Math.random() * 45,
+        ax: (Math.random() - 0.5) * 12,
+        ay: -8,
+        size: 6 + Math.random() * 6,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        alpha: 1,
+        life: 0,
+        maxLife: 600 + Math.random() * 400,
+        rot: 0,
+        rotSpeed: 0,
+        drag: 0.96,
+        shape: 'circle',
+      });
+    }
+    this.invalidate();
+  }
+
+  /**
+   * 击破 Boss 护盾时的青铜碎屑飞溅
+   */
+  spawnBronzeShatter(anchor: Point = { x: WIDTH / 2, y: 55 }) {
+    if (this.reducedMotion.matches) return;
+    const count = 20;
+    const colors = ['#94a3b8', '#64748b', '#b45309', '#d97706', '#78350f', '#475569'];
+    for (let i = 0; i < count; i++) {
+      if (this.particles.length >= this.MAX_PARTICLES) this.particles.shift();
+      const angle = -Math.PI / 2 + (Math.random() - 0.5) * 2.4;
+      const speed = 90 + Math.random() * 160;
+      this.particles.push({
+        kind: 'bronze_shard',
+        x: anchor.x,
+        y: anchor.y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        ax: 0,
+        ay: 420,
+        size: 4 + Math.random() * 5,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        alpha: 1,
+        life: 0,
+        maxLife: 650 + Math.random() * 350,
+        rot: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 16,
+        drag: 0.97,
+        shape: 'triangle',
+      });
+    }
+    this.invalidate();
+  }
+
+  /**
+   * 结算通关时的满屏金币雨与彩带爆破粒子
+   */
+  spawnVictoryCelebration() {
+    if (this.reducedMotion.matches) return;
+    // 1. 满屏金币雨
+    const coinCount = 32;
+    for (let i = 0; i < coinCount; i++) {
+      if (this.particles.length >= this.MAX_PARTICLES) this.particles.shift();
+      this.particles.push({
+        kind: 'coin',
+        x: 15 + Math.random() * (WIDTH - 30),
+        y: -15 - Math.random() * 100,
+        vx: (Math.random() - 0.5) * 35,
+        vy: 130 + Math.random() * 180,
+        ax: 0,
+        ay: 80,
+        size: 6.5 + Math.random() * 2.5,
+        color: '#fbbf24',
+        alpha: 1,
+        life: 0,
+        maxLife: 1500 + Math.random() * 700,
+        rot: Math.random() * Math.PI,
+        rotSpeed: 3.5 + Math.random() * 7,
+        drag: 0.99,
+        shape: 'coin',
+      });
+    }
+    // 2. 欢庆彩带爆破
+    const ribbonCount = 36;
+    const ribbonColors = ['#ef4444', '#f59e0b', '#10b981', '#38bdf8', '#c084fc', '#ec4899', '#fde047'];
+    for (let i = 0; i < ribbonCount; i++) {
+      if (this.particles.length >= this.MAX_PARTICLES) this.particles.shift();
+      const angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.8;
+      const speed = 190 + Math.random() * 220;
+      this.particles.push({
+        kind: 'confetti',
+        x: WIDTH / 2 + (Math.random() - 0.5) * 140,
+        y: HEIGHT * 0.72 + Math.random() * 60,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        ax: 0,
+        ay: 260,
+        size: 3.5 + Math.random() * 3.5,
+        color: ribbonColors[Math.floor(Math.random() * ribbonColors.length)],
+        alpha: 1,
+        life: 0,
+        maxLife: 1300 + Math.random() * 600,
+        rot: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 10,
+        drag: 0.96,
+        shape: 'ribbon',
+      });
+    }
+    this.invalidate();
+  }
+
+  private updateAndDrawParticles(now: number) {
+    if (!this.particles.length) return;
+    const dt = Math.min(0.05, Math.max(0.001, (now - this.lastFrameTime) / 1000));
+    const ctx = this.ctx;
+    ctx.save();
+
+    const remaining: JuiceParticle[] = [];
+    for (const p of this.particles) {
+      p.life += dt * 1000;
+      if (p.life >= p.maxLife) continue;
+
+      p.vx += p.ax * dt;
+      p.vy += p.ay * dt;
+      const dragFactor = Math.pow(p.drag, dt * 60);
+      p.vx *= dragFactor;
+      p.vy *= dragFactor;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.rot += p.rotSpeed * dt;
+      p.alpha = Math.max(0, 1 - p.life / p.maxLife);
+
+      this.drawSingleParticle(ctx, p);
+      remaining.push(p);
+    }
+    this.particles = remaining;
+    ctx.restore();
+  }
+
+  private drawSingleParticle(ctx: CanvasRenderingContext2D, p: JuiceParticle) {
+    ctx.save();
+    ctx.globalAlpha = p.alpha;
+
+    if (p.shape === 'square') {
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 6;
+      ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+    } else if (p.shape === 'circle') {
+      const progress = p.life / p.maxLife;
+      const currentRadius = p.size * (1 + progress * 1.6);
+      ctx.globalAlpha = p.alpha * 0.65;
+      ctx.fillStyle = p.color;
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, currentRadius, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (p.shape === 'triangle') {
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.shadowColor = '#000000';
+      ctx.shadowBlur = 4;
+      ctx.beginPath();
+      ctx.moveTo(0, -p.size);
+      ctx.lineTo(p.size * 0.75, p.size * 0.75);
+      ctx.lineTo(-p.size * 0.75, p.size * 0.75);
+      ctx.closePath();
+      ctx.fill();
+    } else if (p.shape === 'coin') {
+      ctx.translate(p.x, p.y);
+      const scaleX = Math.cos(p.rot);
+      ctx.scale(scaleX, 1);
+      ctx.fillStyle = '#d4af37';
+      ctx.beginPath();
+      ctx.arc(0, 0, p.size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath();
+      ctx.arc(0, 0, p.size * 0.78, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#78350f';
+      ctx.fillRect(-p.size * 0.28, -p.size * 0.28, p.size * 0.56, p.size * 0.56);
+    } else if (p.shape === 'ribbon') {
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.size * 1.6, -p.size * 0.5, p.size * 3.2, p.size);
+    }
+
+    ctx.restore();
   }
 }

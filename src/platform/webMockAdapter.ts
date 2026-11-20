@@ -6,7 +6,7 @@ import { createMulberry32, decodeSeed, generateSeedCode } from '../core/rng';
 import type { Catalog, OpeningId, Run, Slots, TileModifierMap } from '../core/types';
 import { catalog as defaultCatalog } from '../data/catalog';
 import { formatNumber } from '../render/canvasRenderer';
-import type { PlatformAdapter, Reward, SaveData } from './adapter';
+import type { PlatformAdapter, Reward, RunArchive, SaveData } from './adapter';
 
 const SAVE_KEY_V2 = 'affix-grid-4x4.v2';
 const SAVE_KEY_V1 = 'affix-grid-4x4.v1';
@@ -40,14 +40,37 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       defaultRecords[op] = { cleared: parsed.run.wave - 1, combo: natural(parsed.run.bestCombo) ? parsed.run.bestCombo : 0 };
     }
   }
+
+  const parseHistory = (rawList: unknown): RunArchive[] => {
+    if (!Array.isArray(rawList)) return [];
+    return rawList
+      .filter((item: any) => item && typeof item.seed === 'string' && isOpening(item.opening))
+      .slice(0, 5)
+      .map((item: any) => ({
+        id: typeof item.id === 'string' ? item.id : `${item.seed}-${item.wave}`,
+        seed: String(item.seed),
+        wave: natural(item.wave) ? item.wave : 1,
+        opening: item.opening as OpeningId,
+        status: ['victory', 'defeat', 'active'].includes(item.status) ? item.status : 'defeat',
+        lastDamage: damageCount(item.lastDamage) ? item.lastDamage : 0,
+        bestCombo: natural(item.bestCombo) ? item.bestCombo : 0,
+        date: typeof item.date === 'string' ? item.date : new Date().toLocaleDateString('zh-CN'),
+        relicsCount: natural(item.relicsCount) ? item.relicsCount : 0,
+      }));
+  };
+
+  const defaultHistory = parseHistory(parsed?.history);
+
   const fallback = (): SaveData => ({
     schemaVersion: 2,
     run: newRun(catalog, createMulberry32(1), 'chain'),
-    muted: false,
-    skin: false,
-    speed: 1,
-    exactForecast: false,
+    muted: !!parsed?.muted,
+    skin: !!parsed?.skin,
+    speed: parsed?.speed === 2 ? 2 : 1,
+    exactForecast: !!parsed?.exactForecast,
     records: defaultRecords,
+    history: defaultHistory,
+    ambientMuted: !!parsed?.ambientMuted,
   });
 
   if (!parsed || typeof parsed !== 'object') return fallback();
@@ -126,6 +149,8 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       speed: parsed.speed === 2 ? 2 : 1,
       exactForecast: !!parsed.exactForecast,
       records: defaultRecords,
+      history: defaultHistory,
+      ambientMuted: !!parsed.ambientMuted,
     };
   } catch {
     return fallback();
