@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#090B10" rx="96"/>
+  <!-- Gold outer boundary -->
+  <rect x="36" y="36" width="440" height="440" rx="32" fill="none" stroke="#D4AF37" stroke-width="12" opacity="0.8"/>
+  <rect x="56" y="56" width="400" height="400" rx="20" fill="none" stroke="#38BDF8" stroke-width="4" opacity="0.4"/>
+  <!-- 4x4 Grid subtle hint -->
+  <path d="M156 56v400 M256 56v400 M356 56v400 M56 156h400 M56 256h400 M56 356h400" stroke="#D4AF37" stroke-width="3" opacity="0.2"/>
+  <!-- Center mystical diamond seal -->
+  <path d="M256 96 L416 256 L256 416 L96 256 Z" fill="none" stroke="#D4AF37" stroke-width="16" stroke-linejoin="round"/>
+  <circle cx="256" cy="256" r="64" fill="#090B10" stroke="#F59E0B" stroke-width="10"/>
+  <path d="M256 216v80 M216 256h80" stroke="#38BDF8" stroke-width="12" stroke-linecap="round"/>
+  <!-- Corner cloud embellishments -->
+  <circle cx="256" cy="176" r="14" fill="#E11D48"/>
+  <circle cx="336" cy="256" r="14" fill="#34D399"/>
+  <circle cx="256" cy="336" r="14" fill="#F59E0B"/>
+  <circle cx="176" cy="256" r="14" fill="#38BDF8"/>
+</svg>

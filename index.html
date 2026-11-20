@@ -92,14 +92,14 @@
 
       <!-- 核心黄金区域：4×4 动态法阵棋盘与悬浮词条详情卡片 -->
       <section class="arena-wrap panel" aria-label="布阵区域">
-        <canvas id="arena" tabindex="0" aria-label="4×4 词条法阵棋盘与备战区。方向键选择格子，回车选中或放置，Delete 回收，Escape 取消。">此浏览器不支持 Canvas。</canvas>
-
         <div class="arena-bar">
           <span id="board-count" class="board-counter">已布阵 0/16</span>
           <span id="arena-hint" class="arena-hint-text">点符文看作用，拖动或轻击换位</span>
           <span id="phase" class="phase-pill">布阵</span>
           <button id="inspect-jump" type="button" hidden>看词条</button>
         </div>
+
+        <canvas id="arena" tabindex="0" aria-label="4×4 词条法阵棋盘与备战区。方向键选择格子，回车选中或放置，Delete 回收，Escape 取消。">此浏览器不支持 Canvas。</canvas>
 
         <!-- 悬浮半透明磨砂暗金词条详情卡片（避免撑坏界面） -->
         <section class="inspector floating-card" id="inspector" tabindex="-1" aria-label="词条详情" data-visible="false">

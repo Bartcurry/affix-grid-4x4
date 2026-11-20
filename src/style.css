@@ -481,12 +481,16 @@ button:focus-visible, canvas:focus-visible {
   align-items: center;
   position: relative;
   overflow: hidden;
+  gap: 0.2rem;
 }
 
 canvas {
   display: block;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
   max-width: 100%;
-  max-height: 100%;
+  max-height: calc(100% - 1.8rem);
   aspect-ratio: 380 / 477;
   object-fit: contain;
   touch-action: none;
@@ -501,16 +505,20 @@ canvas {
   justify-content: space-between;
   width: 100%;
   max-width: 25rem;
-  padding: 0.15rem 0.2rem 0;
+  height: 1.5rem;
+  min-height: 1.5rem;
+  padding: 0 0.35rem;
   font-size: 0.72rem;
   color: var(--text-sub);
   flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 .board-counter {
   font-family: var(--mono-font);
   color: var(--gold-bright);
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .arena-hint-text {
@@ -518,6 +526,9 @@ canvas {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: center;
+  flex: 1;
+  padding: 0 0.4rem;
 }
 
 .arena-hint-text[data-preview=true] {
@@ -534,6 +545,7 @@ canvas {
   background: var(--bg-recessed);
   border: 1px solid var(--gold-dark);
   color: var(--gold-bright);
+  white-space: nowrap;
 }
 
 .game[data-phase=playback] .phase-pill {
@@ -1350,7 +1362,8 @@ dialog::backdrop {
   .report { grid-area: report; }
 
   canvas {
-    width: min(100%, calc((100dvh - 12rem) * 0.7966));
+    width: min(100%, calc((100dvh - 14rem) * 0.7966));
+    max-height: calc(100% - 1.8rem);
     margin: 0 auto;
   }
 }

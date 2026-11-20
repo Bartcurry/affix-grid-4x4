@@ -346,3 +346,35 @@ describe('Cycle 4: Procedural Web Audio Pentatonic Ambient', () => {
     }).not.toThrow();
   });
 });
+
+describe('Cycle 5: Arena Layout, Sizing & No-Overlap Invariant', () => {
+  it('ensures .arena-bar is positioned as arena header above canvas with zero clipping', () => {
+    const htmlPath = path.resolve(__dirname, '../../index.html');
+    const html = fs.readFileSync(htmlPath, 'utf-8');
+
+    const arenaWrapIdx = html.indexOf('class="arena-wrap');
+    const arenaBarIdx = html.indexOf('class="arena-bar"');
+    const canvasIdx = html.indexOf('id="arena"');
+
+    expect(arenaWrapIdx).toBeGreaterThan(0);
+    expect(arenaBarIdx).toBeGreaterThan(arenaWrapIdx);
+    expect(canvasIdx).toBeGreaterThan(arenaBarIdx);
+
+    // Required elements inside arena-bar
+    expect(html).toContain('id="board-count"');
+    expect(html).toContain('id="arena-hint"');
+    expect(html).toContain('id="phase"');
+  });
+
+  it('validates CSS layout constraints preventing middle-bottom clipping and overflow', () => {
+    const cssPath = path.resolve(__dirname, '../../src/style.css');
+    const css = fs.readFileSync(cssPath, 'utf-8');
+
+    // Canvas must not take 100% height inside .arena-wrap to avoid crowding out .arena-bar
+    expect(css).toContain('max-height: calc(100% - 1.8rem)');
+    // .arena-bar must have controlled height and box-sizing
+    expect(css).toContain('.arena-bar');
+    expect(css).toContain('min-height: 1.5rem');
+    expect(css).toContain('box-sizing: border-box');
+  });
+});

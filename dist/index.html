@@ -5,10 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
     <meta name="theme-color" content="#090B10" />
     <meta name="description" content="在 4×4 法阵中摆放、合成并连锁触发符文，挑战 20 波守门核心。「玄墨鎏金」新中式战术法阵。" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="词条法阵" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23090B10' d='M0 0h32v32H0z'/%3E%3Cpath fill='none' stroke='%23D4AF37' stroke-width='1.5' d='M3 3h26v26H3zM16 7l9 9-9 9-9-9zm0 4v10m-5-5h10'/%3E%3C/svg%3E" />
     <title>4×4 词条法阵 · 玄墨鎏金</title>
-    <script type="module" crossorigin src="./assets/index-DJFguUUk.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-BeHNNgK5.css">
+    <script type="module" crossorigin src="./assets/index-BqRdJu4t.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DNy3dvR1.css">
   </head>
   <body>
     <main class="game" id="game" aria-label="4×4 词条法阵">
@@ -64,6 +70,8 @@
 
           <div class="hud-utility">
             <button id="openings" type="button" title="换开局">开局</button>
+            <button id="codex" type="button" title="天机阁 · 图鉴与战绩">天机阁</button>
+            <button id="ambient" type="button" aria-pressed="true" title="五音雅乐背景禅音">雅乐</button>
             <button id="sound" type="button" aria-pressed="false" title="音效">音效</button>
             <button id="help" type="button" aria-label="玩法说明" title="玩法">玩法</button>
           </div>
@@ -86,14 +94,14 @@
 
       <!-- 核心黄金区域：4×4 动态法阵棋盘与悬浮词条详情卡片 -->
       <section class="arena-wrap panel" aria-label="布阵区域">
-        <canvas id="arena" tabindex="0" aria-label="4×4 词条法阵棋盘与备战区。方向键选择格子，回车选中或放置，Delete 回收，Escape 取消。">此浏览器不支持 Canvas。</canvas>
-
         <div class="arena-bar">
           <span id="board-count" class="board-counter">已布阵 0/16</span>
           <span id="arena-hint" class="arena-hint-text">点符文看作用，拖动或轻击换位</span>
           <span id="phase" class="phase-pill">布阵</span>
           <button id="inspect-jump" type="button" hidden>看词条</button>
         </div>
+
+        <canvas id="arena" tabindex="0" aria-label="4×4 词条法阵棋盘与备战区。方向键选择格子，回车选中或放置，Delete 回收，Escape 取消。">此浏览器不支持 Canvas。</canvas>
 
         <!-- 悬浮半透明磨砂暗金词条详情卡片（避免撑坏界面） -->
         <section class="inspector floating-card" id="inspector" tabindex="-1" aria-label="词条详情" data-visible="false">
@@ -187,7 +195,7 @@
       <dialog id="panel">
         <div class="dialog-content">
           <div id="panel-stamp-wrap" class="panel-stamp-wrap" hidden>
-            <div class="vermilion-stamp" id="vermilion-stamp">破阵</div>
+            <div class="vermilion-stamp" id="vermilion-stamp">破阵！</div>
           </div>
           <h2 id="panel-title"></h2>
           <div id="panel-mvp-card" class="panel-mvp-card" hidden></div>
@@ -255,6 +263,47 @@
             </div>
           </div>
           <button id="opening-close" type="button" class="btn-subtle-close">守静笃行 · 回阵</button>
+        </div>
+      </dialog>
+
+      <!-- 弹窗：天机阁 · 图鉴系统与历劫战史 -->
+      <dialog id="codex-dialog" class="codex-dialog-grand" aria-labelledby="codex-title">
+        <div class="dialog-content codex-dialog-content">
+          <header class="codex-header">
+            <div class="codex-title-wrap">
+              <span class="celestial-pill">天机阁 · 仙藏全卷</span>
+              <h2 id="codex-title" class="codex-title">符文图鉴与历劫战史</h2>
+            </div>
+            <button id="codex-close" type="button" class="btn-subtle-close" aria-label="关闭天机阁">✕</button>
+          </header>
+
+          <nav class="codex-nav-tabs" role="tablist">
+            <button type="button" id="tab-btn-runes" class="codex-tab-btn active" role="tab" aria-selected="true" aria-controls="codex-panel-runes">符文宝典 (26)</button>
+            <button type="button" id="tab-btn-relics" class="codex-tab-btn" role="tab" aria-selected="false" aria-controls="codex-panel-relics">仙家灵宝 (15)</button>
+            <button type="button" id="tab-btn-archives" class="codex-tab-btn" role="tab" aria-selected="false" aria-controls="codex-panel-archives">历劫战史</button>
+          </nav>
+
+          <!-- Tab 1 内容：符文宝典 -->
+          <section id="codex-panel-runes" class="codex-panel active" role="tabpanel">
+            <div class="codex-filter-bar">
+              <button type="button" class="codex-filter-btn active" data-filter="all">全部 (26)</button>
+              <button type="button" class="codex-filter-btn" data-filter="chain">⚡ 连锁 (7)</button>
+              <button type="button" class="codex-filter-btn" data-filter="poison">💧 剧毒 (6)</button>
+              <button type="button" class="codex-filter-btn" data-filter="gold">◆ 金币 (7)</button>
+              <button type="button" class="codex-filter-btn" data-filter="amplify">✦ 增幅 (6)</button>
+            </div>
+            <div id="codex-runes-grid" class="codex-runes-grid"></div>
+          </section>
+
+          <!-- Tab 2 内容：仙家灵宝 -->
+          <section id="codex-panel-relics" class="codex-panel" role="tabpanel" hidden>
+            <div id="codex-relics-grid" class="codex-relics-grid"></div>
+          </section>
+
+          <!-- Tab 3 内容：历劫战史 -->
+          <section id="codex-panel-archives" class="codex-panel" role="tabpanel" hidden>
+            <div id="codex-archives-list" class="codex-archives-list"></div>
+          </section>
         </div>
       </dialog>
 
