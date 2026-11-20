@@ -10,6 +10,8 @@ type Move = [Slot, Slot];
 interface ApplyFormation {
   matches(board: SharedBoard): boolean;
   apply(board: SharedBoard): boolean;
+  label?: string;
+  note?: string;
 }
 interface PracticeGoal { name: string; damage: number }
 
@@ -225,7 +227,7 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
       selected = undefined;
       const enemy = encounters[encounterAt(active.wave)];
       get('wave').textContent = goal ? `${goal.name} · 练习目标 ${format(goal.damage)} 伤害`
-        : `第 ${active.wave} 波 · ${enemy.name} · ${format(original.hp)} 生命`;
+        : applyToRun?.note ?? `第 ${active.wave} 波 · ${enemy.name} · ${format(original.hp)} 生命`;
       get('original').textContent = format(original.result.damage);
       get('original-combo').textContent = `${format(original.result.combo)} 连击`;
       get('resources').textContent = `${format(active.gold)} 金 · ${active.shield} 护盾 · ${active.relics.length} 件遗物`;
@@ -235,6 +237,7 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
       get<HTMLDetailsElement>('conditions').open = false;
       find.hidden = !fromCampaign;
       copy.hidden = !!goal;
+      apply.textContent = applyToRun?.label ?? '应用到当前阵';
       dialog.toggleAttribute('data-campaign', fromCampaign);
       clearAttempt();
       draw();

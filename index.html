@@ -375,6 +375,23 @@
           <h2 id="panel-title"></h2>
           <div id="panel-mvp-card" class="panel-mvp-card" hidden></div>
           <p id="panel-text"></p>
+          <section id="retry-scout" class="retry-scout" aria-labelledby="retry-title" hidden>
+            <header>
+              <h3 id="retry-title">重打推演</h3>
+              <span id="retry-gold"></span>
+            </header>
+            <div class="retry-options" role="group" aria-label="选择试阵时的护盾条件">
+              <button id="retry-keep" type="button" aria-pressed="false">
+                <span></span><strong></strong><small></small>
+              </button>
+              <button id="retry-spend" type="button" aria-pressed="false">
+                <span></span><strong></strong><small></small>
+              </button>
+            </div>
+            <p id="retry-effect" hidden></p>
+            <p id="retry-status" role="status" hidden></p>
+            <button id="retry-try" class="primary" type="button" aria-haspopup="dialog">先试改阵</button>
+          </section>
           <div id="panel-actions" class="dialog-actions"></div>
         </div>
       </dialog>

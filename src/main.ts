@@ -21,6 +21,7 @@ import { bindBoardTrial } from './render/boardTrialRoom';
 import { bindBattleJournal } from './render/battleJournal';
 import { bindEncounterRoom } from './render/encounterRoom';
 import { bindFormationLessons } from './render/formationLessons';
+import { bindRetryScout } from './render/retryScout';
 import { bindRelicRoom } from './render/relicRoom';
 import { renderOpeningPreview } from './render/openingPreview';
 import { PlaybackController } from './render/playbackController';
@@ -164,6 +165,7 @@ const emptyIcon = 'M16 3l13 13-13 13L3 16 16 3Zm0 6v14m-7-7h14';
 const runeGlyph = (node: HTMLElement, id: string) => iconPath(node, runeVectors[id] ?? emptyIcon);
 const daily = bindDailyRoom(catalog, runeGlyph, click);
 const boardTrial = bindBoardTrial(catalog, runeGlyph, formatNumber, click);
+const retryScout = bindRetryScout(catalog, click, openRetryTrial);
 const showFormationLessons = bindFormationLessons(catalog, runeGlyph, click,
   (board, name, damage) => boardTrial.open(board, undefined, true, { name, damage }));
 const showEncounters = bindEncounterRoom(catalog, click, wave => {
@@ -750,11 +752,35 @@ button('forecast-trial').onclick = () => {
   openCampaignTrial();
 };
 
+function openRetryTrial(source: SharedBoard, preserving: boolean) {
+  if (!run.pendingLoss || source.shield <= 0) return;
+  const failed = run;
+  const savedRun = platform.load(false)?.run;
+  const checkpoint = JSON.stringify(savedRun);
+  const saveMatches = !savedRun || (savedRun.pendingLoss && sameBattleSetup(savedRun, failed) && sameFormation(savedRun, failed));
+  const matches = (board: SharedBoard) => run === failed && run.pendingLoss &&
+    sameBattleSetup({ ...run, shield: source.shield }, board) && !sameFormation(run, board);
+  boardTrial.open(source, {
+    label: '保存改阵',
+    note: `第 ${source.wave} 波重打 · ${preserving ? '保留' : '扣盾后剩'} ${source.shield} 点护盾 · ${formatNumber(source.gold)} 金`,
+    matches,
+    apply: board => {
+      if (!saveMatches || !matches(board) || JSON.stringify(platform.load(false)?.run) !== checkpoint) return false;
+      applyBoardLayout(board);
+      select(null);
+      redraw();
+      retryScout.saved();
+      return true;
+    },
+  }, true);
+}
+
 interface Action { label: string; act: () => void | Promise<void>; primary?: boolean }
 function showPanel(title: string, text: string, actions: Action[], dismissible = false, mvpHtml?: string, isVictory = false) {
   dialogDismissible = dismissible;
   element('panel-title').textContent = title;
   element('panel-text').textContent = text;
+  element('retry-scout').hidden = true;
 
   const stampWrap = document.getElementById('panel-stamp-wrap');
   if (stampWrap) {
@@ -948,16 +974,20 @@ function showOutcome(archive = true) {
     return;
   }
   if (run.pendingLoss) {
+    const failed = run;
     const after = (protectedRetry: boolean) => {
+      if (run !== failed || !run.pendingLoss) return;
       dialog.close(); resolveLoss(run, protectedRetry); resetTimeline(); redraw();
       if (run.status === 'defeat') showOutcome();
       else notice(protectedRetry ? '护盾保留。现在可以重新布阵。' : '护盾 −1，重新布阵后可再次挑战。');
     };
-    showPanel(`第 ${run.wave} 波没打过`, `你打了 ${formatNumber(run.lastDamage)} 点，还差 ${formatNumber(bossHealth(run.wave) - run.lastDamage)} 点。\n重来时${encounters[encounterAt(run.wave)].name}会回满血；看一次模拟广告可以保住护盾。`, [
+    const enemy = encounters[encounterAt(run.wave)];
+    showPanel(`第 ${run.wave} 波没打过`, `对${enemy.name}打了 ${formatNumber(run.lastDamage)} 点，还差 ${formatNumber(Math.max(0, bossHealth(run.wave) - run.lastDamage))} 点。重打时敌人会回满血。`, [
       ...(run.lastJournal ? [{ label: '看看怎么打的', act: reviewLast }] : []),
-      { label: '看广告 · 无损改阵重打', primary: true, act: async () => { if (await platform.showRewardedVideo('retry')) after(true); } },
+      { label: '看广告 · 无损改阵重打', act: async () => { if (await platform.showRewardedVideo('retry')) after(true); } },
       { label: '扣除 1 点护盾', act: () => after(false) },
     ]);
+    retryScout.open(failed);
   } else if (run.status !== 'active') {
     const won = run.status === 'victory';
     if (archive) recordRunHistory(run);
@@ -1433,10 +1463,14 @@ function canReplaceFormation(board: SharedBoard) {
 
 function replaceFormation(board: SharedBoard) {
   if (!canReplaceFormation(board)) return false;
+  applyBoardLayout(board);
+  return true;
+}
+
+function applyBoardLayout(board: SharedBoard) {
   undoStack.push(run);
   run.board = [...board.board];
   run.bench = [...board.bench];
-  return true;
 }
 
 function applySharedBoard(board: SharedBoard) {

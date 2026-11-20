@@ -1522,6 +1522,41 @@ dialog::backdrop {
   min-height: 2.6rem;
 }
 
+.retry-scout {
+  display: grid;
+  gap: .48rem;
+  padding: .65rem;
+  border: 1px solid #9f815c75;
+  border-radius: .32rem;
+  background: #151921;
+}
+.retry-scout header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .3rem; }
+.retry-scout h3 { color: #f0d3a1; font-size: .92rem; }
+#retry-gold { color: #c8b496; font-size: .72rem; }
+.retry-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem; }
+.retry-options button {
+  display: grid;
+  align-content: start;
+  gap: .18rem;
+  min-height: 3.7rem;
+  padding: .4rem;
+  color: #e9dcc7;
+  background: #1b202b;
+  border-color: #8973548c;
+  text-align: left;
+}
+.retry-options button[aria-pressed=true] { border-color: #e0b67a; background: #382e27; }
+.retry-options button:disabled { opacity: .75; }
+.retry-options span, .retry-options small { color: #c2b49e; font-size: .7rem; }
+.retry-options strong { font-size: .85rem; font-variant-numeric: tabular-nums; }
+.retry-options [data-win=true] small, #retry-status { color: #b8dba0; }
+#retry-effect { color: #efbf8f; }
+#retry-effect, #retry-status { font-size: .74rem; line-height: 1.38; }
+#retry-try { min-height: 2.45rem; font-size: .83rem; }
+.retry-scout:not([hidden]) + .dialog-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.retry-scout:not([hidden]) + .dialog-actions button { padding-inline: .25rem; font-size: .8rem; }
+.retry-scout:not([hidden]) + .dialog-actions button:nth-last-child(3) { grid-column: 1 / -1; }
+
 .relic-inventory {
   list-style: none;
   margin: 0;
