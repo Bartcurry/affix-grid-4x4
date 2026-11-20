@@ -51,8 +51,51 @@ export class SynthAudio {
     this.tone(82.4, .26, .09, 'triangle');
     this.tone(110, .22, .075, 'triangle');
   }
+
+  /** 古风铜磬 (Singing bowl / resonant bronze temple chime) */
+  singingBowl() {
+    this.tone(392, 1.6, 0.08, 'sine');
+    this.tone(784, 1.4, 0.04, 'sine', 0.01);
+    this.tone(1176, 1.1, 0.02, 'triangle', 0.02);
+  }
+
+  /** 清脆金石之声 (Crisp Jade & stone sound) */
+  jadeChime() {
+    this.tone(1318, 0.16, 0.065, 'sine');
+    this.tone(1760, 0.22, 0.08, 'triangle', 0.02);
+    this.tone(2637, 0.28, 0.045, 'sine', 0.04);
+  }
+
+  /** 雷音和弦 (Thunder resonance chord) */
+  thunderChord() {
+    this.tone(48, 0.65, 0.15, 'sawtooth', 0, 32);
+    this.tone(72, 0.55, 0.12, 'triangle');
+    this.tone(144, 0.45, 0.09, 'triangle', 0.03);
+    this.tone(288, 0.35, 0.06, 'sine', 0.05);
+  }
+
+  /** 朱砂印章沉重盖落 (Vermilion stamp slam) */
+  stampSlam() {
+    this.tone(42, 0.45, 0.18, 'sawtooth', 0, 24);
+    this.tone(160, 0.18, 0.14, 'triangle');
+    this.tone(620, 0.12, 0.09, 'sine', 0.01, 300);
+  }
+
+  /** 羁绊激活共鸣声 (Synergy resonance chime) */
+  synergyChime() {
+    const notes = [392, 440, 523, 659, 784]; // G4, A4, C5, E5, G5
+    notes.forEach((freq, idx) => {
+      this.tone(freq, 0.45, 0.055, 'sine', idx * 0.045);
+    });
+  }
+
   finish(win: boolean) {
-    (win ? [392, 494, 587, 784] : [330, 262, 220, 165]).forEach((note, index) => this.tone(note, .39, .065, 'triangle', index * .085));
+    if (win) {
+      this.thunderChord();
+      [392, 494, 587, 784].forEach((note, index) => this.tone(note, .39, .065, 'triangle', index * .085));
+    } else {
+      ( [330, 262, 220, 165] ).forEach((note, index) => this.tone(note, .39, .065, 'triangle', index * .085));
+    }
   }
 
   private tone(frequency: number, length: number, peak: number, shape: OscillatorType, delay = 0, endFrequency = frequency) {

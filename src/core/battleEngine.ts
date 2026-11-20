@@ -8,7 +8,7 @@ const chapterOneHealth = 50 * 1.48 ** 9;
 const chapterTwoHealth = chapterOneHealth * 1.39 ** 10;
 
 export function bossHealth(wave: number): number {
-  if (wave === 1) return 40;
+  if (wave === 1) return 60;
   if (wave <= 10) return Math.round(50 * 1.48 ** (wave - 1));
   const health = wave <= 20 ? chapterOneHealth * 1.39 ** (wave - 10) : chapterTwoHealth * 1.24 ** (wave - 20);
   return Math.min(Number.MAX_SAFE_INTEGER, Math.round(health));
@@ -30,13 +30,14 @@ export function simulateBattle(input: {
   tileModifiers?: TileModifierMap;
   affix?: string;
   shield?: number;
+  enableSynergies?: boolean;
 }, catalog: Catalog, rng?: Random) {
   const seedNum = typeof input.seed === 'string' ? decodeSeed(input.seed) : (input.seed ?? 1);
   const effectiveRng = rng ?? seededRandom(seedNum);
   const bus = createEventBus(
     input.board, catalog, input.hp, input.gold, input.poison ?? 0, effectiveRng,
     input.tutorial ?? false, input.encounter ?? 'sentry', input.relics ?? [],
-    input.tileModifiers, input.affix, input.shield ?? 3
+    input.tileModifiers, input.affix, input.shield ?? 3, input.enableSynergies
   );
   for (let index = 0; index < CELL_COUNT; index++) bus.activate(index, 0);
   return bus.finish();

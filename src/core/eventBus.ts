@@ -1,6 +1,7 @@
 import { dealDamage, executeEffect, type Combat } from './effectExecutor';
 import { CELL_COUNT, resolveTargets } from './grid';
 import type { EncounterId } from './expedition';
+import { countSynergies, type SynergyMap } from './synergy';
 import { type BattleEvent, type Catalog, type Random, type RelicId, type Slots, type TileModifierMap, type Timing, initialRuneState } from './types';
 
 export const MAX_CELL_TRIGGERS = 8;
@@ -8,16 +9,19 @@ export const MAX_DEPTH = 24;
 export const MAX_EVENTS = 300;
 
 export function createEventBus(board: Readonly<Slots>, catalog: Catalog, hp: number, gold: number, poison: number, rng: Random,
-  tutorial: boolean, encounter: EncounterId, relics: readonly RelicId[], tileModifiers?: TileModifierMap, affix?: string, shield = 3) {
+  tutorial: boolean, encounter: EncounterId, relics: readonly RelicId[], tileModifiers?: TileModifierMap, affix?: string, shield = 3, enableSynergies = false) {
   const events: BattleEvent[] = [];
   const maxCellTriggers = affix === 'limit_triggers' ? 6 : MAX_CELL_TRIGGERS;
   const activeModifiers = tutorial ? undefined : tileModifiers;
+  const synergies: SynergyMap | undefined = enableSynergies ? countSynergies(board, catalog) : undefined;
+
   const fighters = Array.from({ length: CELL_COUNT }, (_, index) => {
     const rune = board[index];
     if (!rune || !catalog[rune.configId]) return null;
     const state = initialRuneState();
     if (activeModifiers?.[index] === 'xuan_ice') state.tempCritChance += 0.45;
     if (rune.configId === 'storm_gambler') state.tempCritChance += 0.25;
+    if (synergies && synergies.amplify.tier >= 1) state.tempCritChance += 0.15;
     return { rune, config: catalog[rune.configId], state };
   });
 
@@ -25,9 +29,7 @@ export function createEventBus(board: Readonly<Slots>, catalog: Catalog, hp: num
   let tutorialPending = tutorial && fighters[0]?.rune.configId === 'spark_orb' && fighters[1]?.rune.configId === 'prism_right';
 
   const combat: Combat = {
-    fighters, hp, gold, poison, shield, rng, encounter, relics, priorHits: 0, hitRows: 0, damage: 0, combo: 0, affix,
-    breachHp: encounter === 'last_gate' ? Math.floor(hp / 2) : 0,
-    breached: false,
+    fighters, hp, gold, poison, shield, rng, encounter, relics, priorHits: 0, damage: 0, combo: 0, affix, synergies,
     emit(event) {
       if (!combat.room()) return false;
       events.push(event);
@@ -62,20 +64,35 @@ export function createEventBus(board: Readonly<Slots>, catalog: Catalog, hp: num
         dispatch(target, 'ON_ROW_COL_ACTIVATE', from !== undefined, depth, suppressCrit);
       }
 
-      // Li Fire tile modifier: extra trigger 1 time
-      if (!isExtra && activeModifiers?.[index] === 'li_fire' && fighter.state.triggersThisTurn < maxCellTriggers && combat.room()) {
-        fighter.state.triggersThisTurn++;
-        combat.emit({ type: 'CELL_ACTIVATE', index, depth, isChain: true, combo: ++combat.combo });
-        dispatch(index, 'ON_ACTIVATE', true, depth, suppressCrit);
-        for (const target of resolveTargets(index, 'ADJACENT_4')) {
-          dispatch(target, 'ON_NEIGHBOR_ACTIVATE', true, depth, suppressCrit);
-          if (activeModifiers?.[target] === 'spirit_gathering') {
-            const targetFighter = fighters[target];
-            if (targetFighter) targetFighter.rune.bonusPower = (targetFighter.rune.bonusPower ?? 0) + 2;
+      // 5-piece Chain Synergy: 30% chance to arc to an adjacent available rune
+      if (from !== undefined && synergies && synergies.chain.tier === 2 && rng() < 0.30 && combat.room()) {
+        for (const adj of resolveTargets(index, 'ADJACENT_4')) {
+          if (fighters[adj] && fighters[adj]!.state.triggersThisTurn < maxCellTriggers && combat.room()) {
+            combat.activate(adj, depth + 1, index, suppressCrit);
+            break;
           }
         }
-        for (const target of resolveTargets(index, 'ROW_COL')) {
-          dispatch(target, 'ON_ROW_COL_ACTIVATE', true, depth, suppressCrit);
+      }
+
+      // Li Fire tile modifier: extra trigger 1 or 2 times (if li_fire_token relic owned)
+      const maxLiTriggers = relics.includes('li_fire_token') ? 2 : 1;
+      if (!isExtra && activeModifiers?.[index] === 'li_fire') {
+        for (let extra = 0; extra < maxLiTriggers; extra++) {
+          if (fighter.state.triggersThisTurn < maxCellTriggers && combat.room()) {
+            fighter.state.triggersThisTurn++;
+            combat.emit({ type: 'CELL_ACTIVATE', index, depth, isChain: true, combo: ++combat.combo });
+            dispatch(index, 'ON_ACTIVATE', true, depth, suppressCrit);
+            for (const target of resolveTargets(index, 'ADJACENT_4')) {
+              dispatch(target, 'ON_NEIGHBOR_ACTIVATE', true, depth, suppressCrit);
+              if (activeModifiers?.[target] === 'spirit_gathering') {
+                const targetFighter = fighters[target];
+                if (targetFighter) targetFighter.rune.bonusPower = (targetFighter.rune.bonusPower ?? 0) + 2;
+              }
+            }
+            for (const target of resolveTargets(index, 'ROW_COL')) {
+              dispatch(target, 'ON_ROW_COL_ACTIVATE', true, depth, suppressCrit);
+            }
+          }
         }
       }
     },
@@ -104,8 +121,12 @@ export function createEventBus(board: Readonly<Slots>, catalog: Catalog, hp: num
     for (let index = 0; index < CELL_COUNT; index++) dispatch(index, 'ON_TURN_END', false, 0, false);
     limit = MAX_EVENTS;
     if (combat.poison > 0) {
-      dealDamage(combat, null, combat.poison, 'poison');
-      const decayRatio = combat.affix === 'decay_surge' ? 0.65 : 0.8;
+      const poisonDmg = synergies && synergies.poison.tier >= 1 ? Math.ceil(combat.poison * 1.35) : combat.poison;
+      dealDamage(combat, null, poisonDmg, 'poison');
+      let decayRatio = combat.affix === 'decay_surge' ? 0.65 : 0.8;
+      if (synergies && synergies.poison.tier === 2) {
+        decayRatio = combat.affix === 'decay_surge' ? 0.75 : 0.90;
+      }
       combat.poison = Math.floor(combat.poison * decayRatio);
       combat.emit({ type: 'POISON', source: null, poison: combat.poison });
     }

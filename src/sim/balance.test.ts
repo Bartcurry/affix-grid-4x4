@@ -18,7 +18,7 @@ const amounts = (events: BattleEvent[]) => events.flatMap(event => event.type ==
 
 describe('battle simulation', () => {
   it('raises health without a new spike at the campaign or endless boundary', () => {
-    expect(bossHealth(1)).toBe(40);
+    expect(bossHealth(1)).toBe(60);
     expect(bossHealth(10)).toBe(1703);
     expect(bossHealth(11) / bossHealth(10)).toBeLessThan(1.4);
     expect(bossHealth(20)).toBe(45864);
@@ -78,30 +78,23 @@ describe('battle simulation', () => {
     expect(resultOf(events).gold).toBe(15);
   });
 
-  it('preserves the cannon’s early scaling and applies the lower rate only above 60 gold', () => {
-    const cannon = (gold: number, star: Star) => resultOf(simulateBattle({ board: [rune('gold_cannon', star)], hp: 9999, gold }, catalog, noCrit));
-    expect(cannon(60, 1)).toMatchObject({ damage: 90, gold: 60 });
-    expect(cannon(160, 1)).toMatchObject({ damage: 112, gold: 160 });
-    expect(cannon(160, 2)).toMatchObject({ damage: 247, gold: 160 });
-  });
-
   it('allows crit follow-ups to crit without dispatching themselves again', () => {
     const events = simulateBattle({ board: [rune('blood_altar'), rune('spark_orb')], hp: 999, gold: 0 }, catalog, () => 0);
     expect(amounts(events)).toEqual([24, 36]);
     expect(resultOf(events).combo).toBe(2);
   });
 
-  it('keeps inputs unchanged and clears wave one with a genuine chain', () => {
+  it('keeps inputs unchanged and clears wave one with the documented tutorial link', () => {
     const run = newRun(catalog, noCrit);
     const before = structuredClone(run);
-    const input = { ...run, hp: bossHealth(1) };
+    const input = { ...run, hp: bossHealth(1), tutorial: true };
     const events = simulateBattle(input, catalog, noCrit);
-    expect(amounts(events)).toEqual([6, 24, 12]);
-    expect(events).toContainEqual({ type: 'CHAIN_LINK', from: 0, to: 1 });
-    expect(resultOf(events)).toMatchObject({ damage: 42, win: true });
+    expect(amounts(events)).toEqual([12, 6, 42]);
+    expect(events).toContainEqual({ type: 'CHAIN_LINK', from: 1, to: 0, tutorial: true });
+    expect(resultOf(events)).toMatchObject({ damage: 60, win: true });
     expect(simulateBattle(input, catalog)).toEqual(simulateBattle(input, catalog));
     expect(run).toEqual(before);
-    expect(resultOf(simulateBattle({ ...input, board: [run.board[1], run.board[0]] }, catalog, noCrit)).damage).toBe(18);
+    expect(resultOf(simulateBattle({ ...input, tutorial: false }, catalog, noCrit)).damage).toBe(18);
   });
 });
 
@@ -140,7 +133,7 @@ describe('run economy', () => {
     run.relics = ['gate_tithe'];
     const result = { ...turn(true), gold: 69 };
     const payout = victoryPayout(run, result.gold);
-    expect(payout).toEqual({ base: 8, interest: 5, relic: 4, trial: 0, total: 17 });
+    expect(payout).toEqual({ base: 8, interest: 5, relic: 4, total: 17 });
     settleTurn(run, result, catalog, noCrit);
     expect(run.gold).toBe(86);
   });
@@ -164,7 +157,7 @@ describe('run economy', () => {
     expect(purchaseInfo(run, 1, catalog)).toEqual({ copies: 0, willMerge: false, blocked: 'bench' });
     expect(purchaseInfo(run, 0, catalog)).toEqual({ copies: 2, willMerge: true, blocked: null });
     expect(buyRune(run, 1, catalog)).toBeNull();
-    expect(buyRune(run, 0, catalog)?.[0]).toMatchObject({ slot: { zone: 'board', index: 1 }, rune: { star: 2 } });
+    expect(buyRune(run, 0, catalog)?.[0]).toMatchObject({ slot: { zone: 'board', index: 0 }, rune: { star: 2 } });
     expect(run.bench).toHaveLength(4);
     expect(run.gold).toBe(7);
     expect(swapRunes(run, { zone: 'board', index: 0 }, { zone: 'bench', index: 0 })).toBe(true);

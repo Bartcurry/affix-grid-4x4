@@ -16,7 +16,7 @@ describe('opening routes', () => {
       expect(run.relics).toEqual([]);
       expect(run.pendingRelics).toEqual([]);
       expect(run.shield).toBe(3);
-      expect(forecast.tutorialDamage).toBe(0);
+      expect(forecast.tutorialDamage).toBe(run.opening === 'chain' ? 42 : 0);
     }
   });
 

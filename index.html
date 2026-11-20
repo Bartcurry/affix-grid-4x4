@@ -2,17 +2,9 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
     <meta name="theme-color" content="#090B10" />
-    <meta name="description" content="摆四行符文，打出一串连锁。挑战 20 波、解每日残局，也能约朋友从同一个种子开局。" />
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="4×4 词条法阵" />
-    <meta property="og:description" content="摆四行符文，打出一串连锁。挑战 20 波、解每日残局，也能约朋友从同一个种子开局。" />
-    <meta property="og:image" content="https://bartcurry.github.io/affix-grid-4x4/share-card.png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="4×4 词条法阵的游戏棋盘，摆有电火花、折射镜、催化烧瓶和其他符文。" />
-    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="description" content="在 4×4 法阵中摆放、合成并连锁触发符文，挑战 20 波守门核心。「玄墨鎏金」新中式战术法阵。" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23090B10' d='M0 0h32v32H0z'/%3E%3Cpath fill='none' stroke='%23D4AF37' stroke-width='1.5' d='M3 3h26v26H3zM16 7l9 9-9 9-9-9zm0 4v10m-5-5h10'/%3E%3C/svg%3E" />
     <title>4×4 词条法阵 · 玄墨鎏金</title>
   </head>
@@ -32,12 +24,10 @@
               <div class="boss-title-row">
                 <span id="wave" class="wave-pill">第 1 / 20 波</span>
                 <h2 id="enemy-name" class="boss-name">守门核心</h2>
-                <div id="boss-armor-shields" class="boss-armor-shields" hidden title="减伤护甲" aria-label="减伤护甲" role="img">
+                <div id="boss-armor-shields" class="boss-armor-shields" hidden title="铁壳减伤护盾">
                   <span class="boss-shield-icon" id="boss-shield-1"><svg viewBox="0 0 32 32"><path d="M16 3L27 7V15C27 22 22 27 16 29C10 27 5 22 5 15V7Z" fill="currentColor"/></svg></span>
                   <span class="boss-shield-icon" id="boss-shield-2"><svg viewBox="0 0 32 32"><path d="M16 3L27 7V15C27 22 22 27 16 29C10 27 5 22 5 15V7Z" fill="currentColor"/></svg></span>
-                  <span class="boss-shield-icon" id="boss-shield-3" hidden><svg viewBox="0 0 32 32"><path d="M16 3L27 7V15C27 22 22 27 16 29C10 27 5 22 5 15V7Z" fill="currentColor"/></svg></span>
                 </div>
-                <span id="boss-stage" class="boss-stage" hidden aria-live="polite"></span>
               </div>
               <div class="hp-gauge-row">
                 <div class="hp-track" id="hp-meter" role="progressbar" aria-label="敌人生命" aria-valuemin="0">
@@ -71,7 +61,6 @@
           </div>
 
           <div class="hud-utility">
-            <button id="daily-open" type="button" title="每日残局">每日</button>
             <button id="openings" type="button" title="换开局">开局</button>
             <button id="sound" type="button" aria-pressed="false" title="音效">音效</button>
             <button id="help" type="button" aria-label="玩法说明" title="玩法">玩法</button>
@@ -80,26 +69,17 @@
 
         <!-- 战况栏第二行：紧凑芯片条（前方敌情预告 + 20波进度刻度 + 已获遗物紧凑列表） -->
         <div class="hud-row-chips">
-          <button class="boss-intel" id="route-open" type="button" aria-haspopup="dialog" aria-label="敌情与关卡路线">
+          <div class="boss-intel" id="boss-intel">
             <span class="chip-badge">敌情</span>
-            <span id="boss-intel-text" class="boss-intel-text"></span>
-          </button>
+            <span id="boss-intel-text" class="boss-intel-text">加载中...</span>
+          </div>
           <div class="wave-track" id="wave-track" aria-hidden="true"></div>
           <div id="relic-list" class="relic-chip-list"></div>
         </div>
-        <div class="enemy-row">
-          <p id="enemy-hint" class="enemy-hint" hidden></p>
-          <button id="trial-open" type="button" aria-haspopup="dialog" hidden></button>
-        </div>
-        <div id="challenge-progress" class="challenge-progress" hidden>
-          <p id="challenge-progress-line" role="status"></p>
-          <button id="challenge-reply" type="button" aria-haspopup="dialog" hidden>回传战绩</button>
-        </div>
-        <div id="first-clear" class="first-clear" hidden>
-          <p id="first-clear-summary" role="status"></p>
-          <button id="first-clear-supply" type="button" aria-haspopup="dialog"></button>
-          <button id="first-clear-dismiss" type="button" aria-label="收起首波提示">×</button>
-        </div>
+
+        <!-- 战况栏第三行：流派共鸣羁绊徽条（连锁/剧毒/金币/增幅 3/5 件套状态） -->
+        <div class="hud-row-synergies" id="hud-synergies" aria-label="法阵共鸣羁绊"></div>
+        <p id="enemy-hint" class="enemy-hint" hidden></p>
       </header>
 
       <!-- 核心黄金区域：4×4 动态法阵棋盘与悬浮词条详情卡片 -->
@@ -136,21 +116,15 @@
       <div class="deck-station">
         <!-- 紧凑单行战况推演条 -->
         <section class="forecast-strip panel" id="forecast" aria-label="战斗推演">
-          <div class="forecast-main" id="forecast-main">
+          <div class="forecast-main">
             <span id="forecast-verdict" class="forecast-verdict-pill"></span>
             <div class="forecast-gauge" aria-hidden="true"><span id="forecast-fill"></span></div>
             <span id="forecast-readout" class="forecast-readout-text"></span>
           </div>
-          <div class="forecast-actions" id="forecast-actions">
+          <div class="forecast-actions">
             <label class="forecast-toggle" title="切换模糊战果与精确数值"><input type="checkbox" id="exact-toggle"><span>精确</span></label>
-            <button id="forecast-try-board" type="button" class="btn-subtle" aria-haspopup="dialog">试阵</button>
             <button id="forecast-detail" type="button" class="btn-subtle">明细</button>
           </div>
-          <div id="battle-timeline" class="battle-timeline" hidden>
-            <progress id="battle-progress" aria-label="战斗回放进度" max="1" value="0"></progress>
-            <span id="battle-steps"></span>
-          </div>
-          <div id="field-tip" class="field-tip" hidden><span id="field-tip-text"></span><button id="field-tip-action" type="button" hidden>看看</button></div>
         </section>
 
         <!-- 符文铺（3张实体小牌横排展示） -->
@@ -184,9 +158,10 @@
         <!-- 主控操作栏：撤销、启动法阵、倍速、跳过 -->
         <footer class="deck-controls">
           <button type="button" id="undo" class="ctrl-btn" aria-label="撤销上一步 (Ctrl+Z)" disabled>撤销</button>
-          <button type="button" id="skip" class="ctrl-btn" hidden disabled>跳过</button>
           <button type="button" id="battle" class="primary battle-btn">启动法阵</button>
           <button type="button" id="speed" class="ctrl-btn" aria-label="切换播放速度">1×</button>
+          <button type="button" id="skip" class="ctrl-btn" hidden disabled>跳过</button>
+          <button type="button" id="market-jump" hidden>商店</button>
         </footer>
       </div>
 
@@ -200,7 +175,7 @@
           <div><dt>上轮伤害</dt><dd id="last-damage">—</dd></div>
           <div><dt>最高连击</dt><dd id="best-combo">—</dd></div>
         </dl>
-        <div class="report-links"><button id="journal-open" type="button" hidden>上轮复盘</button><button id="invite-open" type="button" aria-haspopup="dialog">分享</button><button id="support" type="button" title="请作者喝可乐（自愿支持）">支持</button></div>
+        <button id="support" type="button" title="请作者喝可乐（自愿支持）">支持</button>
       </section>
 
       <!-- 浮动通知 Toast -->
@@ -209,139 +184,17 @@
       <!-- 弹窗：结果结算面板 -->
       <dialog id="panel">
         <div class="dialog-content">
+          <div id="panel-stamp-wrap" class="panel-stamp-wrap" hidden>
+            <div class="vermilion-stamp" id="vermilion-stamp">破阵</div>
+          </div>
           <h2 id="panel-title"></h2>
+          <div id="panel-mvp-card" class="panel-mvp-card" hidden></div>
           <p id="panel-text"></p>
           <div id="panel-actions" class="dialog-actions"></div>
         </div>
       </dialog>
 
-      <dialog id="result-dialog" class="result-dialog" aria-labelledby="result-title">
-        <div class="dialog-content">
-          <header class="result-heading">
-            <p id="result-battle"></p>
-            <h2 id="result-title"></h2>
-            <p id="result-opening"></p>
-          </header>
-          <dl class="result-stats" aria-label="本局战绩">
-            <div><dt>打过波数</dt><dd id="result-cleared"></dd></div>
-            <div><dt>最高连击</dt><dd id="result-combo"></dd></div>
-            <div><dt>末战伤害</dt><dd id="result-damage"></dd></div>
-          </dl>
-          <section id="result-formation" class="result-formation" aria-label="末战阵容" hidden>
-            <div id="result-board" class="result-board" role="group" aria-label="末战棋盘"></div>
-            <div class="result-formation-note">
-              <h3>末战阵容</h3>
-              <p id="result-leader" hidden></p>
-              <p id="result-bounties" hidden></p>
-              <button id="result-replay" type="button" hidden>复盘最后一波</button>
-            </div>
-          </section>
-          <div id="result-actions" class="result-actions"></div>
-          <p id="result-feedback" role="status" hidden></p>
-        </div>
-      </dialog>
-
-      <dialog id="camp-dialog" class="camp-dialog" aria-labelledby="camp-title">
-        <div class="dialog-content">
-          <header><p id="camp-wave" class="daily-date"></p><h2 id="camp-title">无尽休整</h2></header>
-          <p id="camp-baseline" class="camp-baseline"></p>
-          <div class="camp-choices" aria-label="选一项休整">
-            <button id="camp-supplies" type="button" autofocus><strong>补给</strong><span id="camp-supplies-value"></span><small id="camp-supplies-impact"></small></button>
-            <button id="camp-repair" type="button"><strong>修护盾</strong><span id="camp-repair-value"></span><small id="camp-repair-impact"></small></button>
-          </div>
-          <details id="camp-move-panel" class="camp-move-panel" hidden>
-            <summary><strong>移动离火位</strong><span id="camp-tile-current"></span></summary>
-            <p>离火位上的符文每次多触发一次。点格子比较挪印后的伤害。</p>
-            <div id="camp-grid" class="market-preview-grid" role="group" aria-label="选择离火位的新格子"></div>
-            <p id="camp-move-impact" role="status"></p>
-            <button id="camp-move" class="primary" type="button"></button>
-          </details>
-        </div>
-      </dialog>
-
-      <dialog id="challenge-dialog" class="challenge-dialog" aria-labelledby="challenge-title">
-        <div class="dialog-content">
-          <p id="challenge-opening" class="challenge-opening"></p>
-          <h2 id="challenge-title">同局挑战</h2>
-          <p>从同一个种子开局。先比通关波数，波数相同再比最高连击。</p>
-          <div class="challenge-scores">
-            <div><h3>朋友的战绩</h3><strong id="challenge-target-wave"></strong><small id="challenge-target-combo"></small></div>
-            <div><h3 id="challenge-player-label">你的战绩</h3><strong id="challenge-player-wave"></strong><small id="challenge-player-combo"></small></div>
-          </div>
-          <p id="challenge-status" class="challenge-status" hidden></p>
-          <div class="challenge-actions">
-            <button id="challenge-quick" class="primary" type="button" autofocus hidden>开打首波</button>
-            <button id="challenge-enter" type="button">开始同局挑战</button>
-            <button id="challenge-share-score" type="button" aria-haspopup="dialog" hidden>回传战绩</button>
-            <button id="challenge-leave" type="button">回主线</button>
-          </div>
-        </div>
-      </dialog>
-
-      <dialog id="invite-dialog" class="challenge-dialog" aria-labelledby="invite-title">
-        <div class="dialog-content">
-          <h2 id="invite-title">约朋友打同一局</h2>
-          <div id="invite-modes" class="invite-modes" role="group" aria-label="分享范围" hidden><button type="button" id="invite-campaign" aria-pressed="true">整局挑战</button><button type="button" id="invite-board" aria-pressed="false">这一波</button></div>
-          <p id="invite-summary"></p>
-          <div class="dialog-actions">
-            <button id="invite-native" class="primary" type="button" hidden>分享邀请</button>
-            <button id="invite-copy" class="primary" type="button">复制邀请</button>
-            <button id="invite-close" type="button">关闭</button>
-          </div>
-          <p id="invite-feedback" role="status" hidden></p>
-          <details id="invite-details" class="invite-details">
-            <summary>查看邀请内容</summary>
-            <textarea id="invite-text" rows="4" readonly aria-label="可复制的邀请内容"></textarea>
-          </details>
-        </div>
-      </dialog>
-
-      <dialog id="formation-guide" class="formation-guide" aria-labelledby="formation-guide-title">
-        <div class="dialog-content">
-          <header class="daily-heading"><div><p id="formation-progress" class="daily-date"></p><h2 id="formation-guide-title">阵谱练习</h2></div><button id="formation-guide-close" type="button" aria-label="关闭阵谱" autofocus>×</button></header>
-          <div id="formation-filter" class="formation-filter" hidden><span id="formation-filter-name"></span><button id="formation-show-all" type="button">看全部</button></div>
-          <div id="formation-lessons" class="formation-lessons"></div>
-        </div>
-      </dialog>
-
-      <dialog id="shared-board-dialog" class="shared-board-dialog" aria-labelledby="shared-board-title">
-        <div class="dialog-content">
-          <div class="daily-heading"><div><p id="shared-board-wave" class="daily-date"></p><h2 id="shared-board-title">接手这一波</h2></div><button id="shared-board-close" type="button" aria-label="退出试阵" autofocus>×</button></div>
-          <div class="shared-board-scores"><div><span>原阵伤害</span><strong id="shared-board-original"></strong></div><div id="shared-board-goal" hidden><span>练习目标</span><strong id="shared-board-target"></strong></div><div><span>你的最高伤害</span><strong id="shared-board-best">—</strong></div></div>
-          <p id="shared-board-rules"></p>
-          <p id="shared-board-clue" class="shared-board-clue" hidden></p>
-          <div id="shared-board-grid" class="daily-board shared-board-grid" role="group" aria-label="试阵棋盘"></div>
-          <section id="shared-board-reserves" class="shared-board-reserves" hidden>
-            <p id="shared-board-bench-label">备战区</p>
-            <div id="shared-board-bench" class="daily-board shared-board-grid shared-board-bench" role="group" aria-labelledby="shared-board-bench-label"></div>
-          </section>
-          <p id="shared-board-inspect" class="shared-board-inspect" hidden></p>
-          <p id="shared-board-result" class="daily-result" role="status"></p>
-          <div class="shared-board-actions"><button id="shared-board-check" class="primary" type="button">试打</button><button id="shared-board-undo" type="button" disabled>撤销</button><button id="shared-board-reset" type="button">恢复原阵</button><button id="shared-board-journal" type="button" hidden>看复盘</button></div>
-          <button id="shared-board-apply" class="primary" type="button" hidden disabled>应用到当前阵</button>
-          <details id="shared-board-compare" class="shared-board-compare" hidden>
-            <summary>伤害和连锁变化</summary>
-            <ul id="shared-board-damage-diff"></ul>
-            <ul id="shared-board-chain-diff"></ul>
-          </details>
-          <details id="shared-board-share" class="invite-details" hidden>
-            <summary>分享改好的阵容</summary>
-            <div class="shared-board-link"><input id="shared-board-link" type="url" readonly aria-label="改阵挑战链接" /><button id="shared-board-copy" type="button">复制</button></div>
-          </details>
-        </div>
-      </dialog>
-
       <!-- 弹窗：战斗推演明细 -->
-      <dialog id="trial-dialog" class="trial-dialog" aria-labelledby="trial-title">
-        <div class="dialog-content">
-          <p id="trial-wave" class="trial-wave"></p>
-          <h2 id="trial-title">这波走哪条路？</h2>
-          <p>伤害按当前阵容试算。开战前可换路，打不过照常结算护盾。</p>
-          <div id="trial-routes" class="trial-routes"></div>
-          <button id="trial-close" type="button" autofocus>返回布阵</button>
-        </div>
-      </dialog>
-
       <dialog id="forecast-dialog" aria-labelledby="forecast-title">
         <div class="dialog-content">
           <h2 id="forecast-title">战斗明细</h2>
@@ -354,50 +207,16 @@
         </div>
       </dialog>
 
-      <dialog id="market-preview" class="market-preview" aria-labelledby="market-preview-title">
-        <div class="dialog-content">
-          <header class="market-preview-head">
-            <span id="market-preview-icon" aria-hidden="true"></span>
-            <div><small id="market-preview-meta"></small><h2 id="market-preview-title"></h2></div>
-            <button id="market-preview-close" type="button" aria-label="关闭试摆" autofocus>×</button>
-          </header>
-          <div class="market-preview-reading"><p id="market-preview-description"></p><button id="market-preview-guide" type="button" aria-haspopup="dialog" hidden>看搭配</button></div>
-          <p id="market-preview-blocked" hidden></p>
-          <div id="market-preview-options" class="market-preview-options" hidden>
-            <div id="market-preview-grid" class="market-preview-grid" role="group" aria-label="选择试摆格子"></div>
-            <div class="market-preview-stats"><div><span>当前阵容</span><strong id="market-before"></strong></div><div><span id="market-after-label">购入并放置</span><strong id="market-after"></strong></div></div>
-            <p id="market-preview-result" role="status"></p>
-            <p id="market-preview-link" hidden></p>
-            <button id="market-preview-buy" type="button"></button>
-          </div>
-        </div>
-      </dialog>
-
-      <dialog id="route-dialog" class="route-dialog" aria-labelledby="route-title">
-        <div class="dialog-content">
-          <h2 id="route-title">阵前敌情</h2>
-          <p id="route-progress"></p>
-          <div id="route-waves" class="route-waves" role="group" aria-label="查看关卡"></div>
-          <section class="route-detail" aria-live="polite">
-            <div class="route-detail-head"><h3 id="route-enemy"></h3><span id="route-health"></span></div>
-            <p id="route-rule"></p>
-            <ul id="route-finale" class="route-finale" hidden></ul>
-            <p id="route-reward" class="route-reward" hidden></p>
-          </section>
-          <button id="route-close" type="button" autofocus>回到布阵</button>
-        </div>
-      </dialog>
-
       <!-- 弹窗：遗物选择 -->
-      <dialog id="relic-dialog" aria-labelledby="relic-title">
+      <dialog id="relic-dialog" class="celestial-dialog" aria-labelledby="relic-title">
         <div class="dialog-content">
-          <p id="relic-wave" class="dialog-subtitle"></p>
-          <h2 id="relic-title">挑选法阵遗物</h2>
-          <div id="relic-baseline" class="relic-baseline">
-            <span id="relic-baseline-title"></span>
-            <div><strong id="relic-baseline-damage"></strong><strong id="relic-baseline-gold"></strong></div>
+          <div class="celestial-header">
+            <span class="celestial-pill">仙家灵宝 · 翻牌参悟</span>
+            <p id="relic-wave" class="dialog-subtitle"></p>
+            <h2 id="relic-title">神机天工秘宝</h2>
+            <p class="dialog-desc">心神合一，翻开灵符揭晓秘宝。每件秘宝都将激发流派质变，贯穿本局始终。</p>
           </div>
-          <div class="relic-choices" id="relic-choices"></div>
+          <div class="relic-choices celestial-choices" id="relic-choices"></div>
         </div>
       </dialog>
 
@@ -413,112 +232,31 @@
       </dialog>
 
       <!-- 弹窗：挑选开局法阵 -->
-      <dialog id="opening-dialog" aria-labelledby="opening-title">
+      <dialog id="opening-dialog" class="opening-dialog-grand" aria-labelledby="opening-title">
         <div class="dialog-content">
-          <header class="opening-heading"><p id="opening-game-name" hidden>4×4 词条法阵</p><h2 id="opening-title">选一套起手阵</h2></header>
-          <p id="opening-note" class="dialog-desc"></p>
-          <div id="opening-setup" class="opening-setup">
-            <div id="opening-choices" class="opening-choices" role="group" aria-label="起手流派"></div>
-            <section class="opening-preview" id="opening-preview" aria-label="首波预览">
-              <div class="opening-preview-main">
-                <div id="opening-board" class="opening-board" role="group" aria-label="起手阵，点符文看首波表现"></div>
-                <dl class="opening-preview-stats">
-                  <div><dt>首波伤害 / 敌人生命</dt><dd id="opening-damage"></dd></div>
-                  <div><dt>首波连击</dt><dd id="opening-combo"></dd></div>
-                  <div><dt>起手金币</dt><dd id="opening-gold"></dd></div>
-                </dl>
-              </div>
-              <p id="opening-rune" class="opening-rune" aria-live="polite"></p>
-              <p class="opening-supply"><span>第 2 波补货</span><strong id="opening-supply"></strong><small id="opening-record" hidden></small></p>
-            </section>
-            <button id="opening-play" class="primary" type="button" hidden>重开这套阵</button>
-            <div class="opening-start-actions">
-              <button id="opening-quick" class="primary" type="button" autofocus hidden>开局并打首波</button>
-              <button id="opening-close" type="button">回到当前局</button>
-            </div>
-            <div class="opening-extra">
-              <button id="opening-daily" type="button" hidden>先试一盘每日残局</button>
-              <details id="opening-seed-options">
-                <summary>种子码</summary>
-                <div class="seed-input-row">
-                  <input type="text" id="opening-seed" aria-label="开局种子码" placeholder="如 A7K9-M2P4" maxlength="12" spellcheck="false" autocomplete="off" />
-                  <button type="button" id="random-seed">随机</button>
-                </div>
-              </details>
-            </div>
+          <div class="opening-hero-banner">
+            <div class="grand-seal">玄墨鎏金</div>
+            <h2 id="opening-title" class="opening-grand-title">四象入局 · 择道启阵</h2>
+            <p id="opening-note" class="opening-grand-subtitle"></p>
           </div>
+          <div class="seed-input-row">
+            <label for="opening-seed">天机玄码：</label>
+            <input type="text" id="opening-seed" placeholder="可选，如 A7K9-M2P4" maxlength="12" spellcheck="false" autocomplete="off" />
+            <button type="button" id="random-seed">摇卦</button>
+          </div>
+          <div id="opening-choices" class="opening-choices-grid"></div>
           <div id="opening-confirm" class="opening-confirm" hidden>
             <p id="opening-warning" role="status"></p>
             <div class="dialog-actions">
-              <button id="opening-start" class="primary" type="button">开始新局</button>
-              <button id="opening-back" type="button">返回挑选</button>
+              <button id="opening-start" class="primary" type="button">立下誓约 · 启阵</button>
+              <button id="opening-back" type="button">再择良机</button>
             </div>
           </div>
+          <button id="opening-close" type="button" class="btn-subtle-close">守静笃行 · 回阵</button>
         </div>
       </dialog>
 
-      <dialog id="journal-dialog" class="journal-dialog" aria-labelledby="journal-title">
-        <div class="dialog-content">
-          <h2 id="journal-title"></h2><p id="journal-summary"></p>
-          <section class="journal-playback" aria-label="逐步复盘">
-            <div class="journal-stage">
-              <div class="journal-board" aria-hidden="true">
-                <div id="journal-board"></div><span id="journal-link" hidden></span>
-              </div>
-              <div class="journal-scene">
-                <p id="journal-frame-kind"></p>
-                <p id="journal-frame" aria-live="polite"></p>
-                <div class="journal-vitals">
-                  <div class="journal-health"><span>剩余敌血</span><strong id="journal-hp"></strong></div>
-                  <progress id="journal-health" aria-label="剩余敌血" max="1" value="0"></progress>
-                  <div class="journal-resources"><span>毒 <strong id="journal-poison"></strong></span><span>金 <strong id="journal-gold"></strong></span></div>
-                </div>
-              </div>
-            </div>
-            <div class="journal-transport">
-              <button id="journal-prev" type="button" aria-label="上一步">‹</button>
-              <label><span id="journal-count"></span><input id="journal-seek" type="range" min="0" max="1" value="0" aria-label="回放进度"></label>
-              <button id="journal-next" type="button" aria-label="下一步">›</button>
-            </div>
-            <div class="journal-jumps"><button id="journal-hardest" type="button">最大一击</button><button id="journal-end" type="button">回合结算</button></div>
-          </section>
-          <details id="journal-details">
-            <summary>伤害排行与完整记录</summary>
-            <section id="journal-damage" class="journal-damage" aria-labelledby="journal-damage-title" hidden>
-              <h3 id="journal-damage-title">本波伤害最高的来源</h3>
-              <ol id="journal-leaders"></ol>
-            </section>
-            <div class="journal-filters" role="group" aria-label="筛选记录"><button type="button" data-filter="all">全部</button><button type="button" data-filter="chain">触发</button><button type="button" data-filter="damage">伤害与毒</button><button type="button" data-filter="economy">金币</button><button type="button" data-filter="support">增益</button></div>
-            <ol id="journal-rows" aria-label="战斗事件"></ol><p id="journal-empty" hidden>这类事件没有发生。</p>
-          </details>
-          <button id="journal-close" type="button">收起复盘</button>
-        </div>
-      </dialog>
-
-      <dialog id="daily-dialog" class="daily-dialog" aria-labelledby="daily-title">
-        <div class="dialog-content">
-          <div class="daily-heading"><div><p id="daily-date" class="daily-date"></p><h2 id="daily-title">每日残局</h2></div><button id="daily-close" type="button" aria-label="关闭每日残局">×</button></div>
-          <p id="daily-intro"></p>
-          <details id="daily-archive" class="daily-archive">
-            <summary><span>补玩近七期</span><strong id="daily-streak" hidden></strong></summary>
-            <div id="daily-dates" class="daily-dates" role="group" aria-label="选择往期残局"></div>
-          </details>
-          <div id="daily-board" class="daily-board" aria-label="点两枚符文换位"></div>
-          <div class="daily-stats"><span>交换 <strong id="daily-moves">0</strong> 次</span><span id="daily-best"></span></div>
-          <div id="daily-goal" class="daily-goal" hidden><strong id="daily-goal-title"></strong><span id="daily-goal-target"></span></div>
-          <p id="daily-result" class="daily-result" role="status"></p>
-          <details id="daily-clue" class="daily-clue">
-            <summary>卡住了？</summary><p id="daily-clue-text"></p>
-            <button id="daily-hint" type="button">提示一格</button><span id="daily-hint-text" role="status" hidden></span>
-          </details>
-          <div class="daily-actions">
-            <button id="daily-check" class="primary" type="button">试打这套阵</button><button id="daily-undo" type="button" disabled>撤销</button><button id="daily-reset" type="button">重摆</button>
-            <button id="daily-copy" type="button">复制挑战</button><button id="daily-today" type="button" hidden>玩今天这题</button>
-          </div>
-          <details class="daily-share"><summary>挑战链接</summary><input id="daily-link" type="url" readonly aria-label="可复制的挑战链接" /></details>
-        </div>
-      </dialog>
-
+      <!-- 弹窗：模拟激励广告 -->
       <dialog id="ad">
         <div class="dialog-content">
           <h2>神识参悟</h2>

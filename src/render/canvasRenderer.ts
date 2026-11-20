@@ -1,3 +1,4 @@
+import { bossHealth } from '../core/battleEngine';
 import { runeAt } from '../core/shopEngine';
 import { runeFootprint } from '../core/tactics';
 import type { BattleEvent, Catalog, Rune, Run, RuneState, Slot } from '../core/types';
@@ -182,7 +183,7 @@ export class CanvasRenderer {
     this.invalidate();
   }
 
-  play(event: BattleEvent, maxHp: number) {
+  play(event: BattleEvent) {
     const at = performance.now();
     const boardSlot = (index: number): Slot => ({ zone: 'board', index });
     const anchor = (index: number | null) =>
@@ -193,10 +194,8 @@ export class CanvasRenderer {
     switch (event.type) {
       case 'CELL_ACTIVATE':
         this.comboCount = event.combo;
-        if (!event.isChain) {
-          this.activeScanSlot = boardSlot(event.index);
-          this.animations.push({ kind: 'scan', at, life: 280, slot: this.activeScanSlot, tone: '#fde047' });
-        }
+        this.activeScanSlot = boardSlot(event.index);
+        this.animations.push({ kind: 'scan', at, life: 280, slot: boardSlot(event.index), tone: '#fde047' });
         this.flash(boardSlot(event.index), color(event.index));
         break;
 
@@ -222,7 +221,8 @@ export class CanvasRenderer {
 
       case 'DAMAGE': {
         if (event.crit) this.shakeAt = at;
-        const dmgRatio = event.amount / Math.max(1, maxHp);
+        const maxHp = Math.max(1, bossHealth(this.run.wave));
+        const dmgRatio = event.amount / maxHp;
         const isPoison = event.kind === 'poison';
         const isCrit = event.crit;
         const isLarge = isCrit || isPoison || dmgRatio >= 0.08;

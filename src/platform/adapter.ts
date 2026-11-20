@@ -1,4 +1,4 @@
-import type { PlaybackSpeed, Run } from '../core/types';
+import type { Run } from '../core/types';
 import type { RunRecords } from '../core/openings';
 
 export interface SaveData {
@@ -6,7 +6,7 @@ export interface SaveData {
   run: Run;
   muted: boolean;
   skin: boolean;
-  speed: PlaybackSpeed;
+  speed: 1 | 2;
   exactForecast?: boolean;
   records: RunRecords;
 }

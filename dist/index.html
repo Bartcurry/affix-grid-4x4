@@ -7,8 +7,8 @@
     <meta name="description" content="在 4×4 法阵中摆放、合成并连锁触发符文，挑战 20 波守门核心。「玄墨鎏金」新中式战术法阵。" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23090B10' d='M0 0h32v32H0z'/%3E%3Cpath fill='none' stroke='%23D4AF37' stroke-width='1.5' d='M3 3h26v26H3zM16 7l9 9-9 9-9-9zm0 4v10m-5-5h10'/%3E%3C/svg%3E" />
     <title>4×4 词条法阵 · 玄墨鎏金</title>
-    <script type="module" crossorigin src="./assets/index-DHLzD4V3.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-DwFp1jVX.css">
+    <script type="module" crossorigin src="./assets/index-DJFguUUk.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BeHNNgK5.css">
   </head>
   <body>
     <main class="game" id="game" aria-label="4×4 词条法阵">
@@ -78,6 +78,9 @@
           <div class="wave-track" id="wave-track" aria-hidden="true"></div>
           <div id="relic-list" class="relic-chip-list"></div>
         </div>
+
+        <!-- 战况栏第三行：流派共鸣羁绊徽条（连锁/剧毒/金币/增幅 3/5 件套状态） -->
+        <div class="hud-row-synergies" id="hud-synergies" aria-label="法阵共鸣羁绊"></div>
         <p id="enemy-hint" class="enemy-hint" hidden></p>
       </header>
 
@@ -183,7 +186,11 @@
       <!-- 弹窗：结果结算面板 -->
       <dialog id="panel">
         <div class="dialog-content">
+          <div id="panel-stamp-wrap" class="panel-stamp-wrap" hidden>
+            <div class="vermilion-stamp" id="vermilion-stamp">破阵</div>
+          </div>
           <h2 id="panel-title"></h2>
+          <div id="panel-mvp-card" class="panel-mvp-card" hidden></div>
           <p id="panel-text"></p>
           <div id="panel-actions" class="dialog-actions"></div>
         </div>
@@ -203,12 +210,15 @@
       </dialog>
 
       <!-- 弹窗：遗物选择 -->
-      <dialog id="relic-dialog" aria-labelledby="relic-title">
+      <dialog id="relic-dialog" class="celestial-dialog" aria-labelledby="relic-title">
         <div class="dialog-content">
-          <p id="relic-wave" class="dialog-subtitle"></p>
-          <h2 id="relic-title">挑选法阵遗物</h2>
-          <p class="dialog-desc">只能取走一件秘宝，效果将贯穿本局始终。</p>
-          <div class="relic-choices" id="relic-choices"></div>
+          <div class="celestial-header">
+            <span class="celestial-pill">仙家灵宝 · 翻牌参悟</span>
+            <p id="relic-wave" class="dialog-subtitle"></p>
+            <h2 id="relic-title">神机天工秘宝</h2>
+            <p class="dialog-desc">心神合一，翻开灵符揭晓秘宝。每件秘宝都将激发流派质变，贯穿本局始终。</p>
+          </div>
+          <div class="relic-choices celestial-choices" id="relic-choices"></div>
         </div>
       </dialog>
 
@@ -224,24 +234,27 @@
       </dialog>
 
       <!-- 弹窗：挑选开局法阵 -->
-      <dialog id="opening-dialog" aria-labelledby="opening-title">
+      <dialog id="opening-dialog" class="opening-dialog-grand" aria-labelledby="opening-title">
         <div class="dialog-content">
-          <h2 id="opening-title">选择开局法阵</h2>
-          <p id="opening-note" class="dialog-desc"></p>
-          <div class="seed-input-row">
-            <label for="opening-seed">种子码：</label>
-            <input type="text" id="opening-seed" placeholder="可选，如 A7K9-M2P4" maxlength="12" spellcheck="false" autocomplete="off" />
-            <button type="button" id="random-seed">随机</button>
+          <div class="opening-hero-banner">
+            <div class="grand-seal">玄墨鎏金</div>
+            <h2 id="opening-title" class="opening-grand-title">四象入局 · 择道启阵</h2>
+            <p id="opening-note" class="opening-grand-subtitle"></p>
           </div>
-          <div id="opening-choices" class="opening-choices"></div>
+          <div class="seed-input-row">
+            <label for="opening-seed">天机玄码：</label>
+            <input type="text" id="opening-seed" placeholder="可选，如 A7K9-M2P4" maxlength="12" spellcheck="false" autocomplete="off" />
+            <button type="button" id="random-seed">摇卦</button>
+          </div>
+          <div id="opening-choices" class="opening-choices-grid"></div>
           <div id="opening-confirm" class="opening-confirm" hidden>
             <p id="opening-warning" role="status"></p>
             <div class="dialog-actions">
-              <button id="opening-start" class="primary" type="button">开始新局</button>
-              <button id="opening-back" type="button">再挑挑</button>
+              <button id="opening-start" class="primary" type="button">立下誓约 · 启阵</button>
+              <button id="opening-back" type="button">再择良机</button>
             </div>
           </div>
-          <button id="opening-close" type="button" class="btn-subtle-close">回到当前局</button>
+          <button id="opening-close" type="button" class="btn-subtle-close">守静笃行 · 回阵</button>
         </div>
       </dialog>
 
