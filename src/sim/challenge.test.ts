@@ -26,20 +26,25 @@ describe('same-seed challenges', () => {
     const previous = readChallenge(`v7.gold.${score.seed}.6.22`)!;
     const altar = readChallenge(`v8.gold.${score.seed}.6.22`)!;
     const bounties = readChallenge(`v9.gold.${score.seed}.6.22`)!;
+    const camp = readChallenge(`v10.gold.${score.seed}.6.22`)!;
     expect(previous.altarRule).toBeUndefined();
     expect(invite?.altarRule).toBe(1);
     expect(invite?.bountyRule).toBe(1);
     expect(invite?.endlessRule).toBe(1);
+    expect(invite?.reforgeRule).toBe(1);
+    expect(camp.reforgeRule).toBeUndefined();
     expect(altar.altarRule).toBe(1);
     expect(altar.bountyRule).toBeUndefined();
     expect(matchesChallenge(host, previous)).toBe(false);
-    expect(matchesChallenge({ ...host, altarRule: undefined, bountyRule: undefined, endlessRule: undefined }, previous)).toBe(true);
+    expect(matchesChallenge({ ...host, altarRule: undefined, bountyRule: undefined, endlessRule: undefined, reforgeRule: undefined }, previous)).toBe(true);
     expect(matchesChallenge(host, altar)).toBe(false);
-    expect(matchesChallenge({ ...host, bountyRule: undefined, endlessRule: undefined }, altar)).toBe(true);
-    expect(matchesChallenge({ ...host, endlessRule: undefined }, bounties)).toBe(true);
+    expect(matchesChallenge({ ...host, bountyRule: undefined, endlessRule: undefined, reforgeRule: undefined }, altar)).toBe(true);
+    expect(matchesChallenge({ ...host, endlessRule: undefined, reforgeRule: undefined }, bounties)).toBe(true);
+    expect(matchesChallenge({ ...host, reforgeRule: undefined }, camp)).toBe(true);
     expect(challengeSaveKey(previous)).not.toBe(challengeSaveKey(score));
     expect(challengeSaveKey(altar)).not.toBe(challengeSaveKey(score));
     expect(challengeSaveKey(bounties)).not.toBe(challengeSaveKey(score));
+    expect(challengeSaveKey(camp)).not.toBe(challengeSaveKey(score));
   });
 
   it('rejects old, malformed and oversized scores and ranks waves before combo', () => {

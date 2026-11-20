@@ -1,6 +1,7 @@
 import { battleTarget, bountyWaves } from '../core/bounties';
 import { affixAt, encounters, endlessCampAt, endlessSegment } from '../core/expedition';
 import { planTurn } from '../core/tactics';
+import { reforgeWave } from '../core/reforge';
 import type { Catalog, Run } from '../core/types';
 import { formatNumber as format } from './canvasRenderer';
 import { getBossSvgPath } from './glyphs';
@@ -23,9 +24,10 @@ export function bindEncounterRoom(catalog: Catalog, click: () => void, trial: (w
     const milestone = selected % 4 === 0 && selected !== 20;
     const bountyWave = run.bountyRule && bountyWaves.includes(selected);
     const campWave = run.endlessRule && endlessCampAt(selected);
+    const reforge = run.reforgeRule && selected === reforgeWave;
     get('detail').dataset.enemy = encounter;
     dialog.querySelector('#encounter-icon')?.setAttribute('d', getBossSvgPath(encounter));
-    get('step').textContent = `第 ${format(selected)} 波${selected === run.wave ? ' · 当前' : ''}${milestone ? ' · 遗物节点' : ''}${bountyWave ? ' · 悬赏节点' : ''}${campWave ? ' · 营地' : ''}`;
+    get('step').textContent = `第 ${format(selected)} 波${selected === run.wave ? ' · 当前' : ''}${milestone ? ' · 遗物节点' : ''}${bountyWave ? ' · 悬赏节点' : ''}${campWave ? ' · 营地' : ''}${reforge ? ' · 转铸台' : ''}`;
     get('name').textContent = name;
     get('hp').textContent = `${format(hp)} 生命`;
     get('trait').textContent = bounty ? `${bounty.name} · ${trait}` : trait;

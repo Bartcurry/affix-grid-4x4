@@ -88,6 +88,8 @@ export interface Run {
   bountiesCleared?: number;
   endlessRule?: 1;
   pendingCamp?: true;
+  reforgeRule?: 1;
+  reforgeUsed?: true;
   lastCellDamage?: number[];
   lastJournal?: BattleJournal;
 }

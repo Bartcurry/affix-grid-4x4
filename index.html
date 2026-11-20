@@ -110,6 +110,9 @@
         <button class="bounty-open" id="bounty-open" type="button" aria-haspopup="dialog" hidden>
           <strong>悬赏路线</strong><span id="bounty-current"></span><span aria-hidden="true">›</span>
         </button>
+        <button class="bounty-open reforge-open" id="reforge-open" type="button" aria-haspopup="dialog" hidden>
+          <strong>转铸台</strong><span>免费更换一枚同稀有度符文</span><span aria-hidden="true">›</span>
+        </button>
 
         <canvas id="arena" tabindex="0" aria-label="4×4 词条法阵棋盘与备战区。方向键选择格子，回车选中或放置，Delete 回收，Escape 取消。">此浏览器不支持 Canvas。</canvas>
 
@@ -601,6 +604,36 @@
           </section>
           <div class="celestial-choices" id="relic-choices"></div>
           <button id="relic-pick" class="primary" type="button" disabled>领取所选遗物</button>
+        </div>
+      </dialog>
+
+      <dialog id="reforge-dialog" class="trial-board-dialog reforge-dialog" aria-labelledby="reforge-title">
+        <div class="dialog-content">
+          <header class="invite-heading">
+            <div><h2 id="reforge-title">转铸台</h2><p>第 11 波开战前可用一次。同稀有度互换，保留星级和永久威力。</p></div>
+            <button id="reforge-close" type="button" aria-label="关闭转铸台">×</button>
+          </header>
+          <div class="trial-board-stage">
+            <div>
+              <div id="reforge-board" class="trial-tiles" role="group" aria-label="选择棋盘符文"></div>
+              <p class="trial-bench-label">备战区</p>
+              <div id="reforge-bench" class="trial-tiles" role="group" aria-label="选择备战区符文"></div>
+            </div>
+            <div class="reforge-pick">
+              <p id="reforge-source"></p>
+              <label for="reforge-target">转铸为</label>
+              <select id="reforge-target"></select>
+              <p id="reforge-desc"></p>
+            </div>
+          </div>
+          <dl class="reforge-score">
+            <div><dt>本波伤害</dt><dd id="reforge-damage"></dd></div>
+            <div><dt>敌方生命</dt><dd id="reforge-hp"></dd></div>
+          </dl>
+          <p id="reforge-destination"></p>
+          <ul id="reforge-synergies" class="synergy-changes" aria-label="共鸣变化" hidden></ul>
+          <p id="reforge-status" role="status" hidden></p>
+          <button id="reforge-confirm" type="button" class="primary">确认转铸</button>
         </div>
       </dialog>
 

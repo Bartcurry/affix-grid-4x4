@@ -2,6 +2,7 @@ import './style.css';
 import { simulateBattle } from './core/battleEngine';
 import { battleTarget, bountyCount, bountyPerkText, offersBounties } from './core/bounties';
 import { claimCamp } from './core/endlessCamp';
+import { canReforge, prepareReforge } from './core/reforge';
 import { affixAt, armorHitsFor, encounters, endlessSegment, relics } from './core/expedition';
 import { isOpening, openingIds, openings, runScore, updateRecords } from './core/openings';
 import { challengeParam, challengeSaveKey, matchesChallenge, readChallenge } from './core/challenge';
@@ -31,6 +32,7 @@ import { bindRetryScout } from './render/retryScout';
 import { bindPurchaseRoom } from './render/purchaseRoom';
 import { bindBountyRoom } from './render/bountyRoom';
 import { bindEndlessCampRoom } from './render/endlessCampRoom';
+import { bindReforgeRoom } from './render/reforgeRoom';
 import { bindRelicRoom } from './render/relicRoom';
 import { renderOpeningPreview } from './render/openingPreview';
 import { PlaybackController, type PlaybackBeat } from './render/playbackController';
@@ -175,6 +177,7 @@ const daily = bindDailyRoom(catalog, runeGlyph, click, puzzleShare);
 const relay = bindWeeklyRelay(catalog, runeGlyph, click, puzzleShare);
 const boardTrial = bindBoardTrial(catalog, runeGlyph, formatNumber, click);
 const showPurchase = bindPurchaseRoom(catalog, runeGlyph, click);
+const showReforge = bindReforgeRoom(catalog, runeGlyph, click);
 const showEndlessCamp = bindEndlessCampRoom(catalog, runeGlyph, click, choice => {
   if (!claimCamp(run, choice)) return false;
   click();
@@ -194,6 +197,26 @@ const showBounties = bindBountyRoom(catalog, click, route => {
   return true;
 });
 button('bounty-open').onclick = () => { if (arranging() && offersBounties(run)) { click(); showBounties(run); } };
+button('reforge-open').onclick = () => {
+  if (!arranging() || !forecast || !canReforge(run)) return;
+  click();
+  const original = run;
+  const checkpoint = JSON.stringify(platform.load(false)?.run);
+  showReforge(run, forecast.result.damage, (from, target) => {
+    if (!arranging() || run !== original || JSON.stringify(platform.load(false)?.run) !== checkpoint) return false;
+    const prepared = prepareReforge(run, from, target, catalog);
+    if (!prepared) return false;
+    undoStack.push(run);
+    restoreSnapshot(run, createSnapshot(prepared.candidate));
+    select(prepared.final.slot);
+    renderer.flash(prepared.final.slot, catalog[target].color, prepared.merges.length > 0);
+    click();
+    audio.jadeChime();
+    redraw();
+    notice(`已转铸为${catalog[target].name}，可以撤销。`);
+    return true;
+  });
+};
 const retryScout = bindRetryScout(catalog, click, openRetryTrial);
 const showFormationLessons = bindFormationLessons(catalog, runeGlyph, click,
   (board, name, damage) => boardTrial.open(board, undefined, true, { name, damage }));
@@ -666,6 +689,7 @@ function redraw(save = true) {
   element('boss-intel-text').textContent = affix?.name ?? enemy.trait;
   button('boss-intel').disabled = phase === 'PLAYBACK';
   button('bounty-open').hidden = !arranging() || !offersBounties(run);
+  button('reforge-open').hidden = !arranging() || !canReforge(run) || (!run.board.some(Boolean) && !run.bench.some(Boolean));
   element('bounty-current').textContent = bounty?.name ?? '可挑战额外奖励';
 
   element('board-count').textContent = `已布阵 ${run.board.filter(Boolean).length}/16`;
@@ -912,10 +936,12 @@ function recordRunHistory(runToRecord: Run) {
     ...(runToRecord.bountyRule === 1 ? { bountyRule: 1 } : {}),
     ...(runToRecord.bountiesCleared ? { bountiesCleared: runToRecord.bountiesCleared } : {}),
     ...(runToRecord.endlessRule === 1 ? { endlessRule: 1 } : {}),
+    ...(runToRecord.reforgeRule === 1 ? { reforgeRule: 1 } : {}),
     ...(runToRecord.endless ? { endless: true } : {}),
   };
   const existingIdx = history.findIndex(item => item.seed === entry.seed && item.opening === entry.opening &&
-    item.altarRule === entry.altarRule && item.bountyRule === entry.bountyRule && item.endlessRule === entry.endlessRule);
+    item.altarRule === entry.altarRule && item.bountyRule === entry.bountyRule &&
+    item.endlessRule === entry.endlessRule && item.reforgeRule === entry.reforgeRule);
   if (existingIdx >= 0) {
     history[existingIdx] = entry;
   } else {
@@ -937,6 +963,7 @@ function makeOpening(id: OpeningId, seed: string) {
   if (challenge && !challenge.altarRule) delete next.altarRule;
   if (challenge && !challenge.bountyRule) delete next.bountyRule;
   if (challenge && !challenge.endlessRule) delete next.endlessRule;
+  if (challenge && !challenge.reforgeRule) delete next.reforgeRule;
   return next;
 }
 
@@ -950,6 +977,7 @@ function startOpening(id: OpeningId, customSeed?: string, quick = false, archive
   if (!challenge && archived && !archived.altarRule) delete run.altarRule;
   if (!challenge && archived && !archived.bountyRule) delete run.bountyRule;
   if (!challenge && archived && !archived.endlessRule) delete run.endlessRule;
+  if (!challenge && archived && !archived.reforgeRule) delete run.reforgeRule;
   trackedUpgrade = undefined;
   firstClearPayout = undefined;
   lastBattleAt = -Infinity;

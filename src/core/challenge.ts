@@ -7,6 +7,8 @@ const legacyVersion = 'v7';
 const altarVersion = 'v8';
 const bountyVersion = 'v9';
 const campVersion = 'v10';
+const reforgeVersion = 'v11';
+const revisions = [legacyVersion, altarVersion, bountyVersion, campVersion, reforgeVersion];
 
 export interface Challenge extends OpeningRecord {
   opening: OpeningId;
@@ -14,29 +16,31 @@ export interface Challenge extends OpeningRecord {
   altarRule?: 1;
   bountyRule?: 1;
   endlessRule?: 1;
+  reforgeRule?: 1;
 }
 
-const version = (challenge: Challenge) => challenge.endlessRule === 1 ? campVersion
+const version = (challenge: Challenge) => challenge.reforgeRule === 1 ? reforgeVersion : challenge.endlessRule === 1 ? campVersion
   : challenge.bountyRule === 1 ? bountyVersion : challenge.altarRule === 1 ? altarVersion : legacyVersion;
 
 export function challengeFromRun(run: Run): Challenge {
   return { opening: run.opening, seed: encodeSeed(decodeSeed(run.seed)), ...runScore(run),
     ...(run.altarRule === 1 ? { altarRule: 1 } : {}), ...(run.bountyRule === 1 ? { bountyRule: 1 } : {}),
-    ...(run.endlessRule === 1 ? { endlessRule: 1 } : {}) };
+    ...(run.endlessRule === 1 ? { endlessRule: 1 } : {}), ...(run.reforgeRule === 1 ? { reforgeRule: 1 } : {}) };
 }
 
 export function readChallenge(raw: string | null): Challenge | undefined {
   if (!raw || raw.length > 64) return;
   const [revision, opening, seed, waves, combo, ...remainder] = raw.split('.');
-  if ((revision !== legacyVersion && revision !== altarVersion && revision !== bountyVersion && revision !== campVersion) ||
+  const rules = revisions.indexOf(revision);
+  if (rules < 0 ||
       remainder.length || !isOpening(opening) ||
       !/^[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/.test(seed) || seed !== encodeSeed(decodeSeed(seed)) ||
       !/^\d+$/.test(waves) || !/^\d+$/.test(combo)) return;
   const score = { cleared: Number(waves), combo: Number(combo) };
   if (!Number.isSafeInteger(score.cleared) || !Number.isSafeInteger(score.combo)) return;
-  return { opening, seed, ...score, ...(revision !== legacyVersion ? { altarRule: 1 } : {}),
-    ...(revision === bountyVersion || revision === campVersion ? { bountyRule: 1 } : {}),
-    ...(revision === campVersion ? { endlessRule: 1 } : {}) };
+  return { opening, seed, ...score, ...(rules >= 1 ? { altarRule: 1 } : {}),
+    ...(rules >= 2 ? { bountyRule: 1 } : {}), ...(rules >= 3 ? { endlessRule: 1 } : {}),
+    ...(rules >= 4 ? { reforgeRule: 1 } : {}) };
 }
 
 export function challengeUrl(page: string, challenge: Challenge): string {
@@ -54,6 +58,7 @@ export function challengeSaveKey(challenge: Challenge) {
 export function matchesChallenge(run: Run, challenge: Challenge) {
   return run.enableSynergies !== false && run.opening === challenge.opening && run.altarRule === challenge.altarRule &&
     run.bountyRule === challenge.bountyRule && run.endlessRule === challenge.endlessRule &&
+    run.reforgeRule === challenge.reforgeRule &&
     encodeSeed(decodeSeed(run.seed)) === challenge.seed;
 }
 

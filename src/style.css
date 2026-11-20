@@ -1661,6 +1661,36 @@ dialog::backdrop {
   font-size: .69rem;
   text-align: left;
 }
+
+.reforge-open { background: #27322e; color: #d4eccd; border-color: #789981; }
+.reforge-dialog { border-color: #98ae91; background: linear-gradient(145deg, #242c29, #151a24 67%); }
+#reforge-close { width: 2.35rem; min-height: 2.35rem; padding: 0; font-size: 1.25rem; }
+.reforge-dialog .trial-tiles { width: min(100%, 10rem); }
+.reforge-dialog .trial-tiles button:disabled { opacity: .57; }
+.reforge-pick { display: grid; gap: .35rem; min-width: 0; font-size: .75rem; }
+#reforge-source { color: #dbebce; font-weight: 700; }
+.reforge-pick label { color: #b7c7b6; }
+.reforge-pick select {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.2rem;
+  padding: .24rem .32rem;
+  border: 1px solid #708f79;
+  border-radius: 4px;
+  background: #21332c;
+  color: #dfeddf;
+  font: inherit;
+}
+#reforge-desc { overflow-wrap: anywhere; color: #d1d6cd; font-size: .72rem; line-height: 1.38; }
+.reforge-score { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: .38rem; }
+.reforge-score > div { padding: .38rem .48rem; background: #202922; border: 1px solid #485d50; border-radius: 4px; }
+.reforge-score dt { color: #b9cab8; font-size: .7rem; }
+.reforge-score dd { color: #e7eccc; font: 750 .94rem/1.4 var(--mono-font); overflow-wrap: anywhere; }
+#reforge-damage[data-change=up] { color: #ace7b9; }
+#reforge-damage[data-change=down], #reforge-status { color: #f0b88e; }
+.reforge-dialog #reforge-destination { font-size: .77rem; }
+#reforge-confirm { min-height: 2.55rem; background: #c2dcad; border-color: #d5e9ba; color: #1c291e; font-weight: 750; }
+#reforge-confirm:hover { background: #d5e9ba; color: #1c291e; }
 .bounty-open span:first-of-type { flex: 1; color: #e3ceb0; }
 #bounty-dialog {
   width: min(28rem, calc(100% - 1.2rem));

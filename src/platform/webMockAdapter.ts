@@ -1,5 +1,6 @@
 import { BENCH_SIZE, generateTileModifiers, newRun, SHOP_SIZE } from '../core/shopEngine';
 import { bountyAt, bountyCount } from '../core/bounties';
+import { reforgeWave } from '../core/reforge';
 import { CELL_COUNT } from '../core/grid';
 import { readJournal } from '../core/journal';
 import { endlessCampAt, relics } from '../core/expedition';
@@ -62,6 +63,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
         ...(item.altarRule === 1 && item.bountyRule === 1 ? { bountyRule: 1 as const } : {}),
         ...(natural(item.bountiesCleared) && item.bountiesCleared <= bountyCount ? { bountiesCleared: item.bountiesCleared } : {}),
         ...(item.altarRule === 1 && item.bountyRule === 1 && item.endlessRule === 1 ? { endlessRule: 1 as const } : {}),
+        ...(item.altarRule === 1 && item.bountyRule === 1 && item.endlessRule === 1 && item.reforgeRule === 1 ? { reforgeRule: 1 as const } : {}),
         ...(item.endless === true || (natural(item.wave) && item.wave > 20) ? { endless: true as const } : {}),
       }));
   };
@@ -127,6 +129,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
     const bountyRule = rawRun.altarRule === 1 && rawRun.bountyRule === 1;
     const bountyRoute = bountyRule && !rawRun.endless && bountyAt(wave, rawRun.bountyRoute) ? rawRun.bountyRoute : undefined;
     const endlessRule = bountyRule && rawRun.endlessRule === 1;
+    const reforgeRule = endlessRule && rawRun.reforgeRule === 1;
     const pendingCamp = endlessRule && rawRun.endless === true && rawRun.status === 'active' &&
       !rawRun.pendingLoss && endlessCampAt(wave) && rawRun.pendingCamp === true;
 
@@ -158,6 +161,8 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       ...(bountyRoute ? { bountyRoute } : {}),
       ...(bountyRule && natural(rawRun.bountiesCleared) && rawRun.bountiesCleared <= bountyCount ? { bountiesCleared: rawRun.bountiesCleared } : {}),
       ...(endlessRule ? { endlessRule: 1 } : {}),
+      ...(reforgeRule ? { reforgeRule: 1 } : {}),
+      ...(reforgeRule && wave === reforgeWave && rawRun.reforgeUsed === true ? { reforgeUsed: true } : {}),
       ...(pendingCamp ? { pendingCamp: true } : {}),
       ...(Array.isArray(rawRun.lastCellDamage) && rawRun.lastCellDamage.length === CELL_COUNT && rawRun.lastCellDamage.every(damageCount)
         ? { lastCellDamage: rawRun.lastCellDamage } : {}),

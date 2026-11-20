@@ -114,6 +114,7 @@ export function newRun(catalog: Catalog, rng: Random, opening: OpeningId = 'chai
     altarRule: 1,
     bountyRule: 1,
     endlessRule: 1,
+    reforgeRule: 1,
   };
   for (const [index, configId] of setup.pieces) run.board[index] = { configId, star: 1 };
   rollShop(run, catalog, effectiveRng);
@@ -281,6 +282,7 @@ function advanceWave(run: Run, catalog: Catalog, rng: Random) {
   run.wave++;
   delete run.bountyRoute;
   delete run.pendingCamp;
+  delete run.reforgeUsed;
   run.attempts = 0;
   run.freeRefreshes = 1;
   if (run.relics.includes('jade_abacus')) {
@@ -324,6 +326,7 @@ export interface RunSnapshot {
   rngState: number;
   enableSynergies?: boolean;
   bountyRoute?: BountyRoute;
+  reforgeUsed?: true;
   lastCellDamage?: number[];
 }
 
@@ -338,6 +341,7 @@ export function createSnapshot(run: Run): RunSnapshot {
     rngState: run.rngState,
     enableSynergies: run.enableSynergies,
     bountyRoute: run.bountyRoute,
+    reforgeUsed: run.reforgeUsed,
     lastCellDamage: run.lastCellDamage ? [...run.lastCellDamage] : undefined,
   };
 }
@@ -352,6 +356,8 @@ export function restoreSnapshot(run: Run, snapshot: RunSnapshot): void {
   run.rngState = snapshot.rngState;
   run.enableSynergies = snapshot.enableSynergies;
   run.bountyRoute = snapshot.bountyRoute;
+  if (snapshot.reforgeUsed) run.reforgeUsed = true;
+  else delete run.reforgeUsed;
   run.lastCellDamage = snapshot.lastCellDamage ? [...snapshot.lastCellDamage] : undefined;
 }
 
