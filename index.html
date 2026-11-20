@@ -41,9 +41,10 @@
               <div class="boss-title-row">
                 <span id="wave" class="wave-pill">第 1 / 20 波</span>
                 <h2 id="enemy-name" class="boss-name">守门核心</h2>
-                <div id="boss-armor-shields" class="boss-armor-shields" hidden title="铁壳减伤护盾">
+                <div id="boss-armor-shields" class="boss-armor-shields" role="img" hidden>
                   <span class="boss-shield-icon" id="boss-shield-1"><svg viewBox="0 0 32 32"><path d="M16 3L27 7V15C27 22 22 27 16 29C10 27 5 22 5 15V7Z" fill="currentColor"/></svg></span>
                   <span class="boss-shield-icon" id="boss-shield-2"><svg viewBox="0 0 32 32"><path d="M16 3L27 7V15C27 22 22 27 16 29C10 27 5 22 5 15V7Z" fill="currentColor"/></svg></span>
+                  <span class="boss-shield-icon" id="boss-shield-3" hidden><svg viewBox="0 0 32 32"><path d="M16 3L27 7V15C27 22 22 27 16 29C10 27 5 22 5 15V7Z" fill="currentColor"/></svg></span>
                 </div>
               </div>
               <div class="hp-gauge-row">
@@ -88,17 +89,17 @@
 
         <!-- 战况栏第二行：紧凑芯片条（前方敌情预告 + 20波进度刻度 + 已获遗物紧凑列表） -->
         <div class="hud-row-chips">
-          <div class="boss-intel" id="boss-intel">
-            <span class="chip-badge">敌情</span>
-            <span id="boss-intel-text" class="boss-intel-text">加载中...</span>
-          </div>
+          <button class="boss-intel" id="boss-intel" type="button" aria-haspopup="dialog" aria-label="查看对阵表">
+            <strong>敌情</strong>
+            <span id="boss-intel-text" class="boss-intel-text"></span>
+            <span aria-hidden="true">›</span>
+          </button>
           <div class="wave-track" id="wave-track" aria-hidden="true"></div>
-          <div id="relic-list" class="relic-chip-list"></div>
+          <div id="relic-list" class="relic-chip-list" hidden><button id="relic-inventory-open" type="button" aria-haspopup="dialog"></button></div>
         </div>
 
         <!-- 战况栏第三行：流派共鸣羁绊徽条（连锁/剧毒/金币/增幅 3/5 件套状态） -->
         <div class="hud-row-synergies" id="hud-synergies" aria-label="法阵共鸣羁绊"></div>
-        <p id="enemy-hint" class="enemy-hint" hidden></p>
       </header>
 
       <!-- 核心黄金区域：4×4 动态法阵棋盘与悬浮词条详情卡片 -->
@@ -371,6 +372,40 @@
           <div id="panel-mvp-card" class="panel-mvp-card" hidden></div>
           <p id="panel-text"></p>
           <div id="panel-actions" class="dialog-actions"></div>
+        </div>
+      </dialog>
+
+      <dialog id="encounter-dialog" aria-labelledby="encounter-title">
+        <div class="dialog-content encounter-room">
+          <header class="encounter-header">
+            <h2 id="encounter-title">对阵表</h2>
+            <button id="encounter-close" type="button" aria-label="关闭对阵表">×</button>
+          </header>
+          <section class="encounter-detail" id="encounter-detail" aria-live="polite">
+            <div class="encounter-boss">
+              <svg viewBox="0 0 32 32" aria-hidden="true"><path id="encounter-icon"/></svg>
+              <div>
+                <p id="encounter-step"></p>
+                <h3 id="encounter-name"></h3>
+              </div>
+              <span id="encounter-hp" class="encounter-hp"></span>
+            </div>
+            <p id="encounter-trait"></p>
+            <p id="encounter-affix" class="encounter-affix" hidden></p>
+            <p id="encounter-tip"></p>
+            <div class="encounter-preview" id="encounter-preview">
+              <div>
+                <small>按当前阵容、金币和遗物试算</small>
+                <strong id="encounter-score"></strong>
+                <p id="encounter-impact" hidden></p>
+              </div>
+              <button class="primary" id="encounter-trial" type="button"></button>
+            </div>
+          </section>
+          <fieldset class="encounter-waves">
+            <legend id="encounter-wave-range">选择波次</legend>
+            <div id="encounter-wave-list"></div>
+          </fieldset>
         </div>
       </dialog>
 

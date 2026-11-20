@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { simulateBattle } from '../core/battleEngine';
-import { encounterAt, relicChoices, relics } from '../core/expedition';
+import { affixAt, armorHitsFor, damageModifiers, encounterAt, relicChoices, relics } from '../core/expedition';
 import { canArrange, chooseRelic, newRun, settleTurn, victoryPayout } from '../core/shopEngine';
 import { previewRelics } from '../core/relicPreview';
 import { planTurn, runeFootprint } from '../core/tactics';
@@ -31,6 +31,22 @@ describe('expedition', () => {
     const events = simulateBattle({ board, gold: 10, hp: 100, encounter: 'cistern', relics: ['moss_bowl'] }, catalog, noCrit);
     expect(damage(events)).toEqual([11, 16]);
     expect(events.at(-1)).toMatchObject({ damage: 27, poison: 5 });
+  });
+
+  it('uses the displayed armor count and the displayed one-based affix rows and columns', () => {
+    expect(armorHitsFor(encounterAt(4))).toBe(2);
+    expect(armorHitsFor(encounterAt(20))).toBe(3);
+    const rows = affixAt(30)!;
+    expect(rows.desc).toContain('第 2、4 行');
+    const events = simulateBattle({ board: ['prism_right', 'spark_orb', null, null, 'prism_right', 'spark_orb']
+      .map(id => id ? rune(id) : null), gold: 10, hp: 500, affix: rows.id }, catalog, noCrit);
+    expect(events.filter(event => event.type === 'CHAIN_LINK')).toMatchObject([{ from: 0, to: 1 }]);
+    expect(events.filter(event => event.type === 'DAMAGE' && event.source === 5)).toMatchObject([{ amount: 20 }]);
+
+    const columns = affixAt(50)!;
+    expect(columns.desc).toContain('第 2、4 列的符文直伤 +25%，第 1、3 列 −15%');
+    expect([0, 1, 2, 3].map(index => damageModifiers('sentry', [], 'rune', index, false, false, 0, columns.id).enemy))
+      .toEqual([.85, 1.25, .85, 1.25]);
   });
 
   it('offers three distinct relics at milestones and saves the choice in run state', () => {

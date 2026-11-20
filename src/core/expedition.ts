@@ -3,12 +3,12 @@ import { createMulberry32 } from './rng';
 import type { RelicId } from './types';
 
 export const encounters = {
-  sentry: { name: '守门核心', hint: '标准核心，专注输出即可。' },
-  armor: { name: '铁壳卫', hint: '前2次受击高减伤，建议备多段连锁。' },
-  cistern: { name: '漏毒翁', hint: '符文伤害少一成，剧毒伤害多五成。' },
-  flanks: { name: '石狮', hint: '外侧两列减伤三成，中间两列增伤一成。' },
-  bell: { name: '回音钟', hint: '连锁伤害增四分之一，普通伤害少一成。' },
-  regent: { name: '闭门王', hint: '前3次受击减半，连锁伤害增两成。' },
+  sentry: { name: '守门核心', trait: '无额外抗性', tip: '法阵从左到右、从上到下触发。把产金、叠毒或增幅的符文排在吃加成的符文前面。' },
+  armor: { name: '铁壳卫', trait: '前两次符文伤害减半', tip: '让小伤害先打掉两层护甲，再轮到主力。单纯产金或叠毒不会消耗护甲。' },
+  cistern: { name: '漏毒翁', trait: '剧毒 +50% · 符文直伤 −10%', tip: '先叠毒，再触发催化或引爆。回合末的毒和剧毒羁绊的毒爆都能吃到剧毒加成。' },
+  flanks: { name: '石狮', trait: '中间两列 +10% · 外侧两列 −30%', tip: '试着把主力挪到第 2、3 列，再检查折射镜是否还指着它。列加成只影响符文直伤。' },
+  bell: { name: '回音钟', trait: '连锁直伤 +25% · 其他直伤 −10%', tip: '让折射镜、落铃或十字中继器把主力再叫醒一次，连锁那一击会多打伤害。' },
+  regent: { name: '闭门王', trait: '前三次符文伤害减半 · 连锁直伤 +20%', tip: '先用小伤害打掉三层护甲，再用连锁带起主力。破甲暴击可以穿过减伤，并消耗一层。' },
 } as const;
 
 export type EncounterId = keyof typeof encounters;
@@ -18,18 +18,7 @@ const campaign: readonly EncounterId[] = [
 ];
 const endless: readonly EncounterId[] = ['armor', 'cistern', 'flanks', 'bell', 'regent'];
 export const encounterAt = (wave: number): EncounterId => campaign[wave - 1] ?? endless[(wave - 21) % endless.length] ?? 'sentry';
-
-export function upcomingEncounter(currentWave: number, offset = 2): { wave: number; encounter: EncounterId; name: string; hint: string } {
-  const targetWave = currentWave + offset;
-  const encounter = encounterAt(targetWave);
-  const info = encounters[encounter];
-  return {
-    wave: targetWave,
-    encounter,
-    name: info.name,
-    hint: info.hint,
-  };
-}
+export const armorHitsFor = (encounter: EncounterId) => encounter === 'regent' ? 3 : encounter === 'armor' ? 2 : 0;
 
 export interface EndlessAffix {
   id: string;
@@ -39,11 +28,11 @@ export interface EndlessAffix {
 
 export const endlessAffixes: readonly EndlessAffix[] = [
   { id: 'limit_triggers', name: '天劫·凝滞', desc: '单格触发上限降为 6 次。' },
-  { id: 'odd_row_frenzy', name: '天劫·离火', desc: '奇数行伤害 +60%，但无法主动触发连锁。' },
-  { id: 'shield_tax', name: '天劫·劫金', desc: '金币充裕方可破阵，当前金币若不足 10 则伤害减少 20%。' },
-  { id: 'decay_surge', name: '天劫·蚀骨', desc: '剧毒伤害提高 40%，但回合末衰减提速。' },
-  { id: 'mirror_mist', name: '天劫·幻镜', desc: 'Boss受到暴击伤害降低 25%，但受到非暴击伤害提高 20%。' },
-  { id: 'spirit_drain', name: '天劫·噬灵', desc: '偶数列伤害降低 15%，奇数列伤害提升 25%。' },
+  { id: 'odd_row_frenzy', name: '天劫·离火', desc: '第 2、4 行的符文直伤 +60%，这些符文无法主动触发连锁。' },
+  { id: 'shield_tax', name: '天劫·劫金', desc: '每次造成伤害时，手中金币不足 10 则该次伤害减少 20%。' },
+  { id: 'decay_surge', name: '天劫·蚀骨', desc: '剧毒伤害提高 40%，回合末剩余毒层更少。' },
+  { id: 'mirror_mist', name: '天劫·幻镜', desc: '符文暴击伤害 −25%，未暴击的符文直伤 +20%。' },
+  { id: 'spirit_drain', name: '天劫·噬灵', desc: '第 2、4 列的符文直伤 +25%，第 1、3 列 −15%。' },
 ];
 
 export function affixAt(wave: number): EndlessAffix | null {
@@ -120,14 +109,11 @@ export function damageModifiers(encounter: EncounterId, owned: readonly RelicId[
     if (owned.includes('qiankun_pouch') && benchCount > 0) relic *= (1 + Math.min(4, benchCount) * 0.06);
 
     const hasPierce = crit && owned.includes('taixu_needle');
-    if (encounter === 'armor' && priorHits < 2 && !hasPierce) enemy *= .5;
+    if (priorHits < armorHitsFor(encounter) && !hasPierce) enemy *= .5;
     if (encounter === 'cistern') enemy *= .9;
     if (encounter === 'flanks') enemy *= col === 0 || col === 3 ? .7 : 1.1;
     if (encounter === 'bell') enemy *= isChain ? 1.25 : .9;
-    if (encounter === 'regent') {
-      if (priorHits < 3 && !hasPierce) enemy *= .5;
-      if (isChain) enemy *= 1.2;
-    }
+    if (encounter === 'regent' && isChain) enemy *= 1.2;
     if (affix === 'odd_row_frenzy' && row % 2 === 1) {
       enemy *= 1.6;
     }

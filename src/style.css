@@ -412,23 +412,21 @@ button:focus-visible, canvas:focus-visible {
 .boss-intel {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: .3rem;
   min-width: 0;
-  max-width: 48%;
+  min-height: 1.55rem;
+  max-width: 57%;
+  padding: .08rem .35rem;
+  color: #f2ca88;
+  border-color: #8b6a435d;
+  background: #26201b;
 }
 
-.chip-badge {
-  background: var(--gold-primary);
-  color: #090b10;
-  font-size: 0.58rem;
-  font-weight: 800;
-  padding: 0.04rem 0.2rem;
-  border-radius: 2px;
-  white-space: nowrap;
-}
+.boss-intel > :not(.boss-intel-text) { flex-shrink: 0; }
+.boss-intel strong { font-size: .63rem; white-space: nowrap; }
 
 .boss-intel-text {
-  color: #cbd5e1;
+  color: #ddcdb1;
   font-size: 0.64rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -464,16 +462,6 @@ button:focus-visible, canvas:focus-visible {
   font-size: 0.6rem;
   color: var(--gold-bright);
   border-color: var(--gold-dark);
-}
-
-.enemy-hint {
-  font-size: 0.64rem;
-  color: #fdba74;
-  line-height: 1.2;
-  padding-top: 0.05rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* ─── 核心黄金区域：法阵棋盘 ─── */
@@ -1397,6 +1385,110 @@ dialog::backdrop {
   white-space: pre-line;
 }
 
+#encounter-dialog {
+  width: min(29rem, calc(100% - 1.25rem));
+  max-height: 94dvh;
+  border-color: #a98150;
+  background: linear-gradient(145deg, #20202a, #121318 64%);
+}
+
+.encounter-room { padding: clamp(.7rem, 3.7vw, 1.1rem); gap: .85rem; }
+.encounter-header, .encounter-boss {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+}
+.encounter-header { justify-content: space-between; }
+.encounter-header h2 { color: #f2d39d; }
+#encounter-close { width: 2.2rem; min-height: 2.2rem; padding: 0; font-size: 1.35rem; }
+
+.encounter-detail {
+  --enemy-ink: #e5bd78;
+  display: grid;
+  gap: .5rem;
+  min-width: 0;
+  padding: .7rem;
+  border: 1px solid #a88b6459;
+  border-top-color: var(--enemy-ink);
+  border-radius: .38rem;
+  background: #101219;
+  line-height: 1.4;
+}
+
+.encounter-detail[data-enemy=armor], #encounter-wave-list [data-enemy=armor] { --enemy-ink: #aebdce; }
+.encounter-detail[data-enemy=cistern], #encounter-wave-list [data-enemy=cistern] { --enemy-ink: #74ceb0; }
+.encounter-detail[data-enemy=flanks], #encounter-wave-list [data-enemy=flanks] { --enemy-ink: #eda454; }
+.encounter-detail[data-enemy=bell], #encounter-wave-list [data-enemy=bell] { --enemy-ink: #73c6ef; }
+.encounter-detail[data-enemy=regent], #encounter-wave-list [data-enemy=regent] { --enemy-ink: #ed8c89; }
+
+.encounter-boss > svg {
+  flex: 0 0 2.65rem;
+  width: 2.65rem;
+  padding: .33rem;
+  color: var(--enemy-ink);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  border: 1px solid #b9976466;
+  border-radius: .33rem;
+  background: #24242e;
+}
+.encounter-boss > div { flex: 1; min-width: 0; }
+.encounter-boss h3 { color: #f6e9d2; font: 700 1.22rem/1.25 var(--display-font); }
+#encounter-step { color: #b6a78f; font-size: .72rem; }
+.encounter-hp { color: #f0d8a8; font-size: .76rem; font-variant-numeric: tabular-nums; text-align: right; }
+#encounter-trait { color: var(--enemy-ink); font-weight: 700; font-size: .86rem; }
+#encounter-tip { color: #ded4c4; font-size: .81rem; }
+.encounter-affix { color: #f3c69f; padding-left: .5rem; border-left: 2px solid #bd8d61; font-size: .79rem; }
+
+.encounter-preview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .42rem;
+  margin-top: .18rem;
+  padding-top: .56rem;
+  border-top: 1px solid #ad916246;
+}
+.encounter-preview small, #encounter-impact { display: block; color: #b6a78f; font-size: .7rem; }
+#encounter-score { display: block; color: #f2d2a4; font-size: .9rem; font-variant-numeric: tabular-nums; }
+#encounter-score[data-win=true] { color: #aadba0; }
+#encounter-trial { min-height: 2.32rem; font-size: .76rem; }
+
+.encounter-waves { min-width: 0; margin: 0; padding: 0; border: 0; }
+.encounter-waves legend { margin-bottom: .35rem; padding: 0; color: #dbcaad; font-size: .77rem; }
+#encounter-wave-list { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: clamp(2px, .9vw, 5px); }
+#encounter-wave-list label {
+  --enemy-ink: #e5bd78;
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: .18rem;
+  min-height: 2.23rem;
+  padding: .1rem;
+  overflow: hidden;
+  color: #e1d6c7;
+  border: 1px solid #a789624d;
+  border-radius: .23rem;
+  background: #171b24;
+  font-size: .8rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  cursor: pointer;
+}
+#encounter-wave-list label::after { content: ""; width: .26rem; height: .26rem; border-radius: 50%; background: var(--enemy-ink); }
+#encounter-wave-list label[data-state=cleared] { background: #22211f; }
+#encounter-wave-list label[data-state=current] { color: #f5d7a0; font-weight: 800; box-shadow: inset 0 -2px 0 #ddb578; }
+#encounter-wave-list label:has(:checked) { border-color: #e4ba7b; background: #3a2c22; }
+#encounter-wave-list label:has(:focus-visible) { outline: 2px solid #f4d193; outline-offset: 1px; z-index: 1; }
+#encounter-wave-list span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#encounter-wave-list input { position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; }
+.encounter-room[data-endless] #encounter-wave-list { grid-template-columns: repeat(auto-fit, minmax(2.25rem, 1fr)); }
+
 .dialog-actions {
   display: flex;
   flex-direction: column;
@@ -1576,10 +1668,6 @@ dialog::backdrop {
     gap: 0.2rem;
     font-size: 0.6rem;
   }
-  .chip-badge {
-    font-size: 0.54rem;
-    padding: 0.02rem 0.18rem;
-  }
   .boss-intel-text {
     font-size: 0.6rem;
   }
@@ -1591,11 +1679,6 @@ dialog::backdrop {
     min-height: 1.1rem;
     padding: 0.02rem 0.24rem;
     font-size: 0.58rem;
-  }
-  .enemy-hint {
-    font-size: 0.58rem;
-    line-height: 1.1;
-    padding: 0.02rem 0;
   }
   .arena-bar {
     height: 1.15rem;
@@ -1671,13 +1754,6 @@ dialog::backdrop {
   .res-item { font-size: 0.62rem; }
   .ctrl-btn { min-height: 2rem; font-size: 0.68rem; }
   .primary.battle-btn { min-height: 2rem; font-size: 0.88rem; }
-}
-
-/* 超矮屏幕极致省略非必要提示 */
-@media (max-height: 560px) {
-  .enemy-hint {
-    display: none;
-  }
 }
 
 /* 窄屏手机精细对齐与防折行 */

@@ -217,11 +217,7 @@ export function executeEffect(combat: Combat, rule: Effect, context: EffectConte
         () => changeState(combat, index, { chargeStacks: 0 }));
       break;
     case 'RETRIGGER_TARGET': {
-      // Endless affix odd_row_frenzy check: odd row runes cannot trigger chain
-      if (combat.affix === 'odd_row_frenzy') {
-        const row = Math.floor(index / 4);
-        if (row % 2 === 1) break;
-      }
+      if (combat.affix === 'odd_row_frenzy' && toCoords(index).row % 2 === 1) break;
       for (const targetIndex of targets) {
         for (let repeat = 0; repeat < (value.repeatCount ?? 1) + Number(star === 3); repeat++) {
           combat.activate(targetIndex, depth + 1, index, suppressCrit);

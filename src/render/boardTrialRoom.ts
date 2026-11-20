@@ -1,5 +1,5 @@
 import { boardShareUrl, type SharedBoard } from '../core/boardShare';
-import { encounterAt, encounters, relics } from '../core/expedition';
+import { affixAt, encounterAt, encounters, relics } from '../core/expedition';
 import { bestFormationMove } from '../core/formationMove';
 import { toCoords } from '../core/grid';
 import { planTurn, runeFootprint } from '../core/tactics';
@@ -222,7 +222,9 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
       get('original').textContent = format(original.result.damage);
       get('original-combo').textContent = `${format(original.result.combo)} 连击`;
       get('resources').textContent = `${format(active.gold)} 金 · ${active.shield} 护盾 · ${active.relics.length} 件遗物`;
-      get('relics').textContent = [enemy.hint, ...active.relics.map(id => relics[id].name)].join(' · ');
+      const affix = affixAt(active.wave);
+      get('relics').textContent = [enemy.trait, ...(affix ? [`${affix.name} · ${affix.desc}`] : []),
+        ...active.relics.map(id => relics[id].name)].join(' · ');
       get<HTMLDetailsElement>('conditions').open = false;
       find.hidden = !fromCampaign;
       dialog.toggleAttribute('data-campaign', fromCampaign);

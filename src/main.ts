@@ -1,6 +1,6 @@
 import './style.css';
 import { bossHealth, simulateBattle } from './core/battleEngine';
-import { affixAt, encounterAt, encounters, relics, upcomingEncounter } from './core/expedition';
+import { affixAt, armorHitsFor, encounterAt, encounters, relics } from './core/expedition';
 import { isOpening, openingIds, openings, runScore, updateRecords } from './core/openings';
 import { challengeParam, challengeSaveKey, matchesChallenge, readChallenge } from './core/challenge';
 import { boardShareParam, boardShareUrl, encodeBoardToken, readSharedBoard, sameBattleSetup, sameFormation, type SharedBoard } from './core/boardShare';
@@ -19,6 +19,7 @@ import { bindChallengeRoom, bindShareRoom } from './render/challengeRoom';
 import { bindDailyRoom } from './render/dailyRoom';
 import { bindBoardTrial } from './render/boardTrialRoom';
 import { bindBattleJournal } from './render/battleJournal';
+import { bindEncounterRoom } from './render/encounterRoom';
 import { bindRelicRoom } from './render/relicRoom';
 import { renderOpeningPreview } from './render/openingPreview';
 import { PlaybackController } from './render/playbackController';
@@ -161,6 +162,16 @@ const emptyIcon = 'M16 3l13 13-13 13L3 16 16 3Zm0 6v14m-7-7h14';
 const runeGlyph = (node: HTMLElement, id: string) => iconPath(node, runeVectors[id] ?? emptyIcon);
 const daily = bindDailyRoom(catalog, runeGlyph, click);
 const boardTrial = bindBoardTrial(catalog, runeGlyph, formatNumber, click);
+const showEncounters = bindEncounterRoom(catalog, click, wave => {
+  if (!arranging()) return;
+  if (wave === run.wave) openCampaignTrial();
+  else boardTrial.open({ ...run, wave }, undefined, true);
+});
+button('boss-intel').onclick = () => {
+  if (phase !== 'ARRANGE') return;
+  click();
+  showEncounters(run, arranging());
+};
 const showJournal = bindBattleJournal(catalog, formatNumber, runeGlyph, board => { click(); boardTrial.open(board, undefined, true); });
 const reviewLast = () => showJournal(run.lastJournal);
 button('journal-open').onclick = () => { if (phase === 'ARRANGE') { click(); reviewLast(); } };
@@ -217,15 +228,20 @@ function showForecast() {
   button('forecast-trial').disabled = !!placement || (!run.board.some(Boolean) && !run.bench.some(Boolean));
 }
 
+const bossArmor = element('boss-armor-shields');
+const armorIcons = [1, 2, 3].map(index => element(`boss-shield-${index}`));
+const isArmorHit = (event: BattleEvent) => event.type === 'DAMAGE' && event.kind === 'rune' && event.amount > 0;
+
 function updateBossArmorUi(hits: number, breaking = false) {
-  const s1 = document.getElementById('boss-shield-1');
-  const s2 = document.getElementById('boss-shield-2');
-  if (s1) {
-    s1.className = hits >= 1 ? (breaking && hits === 1 ? 'boss-shield-icon broken breaking' : 'boss-shield-icon broken') : 'boss-shield-icon';
-  }
-  if (s2) {
-    s2.className = hits >= 2 ? (breaking && hits === 2 ? 'boss-shield-icon broken breaking' : 'boss-shield-icon broken') : 'boss-shield-icon';
-  }
+  const layers = armorHitsFor(encounterAt(run.wave));
+  const remaining = Math.max(0, layers - hits);
+  bossArmor.hidden = !layers;
+  bossArmor.setAttribute('aria-label', `剩余 ${remaining} / ${layers} 层护甲`);
+  armorIcons.forEach((icon, index) => {
+    icon.hidden = index >= layers;
+    icon.classList.toggle('broken', index < hits);
+    if (!breaking || index + 1 === hits) icon.classList.toggle('breaking', breaking);
+  });
 }
 
 function updateHud() {
@@ -569,11 +585,9 @@ function redraw(save = true) {
   const enemy = encounters[encounter];
   element('enemy-name').textContent = enemy.name;
 
-  const armorShields = document.getElementById('boss-armor-shields');
-  if (armorShields) {
-    armorShields.hidden = encounter !== 'armor';
-    updateBossArmorUi(bossArmorHits);
-  }
+  const hits = phase === 'PLAYBACK' ? bossArmorHits
+    : run.pendingLoss || run.status !== 'active' ? run.lastJournal?.events.filter(isArmorHit).length ?? 0 : 0;
+  updateBossArmorUi(hits);
 
   const bossPath = document.getElementById('boss-emblem-path');
   if (bossPath) bossPath.setAttribute('d', getBossSvgPath(encounter));
@@ -581,17 +595,8 @@ function redraw(save = true) {
   if (emblemWrap) emblemWrap.style.color = bossColors[encounter] ?? '#d4af37';
 
   const affix = affixAt(run.wave);
-  if (affix) {
-    element('enemy-hint').textContent = `【${affix.name}】${affix.desc} · ${enemy.hint}`;
-    element('enemy-hint').hidden = false;
-  } else {
-    element('enemy-hint').textContent = enemy.hint;
-    element('enemy-hint').hidden = !enemy.hint;
-  }
-
-  // 2 waves advance boss preview
-  const upcoming = upcomingEncounter(run.wave, 2);
-  element('boss-intel-text').textContent = `2波后：${upcoming.name} · ${upcoming.hint}`;
+  element('boss-intel-text').textContent = affix?.name ?? enemy.trait;
+  button('boss-intel').disabled = phase === 'PLAYBACK';
 
   element('game').dataset.enemy = encounter;
   element('board-count').textContent = `已布阵 ${run.board.filter(Boolean).length}/16`;
@@ -601,16 +606,8 @@ function redraw(save = true) {
   element('run-opening').textContent = `${openings[run.opening].name} · ${openings[run.opening].label}开局`;
   element('run-seed').textContent = `种子码：${run.seed}`;
 
-  const list = element('relic-list');
-  list.hidden = !run.relics.length;
-  list.replaceChildren(...run.relics.map(id => {
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.textContent = relics[id].name;
-    item.setAttribute('aria-label', `${relics[id].name}：${relics[id].text}`);
-    item.onclick = openRelicBag;
-    return item;
-  }));
+  element('relic-list').hidden = !run.relics.length;
+  button('relic-inventory-open').textContent = `遗物 ${run.relics.length}`;
   const tracked = updateUpgrades(run, trackedUpgrade, arranging(), forecast?.result.damage ?? 0);
   offers.forEach(({ card, preview, icon, name, meta, lock, buy }, index) => {
     const offer = run.shop[index];
@@ -673,6 +670,7 @@ bindDragDrop(renderer, {
 
 const forecastDialog = element<HTMLDialogElement>('forecast-dialog');
 const relicBag = element<HTMLDialogElement>('relic-bag');
+button('relic-inventory-open').onclick = openRelicBag;
 button('relic-bag-close').onclick = () => relicBag.close();
 const showRelicChoices = bindRelicRoom(catalog, (node, id) => iconPath(node, getRelicSvgPath(id)), formatNumber, click, (id, close) => {
   if (!chooseRelic(run, id)) return;
@@ -729,9 +727,7 @@ button('forecast-detail').onclick = () => {
   forecastDialog.showModal();
 };
 button('forecast-close').onclick = () => forecastDialog.close();
-button('forecast-trial').onclick = () => {
-  if (!arranging()) return;
-  click();
+function openCampaignTrial() {
   const checkpoint = JSON.stringify(platform.load(false));
   boardTrial.open(run, {
     matches: canReplaceFormation,
@@ -743,6 +739,11 @@ button('forecast-trial').onclick = () => {
       return true;
     },
   }, true);
+}
+button('forecast-trial').onclick = () => {
+  if (!arranging()) return;
+  click();
+  openCampaignTrial();
 };
 
 interface Action { label: string; act: () => void | Promise<void>; primary?: boolean }
@@ -1016,7 +1017,7 @@ function consume(event: BattleEvent) {
     case 'DAMAGE':
       displayed.hp = event.hp;
       if (event.crit) audio.crit();
-      if (event.kind === 'rune' && event.amount > 0 && encounterAt(run.wave) === 'armor' && bossArmorHits < 2) {
+      if (isArmorHit(event) && bossArmorHits < armorHitsFor(encounterAt(run.wave))) {
         bossArmorHits++;
         updateBossArmorUi(bossArmorHits, true);
         renderer.spawnBronzeShatter({ x: 190, y: 55 });
