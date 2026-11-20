@@ -23,6 +23,12 @@ describe('same-seed challenges', () => {
     expect(matchesChallenge({ ...host, enableSynergies: false }, score)).toBe(false);
     expect(challengeSaveKey(score)).toBe(challengeSaveKey({ ...score, cleared: 50 }));
     expect(challengeSaveKey(score)).not.toBe(challengeSaveKey({ ...score, opening: 'poison' }));
+    const previous = readChallenge(`v7.gold.${score.seed}.6.22`)!;
+    expect(previous.altarRule).toBeUndefined();
+    expect(invite?.altarRule).toBe(1);
+    expect(matchesChallenge(host, previous)).toBe(false);
+    expect(matchesChallenge({ ...host, altarRule: undefined }, previous)).toBe(true);
+    expect(challengeSaveKey(previous)).not.toBe(challengeSaveKey(score));
   });
 
   it('rejects old, malformed and oversized scores and ranks waves before combo', () => {

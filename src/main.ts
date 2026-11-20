@@ -18,6 +18,7 @@ import { bindUpgradeBook } from './render/upgradeBook';
 import { bindChallengeRoom, bindShareRoom } from './render/challengeRoom';
 import { bindDailyRoom } from './render/dailyRoom';
 import { bindBoardTrial } from './render/boardTrialRoom';
+import { bindRelicRoom } from './render/relicRoom';
 import { renderOpeningPreview } from './render/openingPreview';
 import { PlaybackController } from './render/playbackController';
 import { SynthAudio } from './audio/synthAudio';
@@ -60,8 +61,8 @@ const mainRun = challenge && !saved ? createPlatform().load(false)?.run : undefi
 const matchingMain = challenge && mainRun && matchesChallenge(mainRun, challenge) ? mainRun : undefined;
 let challengeEntered = !challenge;
 
-const initialSeed = challenge ? { code: challenge.seed, seed: decodeSeed(challenge.seed) } : generateSeedCode();
-let run = saved?.run ?? newRun(catalog, createMulberry32(initialSeed.seed), challenge?.opening ?? 'chain', initialSeed.code);
+const initialSeed = challenge?.seed ?? generateSeedCode().code;
+let run = saved?.run ?? makeOpening(challenge?.opening ?? 'chain', initialSeed);
 let records = saved?.records ?? {};
 let history: RunArchive[] = saved?.history ?? [];
 let forecast: ReturnType<typeof planTurn> | null = null;
@@ -665,10 +666,17 @@ bindDragDrop(renderer, {
 });
 
 const forecastDialog = element<HTMLDialogElement>('forecast-dialog');
-const relicDialog = element<HTMLDialogElement>('relic-dialog');
 const relicBag = element<HTMLDialogElement>('relic-bag');
-relicDialog.addEventListener('cancel', event => event.preventDefault());
 button('relic-bag-close').onclick = () => relicBag.close();
+const showRelicChoices = bindRelicRoom(catalog, (node, id) => iconPath(node, getRelicSvgPath(id)), formatNumber, click, (id, close) => {
+  if (!chooseRelic(run, id)) return;
+  audio.unlock();
+  audio.jadeChime();
+  audio.synergyChime();
+  close();
+  redraw();
+  notice(`拿到了 ${relics[id].name}`);
+});
 
 function openRelicBag() {
   click();
@@ -682,51 +690,6 @@ function openRelicBag() {
     return item;
   }));
   relicBag.showModal();
-}
-
-function showRelicChoices() {
-  element('relic-wave').textContent = `突破第 ${run.wave - 1} 波 · 天机显圣`;
-  audio.unlock();
-  audio.singingBowl();
-  element('relic-choices').replaceChildren(...run.pendingRelics.map((id, idx) => {
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.className = 'celestial-talisman-card';
-    item.style.animationDelay = `${idx * 100}ms`;
-
-    const iconWrap = document.createElement('div');
-    iconWrap.className = 'celestial-relic-icon';
-    iconPath(iconWrap, getRelicSvgPath(id));
-
-    const name = document.createElement('strong');
-    name.className = 'celestial-relic-name';
-    name.textContent = relics[id].name;
-
-    const pill = document.createElement('span');
-    pill.className = 'celestial-relic-pill';
-    pill.textContent = '仙家灵宝';
-
-    const text = document.createElement('span');
-    text.className = 'celestial-relic-desc';
-    text.textContent = relics[id].text;
-
-    const action = document.createElement('span');
-    action.className = 'celestial-pick-label';
-    action.textContent = '参悟纳宝';
-
-    item.append(pill, iconWrap, name, text, action);
-    item.onclick = () => {
-      if (!chooseRelic(run, id)) return;
-      audio.unlock();
-      audio.jadeChime();
-      audio.synergyChime();
-      relicDialog.close();
-      redraw();
-      notice(`天机感应，已收纳秘宝：${relics[id].name}`);
-    };
-    return item;
-  }));
-  if (!relicDialog.open) relicDialog.showModal();
 }
 
 button('forecast-detail').onclick = () => {
@@ -824,8 +787,9 @@ function recordRunHistory(runToRecord: Run) {
     bestCombo: runToRecord.bestCombo,
     date: new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
     relicsCount: runToRecord.relics.length,
+    ...(runToRecord.altarRule === 1 ? { altarRule: 1 } : {}),
   };
-  const existingIdx = history.findIndex(item => item.seed === entry.seed);
+  const existingIdx = history.findIndex(item => item.seed === entry.seed && item.opening === entry.opening && item.altarRule === entry.altarRule);
   if (existingIdx >= 0) {
     history[existingIdx] = entry;
   } else {
@@ -837,20 +801,25 @@ function recordRunHistory(runToRecord: Run) {
 
 const openingDialog = element<HTMLDialogElement>('opening-dialog');
 const openingSeed = element<HTMLInputElement>('opening-seed');
-let fallbackOpeningSeed = initialSeed.code;
+let fallbackOpeningSeed = initialSeed;
 let openingCandidate: OpeningId = 'chain';
 let openingReplacesRun = false;
 let openingQuick = false;
 const chosenSeed = () => openingSeed.value.trim() || fallbackOpeningSeed;
-const makeOpening = (id: OpeningId, seed: string) => newRun(catalog, createMulberry32(decodeSeed(seed)), id, seed);
+function makeOpening(id: OpeningId, seed: string) {
+  const next = newRun(catalog, createMulberry32(decodeSeed(seed)), id, seed);
+  if (challenge && !challenge.altarRule) delete next.altarRule;
+  return next;
+}
 
-function startOpening(id: OpeningId, customSeed?: string, quick = false) {
+function startOpening(id: OpeningId, customSeed?: string, quick = false, archived?: RunArchive) {
   if (run && (run.attempts > 0 || run.wave > 1)) {
     recordRunHistory(run);
   }
   if (openingDialog.open) openingDialog.close();
   if (dialog.open) dialog.close();
   run = makeOpening(challenge?.opening ?? id, challenge?.seed || customSeed || chosenSeed());
+  if (!challenge && archived && !archived.altarRule) delete run.altarRule;
   trackedUpgrade = undefined;
   firstClearPayout = undefined;
   undoStack.clear();
@@ -948,7 +917,10 @@ openingDialog.addEventListener('cancel', event => {
 });
 
 function showOutcome(archive = true) {
-  if (run.pendingRelics.length) { showRelicChoices(); return; }
+  if (run.pendingRelics.length) {
+    if (showRelicChoices(run)) { audio.unlock(); audio.singingBowl(); }
+    return;
+  }
   if (run.pendingLoss) {
     const after = (protectedRetry: boolean) => {
       dialog.close(); resolveLoss(run, protectedRetry); resetTimeline(); redraw();
@@ -1381,7 +1353,7 @@ function renderCodexArchives() {
       click();
       audio.singingBowl();
       codexDialog.close();
-      startOpening(item.opening, item.seed);
+      startOpening(item.opening, item.seed, false, item);
       notice(`已依玄码【${item.seed}】重开复盘！`);
     };
 

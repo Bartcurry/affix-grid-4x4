@@ -80,6 +80,7 @@ export interface Run {
   relics: RelicId[];
   pendingRelics: RelicId[];
   enableSynergies?: boolean;
+  altarRule?: 1;
   lastCellDamage?: number[];
 }
 

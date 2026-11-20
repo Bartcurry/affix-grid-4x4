@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { simulateBattle } from '../core/battleEngine';
-import { encounterAt, relicChoices } from '../core/expedition';
-import { canArrange, chooseRelic, newRun, settleTurn } from '../core/shopEngine';
+import { encounterAt, relicChoices, relics } from '../core/expedition';
+import { canArrange, chooseRelic, newRun, settleTurn, victoryPayout } from '../core/shopEngine';
+import { previewRelics } from '../core/relicPreview';
 import { planTurn, runeFootprint } from '../core/tactics';
-import type { BattleEvent, Rune, TurnResult } from '../core/types';
+import type { BattleEvent, RelicId, Rune, TurnResult } from '../core/types';
 import { catalog } from '../data/catalog';
+import { migrateSave } from '../platform/webMockAdapter';
 
 const noCrit = () => .99;
 const rune = (configId: string): Rune => ({ configId, star: 1 });
@@ -33,6 +35,7 @@ describe('expedition', () => {
 
   it('offers three distinct relics at milestones and saves the choice in run state', () => {
     const run = newRun(catalog, noCrit);
+    delete run.altarRule;
     run.wave = 4;
     settleTurn(run, clear, catalog, noCrit);
     expect(run.wave).toBe(5);
@@ -49,6 +52,45 @@ describe('expedition', () => {
     expect(encounterAt(20)).toBe('regent');
     expect(encounterAt(21)).toBe('armor');
     expect(encounterAt(26)).toBe('armor');
+  });
+
+  it('makes the expanded relics available before the final wave while keeping offers deterministic', () => {
+    const all = new Set<RelicId>();
+    for (let seed = 1; seed <= 48; seed++) {
+      const owned: RelicId[] = [];
+      for (const wave of [4, 8, 12, 16]) {
+        const options = relicChoices(wave, owned, seed);
+        expect(options).toEqual(relicChoices(wave, owned, seed));
+        expect(new Set(options).size).toBe(3);
+        expect(options.some(id => owned.includes(id))).toBe(false);
+        options.forEach(id => all.add(id));
+        owned.push(options[0]);
+      }
+    }
+    expect([...all].sort()).toEqual(Object.keys(relics).sort());
+    expect(relicChoices(16, [], 7)).toContain('li_fire_token');
+    expect(relicChoices(20, [], 7)).toEqual([]);
+  });
+
+  it('forecasts the next battle using the real pick, including its immediate extra refresh', () => {
+    const run = newRun(catalog, noCrit);
+    run.wave = 4;
+    settleTurn(run, { ...clear, gold: 35 }, catalog, noCrit);
+    expect(run.pendingRelics).toContain('jade_abacus');
+    const saved = migrateSave({ run }, catalog).run;
+    expect(saved.altarRule).toBe(1);
+    expect(saved.pendingRelics).toEqual(run.pendingRelics);
+    const checkpoint = structuredClone(run);
+    const { original, choices } = previewRelics(run, catalog);
+    expect(run).toEqual(checkpoint);
+    const offer = choices.find(choice => choice.id === 'jade_abacus')!;
+    expect(offer.refreshes).toBe(original.refreshes + 1);
+    expect(offer.result.damage).toBeGreaterThan(original.result.damage);
+    expect(chooseRelic(run, offer.id)).toBe(true);
+    expect(run.freeRefreshes).toBe(offer.refreshes);
+    const { result } = planTurn(run, catalog);
+    expect(result).toEqual(offer.result);
+    expect(offer.gold).toBe(result.gold + (result.win ? victoryPayout(run, result.gold, catalog).total : 0));
   });
 
   it('combines relics with a vertical chain and a gold payout', () => {

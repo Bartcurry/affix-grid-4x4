@@ -11,6 +11,7 @@ export interface RunArchive {
   bestCombo: number;
   date: string;
   relicsCount: number;
+  altarRule?: 1;
 }
 
 export interface SaveData {

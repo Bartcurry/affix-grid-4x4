@@ -337,13 +337,16 @@
       <!-- 弹窗：遗物选择 -->
       <dialog id="relic-dialog" class="celestial-dialog" aria-labelledby="relic-title">
         <div class="dialog-content">
-          <div class="celestial-header">
-            <span class="celestial-pill">仙家灵宝 · 翻牌参悟</span>
-            <p id="relic-wave" class="dialog-subtitle"></p>
-            <h2 id="relic-title">神机天工秘宝</h2>
-            <p class="dialog-desc">心神合一，翻开灵符揭晓秘宝。每件秘宝都将激发流派质变，贯穿本局始终。</p>
-          </div>
-          <div class="relic-choices celestial-choices" id="relic-choices"></div>
+          <header class="altar-heading">
+            <p id="relic-wave"></p>
+            <h2 id="relic-title">选一件遗物</h2>
+          </header>
+          <section class="altar-baseline" aria-label="当前阵容试算">
+            <p id="relic-target"></p>
+            <strong id="relic-before"></strong>
+          </section>
+          <div class="celestial-choices" id="relic-choices"></div>
+          <button id="relic-pick" class="primary" type="button" disabled>领取所选遗物</button>
         </div>
       </dialog>
 

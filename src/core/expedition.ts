@@ -1,4 +1,5 @@
 import { toCoords } from './grid';
+import { createMulberry32 } from './rng';
 import type { RelicId } from './types';
 
 export const encounters = {
@@ -58,10 +59,10 @@ export const relics = {
   red_lens: { name: '朱砂镜', text: '暴击伤害再增加 20%。' },
   copper_ledger: { name: '铜钱簿', text: '每次符文产出金币时，多得 1 金。' },
   gate_tithe: { name: '过门钱', text: '每打过一波，额外拿 4 金。' },
-  jade_abacus: { name: '青玉算盘', text: '开战持有金币每满 5 金，第一排首个激活的符文伤害 +15%（最高+90%）；且每轮首次刷新免费。' },
+  jade_abacus: { name: '青玉算盘', text: '首个符文命中来自第一排时，手里每 5 金让这一击多打 15%（最多 +90%）。每波多 1 次免费刷新。' },
   taixu_needle: { name: '太虚神针', text: '产生暴击时，符文暴击伤害提升 25% 并追加纯阳破甲。' },
   li_fire_token: { name: '离火玄令', text: '棋盘【离火位】额外触发次数+1（变为触发2次）；第四排符文伤害 +25%。' },
-  huagong_powder: { name: '化功散', text: '敌人受到剧毒伤害时增伤 25%，持续至本波结束。' },
+  huagong_powder: { name: '化功散', text: '羁绊毒爆和回合末剧毒的伤害都提高 25%。' },
   bagua_mirror: { name: '八卦玄光镜', text: '布置在棋盘四个角落（格1、4、13、16）的符文，伤害提升 35%。' },
   spirit_gourd: { name: '紫金葫芦', text: '战斗中达到 5 连击或以上时额外产出 1 金；过关且持金≥20时额外送 1 次免费刷新。' },
   tianji_compass: { name: '天机罗盘', text: '符文铺出现法阵主羁绊符文概率大幅提高；初始多得 6 枚金币。' },
@@ -76,12 +77,31 @@ const altars: readonly (readonly RelicId[])[] = [
   ['gate_tithe', 'whetstone', 'copper_ledger', 'red_lens', 'moss_bowl', 'chain_ring', 'jade_abacus', 'taixu_needle', 'li_fire_token'],
 ];
 
-export function relicChoices(waveCleared: number, owned: readonly RelicId[]): RelicId[] {
+const revisedAltars: readonly (readonly (readonly RelicId[])[])[] = [
+  [['chain_ring', 'whetstone'], ['moss_bowl'], ['jade_abacus']],
+  [['bagua_mirror'], ['huagong_powder'], ['red_lens', 'gate_tithe', 'copper_ledger']],
+  [['xuanbing_silk'], ['spirit_gourd'], ['qiankun_pouch']],
+  [['tianji_compass'], ['taixu_needle'], ['li_fire_token']],
+];
+
+export function relicChoices(waveCleared: number, owned: readonly RelicId[], seed?: number): RelicId[] {
   if (waveCleared <= 0 || waveCleared % 4 !== 0 || waveCleared === 20) return [];
   const altarIndex = waveCleared > 20
     ? (Math.floor(waveCleared / 4) - 1) % altars.length
     : waveCleared / 4 - 1;
   const options = altars[altarIndex];
+  if (seed !== undefined) {
+    const rng = createMulberry32(seed ^ Math.imul(waveCleared, 0x9e3779b1));
+    const offered = revisedAltars[altarIndex].flatMap(pool => {
+      const available = pool.filter(id => !owned.includes(id));
+      return available.length ? [available[Math.floor(rng() * available.length)]] : [];
+    });
+    for (const id of [...options, ...(Object.keys(relics) as RelicId[])]) {
+      if (offered.length === 3) break;
+      if (!owned.includes(id) && !offered.includes(id)) offered.push(id);
+    }
+    return offered;
+  }
   return options?.filter(id => !owned.includes(id)).slice(0, 3) ?? [];
 }
 

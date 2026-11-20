@@ -103,6 +103,7 @@ export function newRun(catalog: Catalog, rng: Random, opening: OpeningId = 'chai
     relics: [],
     pendingRelics: [],
     enableSynergies: true,
+    altarRule: 1,
   };
   for (const [index, configId] of setup.pieces) run.board[index] = { configId, star: 1 };
   rollShop(run, catalog, effectiveRng);
@@ -225,7 +226,7 @@ export function settleTurn(run: Run, result: TurnResult, catalog: Catalog, rng: 
   run.gold += victoryPayout(run, result.gold, catalog).total;
   if (run.wave === 20 && !run.endless) run.status = 'victory';
   else {
-    const choices = relicChoices(run.wave, run.relics);
+    const choices = relicChoices(run.wave, run.relics, run.altarRule === 1 ? decodeSeed(run.seed) : undefined);
     advanceWave(run, catalog, rng);
     run.pendingRelics = choices;
   }
@@ -247,6 +248,7 @@ export function chooseRelic(run: Run, choice: RelicId): boolean {
   if (run.status !== 'active' || run.pendingLoss || run.relics.includes(choice) || !run.pendingRelics.includes(choice)) return false;
   run.relics.push(choice);
   if (choice === 'tianji_compass') run.gold += 6;
+  if (run.altarRule === 1 && choice === 'jade_abacus') run.freeRefreshes++;
   run.pendingRelics = [];
   return true;
 }

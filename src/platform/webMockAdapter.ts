@@ -56,6 +56,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
         bestCombo: natural(item.bestCombo) ? item.bestCombo : 0,
         date: typeof item.date === 'string' ? item.date : new Date().toLocaleDateString('zh-CN'),
         relicsCount: natural(item.relicsCount) ? item.relicsCount : 0,
+        ...(item.altarRule === 1 ? { altarRule: 1 as const } : {}),
       }));
   };
 
@@ -140,6 +141,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       relics: relicsList,
       pendingRelics: pendingRelicsList,
       enableSynergies: rawRun.enableSynergies !== false,
+      ...(rawRun.altarRule === 1 ? { altarRule: 1 } : {}),
       ...(Array.isArray(rawRun.lastCellDamage) && rawRun.lastCellDamage.length === CELL_COUNT && rawRun.lastCellDamage.every(damageCount)
         ? { lastCellDamage: rawRun.lastCellDamage } : {}),
     };
