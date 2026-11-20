@@ -20,12 +20,14 @@ import { bindDailyRoom } from './render/dailyRoom';
 import { bindBoardTrial } from './render/boardTrialRoom';
 import { bindBattleJournal } from './render/battleJournal';
 import { bindEncounterRoom } from './render/encounterRoom';
+import { bindFormationLessons } from './render/formationLessons';
 import { bindRelicRoom } from './render/relicRoom';
 import { renderOpeningPreview } from './render/openingPreview';
 import { PlaybackController } from './render/playbackController';
 import { SynthAudio } from './audio/synthAudio';
 import { WebMockAdapter } from './platform/webMockAdapter';
-import { getRuneTacticalInfo } from './data/tacticalTips';
+import { runePlacement } from './data/tacticalTips';
+import { formationLessons } from './data/formationLessons';
 import type { RunArchive } from './platform/adapter';
 
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
@@ -162,6 +164,8 @@ const emptyIcon = 'M16 3l13 13-13 13L3 16 16 3Zm0 6v14m-7-7h14';
 const runeGlyph = (node: HTMLElement, id: string) => iconPath(node, runeVectors[id] ?? emptyIcon);
 const daily = bindDailyRoom(catalog, runeGlyph, click);
 const boardTrial = bindBoardTrial(catalog, runeGlyph, formatNumber, click);
+const showFormationLessons = bindFormationLessons(catalog, runeGlyph, click,
+  (board, name, damage) => boardTrial.open(board, undefined, true, { name, damage }));
 const showEncounters = bindEncounterRoom(catalog, click, wave => {
   if (!arranging()) return;
   if (wave === run.wave) openCampaignTrial();
@@ -396,7 +400,7 @@ function inspect() {
     name.textContent = config?.name ?? (run.wave === 1 ? tutorials() ? '第一波可以直接打' : openings[run.opening].name : '先挑一枚符文');
     info.textContent = config?.desc ?? (run.wave === 1 ? openings[run.opening].note : '点棋盘或店里的一枚符文，就能看到它的作用。');
   }
-  const stats = config && rune ? [rarityLabel[config.rarity], `${'★'.repeat(rune.star)} · 星级 ×${STAR_MULT[rune.star]}`] : emptyTileMod ? ['特殊阵眼', `格 ${slot!.index + 1}`] : [];
+  const stats = config && rune ? [rarityLabel[config.rarity], `${rune.star} 星`] : emptyTileMod ? ['特殊阵眼', `格 ${slot!.index + 1}`] : [];
 
   if (slot?.zone === 'board') {
     const mod = run.tileModifiers?.[slot.index];
@@ -1151,6 +1155,9 @@ button('help').onclick = () => {
 
 const codexDialog = element<HTMLDialogElement>('codex-dialog');
 let codexRuneFilter = 'all';
+element('codex-star-note').textContent =
+  `三枚同名同星符文合成一枚高一星的符文。常规伤害、施毒和产金的星级倍率为 ${STAR_MULT[1]} / ${STAR_MULT[2]} / ${STAR_MULT[3]}。能触发其他符文的词条升到三星后，会对每个目标多触发一次。催化和引爆的升星数值见对应词条。`;
+button('codex-lessons').onclick = () => { click(); showFormationLessons(); };
 
 function openCodex(tab: 'runes' | 'relics' | 'archives' = 'runes') {
   click();
@@ -1184,7 +1191,8 @@ function renderCodexRunes() {
 
   grid.replaceChildren(...filtered.map(rune => {
     const card = document.createElement('div');
-    card.className = `codex-rune-card archetype-${rune.archetype}`;
+    card.className = 'codex-rune-card';
+    card.dataset.rune = rune.id;
     card.style.setProperty('--card-accent', rune.color);
 
     const head = document.createElement('div');
@@ -1193,7 +1201,7 @@ function renderCodexRunes() {
     const iconWrap = document.createElement('div');
     iconWrap.className = 'codex-rune-icon-wrap';
     iconWrap.style.color = rune.color;
-    iconPath(iconWrap, runeVectors[rune.id]);
+    runeGlyph(iconWrap, rune.id);
 
     const meta = document.createElement('div');
     meta.className = 'codex-rune-meta';
@@ -1230,57 +1238,23 @@ function renderCodexRunes() {
     desc.className = 'codex-rune-desc';
     desc.textContent = rune.desc;
 
-    // 3-star Tier Preview & Detailed Numerical Stats
-    const preview = document.createElement('div');
-    preview.className = 'codex-star-preview';
+    const tip = document.createElement('details');
+    tip.className = 'codex-placement';
+    const summary = document.createElement('summary');
+    summary.textContent = '怎么摆';
+    const instruction = document.createElement('p');
+    instruction.textContent = runePlacement[rune.id];
+    tip.append(summary, instruction);
+    const lesson = formationLessons.find(candidate => candidate.pieces.some(([, id]) => id === rune.id));
+    if (lesson) {
+      const tryLesson = document.createElement('button');
+      tryLesson.type = 'button';
+      tryLesson.textContent = `练习 · ${lesson.name}`;
+      tryLesson.onclick = () => { click(); showFormationLessons(lesson.id); };
+      tip.append(tryLesson);
+    }
 
-    const baseTrigger = rune.triggers.find(t => t.value?.base !== undefined);
-    const baseVal = baseTrigger?.value?.base;
-    const effectType = baseTrigger?.effect;
-    const unit = effectType === 'ADD_POISON' ? '层'
-      : effectType === 'GAIN_GOLD' ? '金'
-      : effectType === 'DEAL_DAMAGE' ? '伤'
-      : '';
-
-    const mults: [string, number, string | null][] = [
-      ['1★ 基础', 1.0, baseVal !== undefined ? `${Math.round(baseVal * 1)}${unit}` : null],
-      ['2★ 升阶', 2.2, baseVal !== undefined ? `${Math.round(baseVal * 2.2)}${unit}` : null],
-      ['3★ 极意', 5.0, baseVal !== undefined ? `${Math.round(baseVal * 5)}${unit}` : null],
-    ];
-
-    mults.forEach(([label, mult, valStr]) => {
-      const step = document.createElement('div');
-      step.className = 'codex-star-step';
-      const stepLabel = document.createElement('span');
-      stepLabel.className = 'codex-star-label';
-      stepLabel.textContent = label;
-      const stepVal = document.createElement('span');
-      stepVal.className = 'codex-star-val';
-      stepVal.textContent = valStr ? `×${mult} (${valStr})` : `×${mult}`;
-      step.append(stepLabel, stepVal);
-      preview.append(step);
-    });
-
-    // Tactical Tip, Synergy/Counter Guidance & Placement
-    const tactical = getRuneTacticalInfo(rune.id);
-    const tipBox = document.createElement('div');
-    tipBox.className = 'codex-tactical-tip';
-
-    const pTip = document.createElement('div');
-    pTip.className = 'codex-tip-line';
-    pTip.innerHTML = `<strong>【战法】</strong>${tactical.tip}`;
-
-    const pSynergy = document.createElement('div');
-    pSynergy.className = 'codex-tip-line';
-    pSynergy.innerHTML = `<strong>【克制协同】</strong>${tactical.synergyAdvice}`;
-
-    const pPos = document.createElement('div');
-    pPos.className = 'codex-tip-line';
-    pPos.innerHTML = `<strong>【推荐落位】</strong>${tactical.recommendedPosition}`;
-
-    tipBox.append(pTip, pSynergy, pPos);
-
-    card.append(head, desc, preview, tipBox);
+    card.append(head, desc, tip);
     return card;
   }));
 }
@@ -1413,8 +1387,10 @@ element('tab-btn-archives').onclick = () => { click(); switchCodexTab('archives'
 document.querySelectorAll<HTMLButtonElement>('.codex-filter-btn').forEach(btn => {
   btn.onclick = () => {
     click();
-    document.querySelectorAll('.codex-filter-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    document.querySelectorAll('.codex-filter-btn').forEach(filter => {
+      filter.classList.toggle('active', filter === btn);
+      filter.setAttribute('aria-pressed', String(filter === btn));
+    });
     codexRuneFilter = btn.dataset.filter ?? 'all';
     renderCodexRunes();
   };

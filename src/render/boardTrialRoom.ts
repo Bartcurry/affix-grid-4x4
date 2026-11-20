@@ -11,6 +11,7 @@ interface ApplyFormation {
   matches(board: SharedBoard): boolean;
   apply(board: SharedBoard): boolean;
 }
+interface PracticeGoal { name: string; damage: number }
 
 export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: string) => void, format: (value: number) => string, click: () => void) {
   const dialog = document.querySelector<HTMLDialogElement>('#trial-board-dialog')!;
@@ -32,6 +33,7 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
   let tried = false;
   let suggested: Move | undefined;
   let availableApply: ApplyFormation | undefined;
+  let practice: PracticeGoal | undefined;
   const delta = (value: number) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${format(Math.abs(value))}`;
 
   function updateControls() {
@@ -132,9 +134,12 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
     const poison = current.poisonDamage - original.poisonDamage;
     if (poison) sources.push({ name: '回合末剧毒', amount: poison });
     const largest = sources.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))[0];
-    const verdict = current.result.win ? '过了。' : `还差 ${format(current.result.hp)} 伤害。`;
+    const passed = practice ? current.result.damage >= practice.damage : current.result.win;
+    const verdict = practice
+      ? passed ? '达成练习目标。' : `离练习目标还差 ${format(practice.damage - current.result.damage)} 伤害。`
+      : passed ? '过了。' : `还差 ${format(current.result.hp)} 伤害。`;
     outcome.textContent = `${verdict}${largest ? ` ${largest.name} ${delta(largest.amount)} 伤害。` : ''}`;
-    outcome.dataset.win = String(current.result.win);
+    outcome.dataset.win = String(passed);
     tried = true;
     updateControls();
   }
@@ -209,16 +214,18 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
 
   return {
     dialog,
-    open(snapshot: SharedBoard, applyToRun?: ApplyFormation, fromCampaign = false) {
+    open(snapshot: SharedBoard, applyToRun?: ApplyFormation, fromCampaign = false, goal?: PracticeGoal) {
       if (dialog.open) return;
       active = { ...snapshot, board: [...snapshot.board], bench: [...snapshot.bench] };
       availableApply = applyToRun;
+      practice = goal;
       original = planTurn(active, catalog);
       originalPieces = new Map(active.board.flatMap((rune, index) => rune ? [[rune, original.byCell[index].damage] as const] : []));
       moves = [];
       selected = undefined;
       const enemy = encounters[encounterAt(active.wave)];
-      get('wave').textContent = `第 ${active.wave} 波 · ${enemy.name} · ${format(original.hp)} 生命`;
+      get('wave').textContent = goal ? `${goal.name} · 练习目标 ${format(goal.damage)} 伤害`
+        : `第 ${active.wave} 波 · ${enemy.name} · ${format(original.hp)} 生命`;
       get('original').textContent = format(original.result.damage);
       get('original-combo').textContent = `${format(original.result.combo)} 连击`;
       get('resources').textContent = `${format(active.gold)} 金 · ${active.shield} 护盾 · ${active.relics.length} 件遗物`;
@@ -227,6 +234,7 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
         ...active.relics.map(id => relics[id].name)].join(' · ');
       get<HTMLDetailsElement>('conditions').open = false;
       find.hidden = !fromCampaign;
+      copy.hidden = !!goal;
       dialog.toggleAttribute('data-campaign', fromCampaign);
       clearAttempt();
       draw();

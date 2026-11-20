@@ -19,7 +19,7 @@
   {
     "id": "relay_cross", "name": "十字中继器", "rarity": "epic", "archetype": "chain",
     "tags": ["chain", "trigger"], "cost": 7, "color": "#818CF8", "symbol": "✚",
-    "desc": "激活时，同时触发上下左右4个相邻格子的符文。",
+    "desc": "依序连锁触发上、下、左、右的相邻符文。",
     "triggers": [
       { "event": "ON_ACTIVATE", "effect": "RETRIGGER_TARGET", "target": "ADJACENT_4", "value": { "base": 1, "repeatCount": 1 } }
     ]
@@ -60,7 +60,7 @@
   {
     "id": "toxic_detonator", "name": "剧毒引爆器", "rarity": "epic", "archetype": "poison",
     "tags": ["poison", "damage"], "cost": 7, "color": "#84CC16", "symbol": "✹",
-    "desc": "立即引爆Boss剧毒，造成当前毒层×2.5爆发伤害，并保留50%毒层。",
+    "desc": "引爆当前剧毒。一、二、三星分别按毒层 ×2.5、×3.5、×5 计算伤害，留下向下取整的一半毒层。",
     "triggers": [
       { "event": "ON_ACTIVATE", "effect": "DETONATE_POISON", "target": "BOSS", "value": { "base": 2.5, "scaleBy": "BOSS_POISON", "retainRatio": 0.5 } }
     ]
@@ -179,7 +179,7 @@
   {
     "id": "gilded_fang", "name": "淬金毒牙", "rarity": "rare", "archetype": "gold",
     "tags": ["gold", "poison"], "cost": 5, "color": "#A3E635", "symbol": "🦷",
-    "desc": "施加4层剧毒；Boss当前每有12层剧毒，额外产出1枚金币（单次激活上限+6金币）。",
+    "desc": "先叠 4 层毒。敌人每有 12 层毒，再产出 1 金，一星最多 6 金。升星后产金随星级倍率增加。",
     "triggers": [
       { "event": "ON_ACTIVATE", "effect": "ADD_POISON", "target": "BOSS", "value": { "base": 4 } },
       { "event": "ON_ACTIVATE", "effect": "GAIN_GOLD", "target": "SELF", "value": { "base": 0, "scaleBy": "BOSS_POISON_TIER", "tierDivisor": 12, "maxCap": 6 } }
@@ -206,7 +206,7 @@
   {
     "id": "alchemy_bell", "name": "点金铃", "rarity": "rare", "archetype": "gold",
     "tags": ["gold", "chain"], "cost": 5, "color": "#FBBF24", "symbol": "🔔",
-    "desc": "触发正下方符文1次；若当前持有金币≥25，额外使该目标本回合伤害倍率+50%。",
+    "desc": "先连锁触发正下方符文 1 次。随后如果手里至少有 25 金，下方符文本回合剩余的伤害倍率加 0.5。",
     "triggers": [
       { "event": "ON_ACTIVATE", "effect": "RETRIGGER_TARGET", "target": "DOWN", "value": { "base": 1, "repeatCount": 1 } },
       { "event": "ON_ACTIVATE", "effect": "ADD_TEMP_MULT", "target": "DOWN", "value": { "base": 0.5, "minGoldThreshold": 25 } }

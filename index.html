@@ -80,7 +80,7 @@
 
           <div class="hud-utility">
             <button id="openings" type="button" title="换开局">开局</button>
-            <button id="codex" type="button" title="天机阁 · 图鉴与战绩">天机阁</button>
+            <button id="codex" type="button" aria-haspopup="dialog" title="查看符文、阵型练习与战绩">图鉴</button>
             <button id="ambient" type="button" aria-pressed="true" title="五音雅乐背景禅音">雅乐</button>
             <button id="sound" type="button" aria-pressed="false" title="音效">音效</button>
             <button id="help" type="button" aria-label="玩法说明" title="玩法">玩法</button>
@@ -520,31 +520,61 @@
         </div>
       </dialog>
 
-      <!-- 弹窗：天机阁 · 图鉴系统与历劫战史 -->
+      <dialog id="formation-lessons" aria-labelledby="lesson-title">
+        <div class="dialog-content lesson-room">
+          <header class="lesson-heading">
+            <h2 id="lesson-title">阵型练习</h2>
+            <button id="lesson-close" type="button" aria-label="关闭阵型练习">×</button>
+          </header>
+          <div id="lesson-choices" class="lesson-choices" role="group" aria-label="选择练习"></div>
+          <section class="lesson-example" aria-labelledby="lesson-name">
+            <div class="lesson-example-head">
+              <h3 id="lesson-name"></h3><span id="lesson-resources"></span>
+            </div>
+            <p id="lesson-tip"></p>
+            <div class="lesson-compare">
+              <figure>
+                <figcaption>原摆法 <strong id="lesson-before"></strong></figcaption>
+                <div id="lesson-original" class="lesson-grid" aria-hidden="true"></div>
+              </figure>
+              <figure>
+                <figcaption>换位后 <strong id="lesson-after"></strong></figcaption>
+                <div id="lesson-revised" class="lesson-grid" aria-hidden="true"></div>
+              </figure>
+            </div>
+            <button id="lesson-try" class="primary" type="button">从原阵开始试摆</button>
+          </section>
+        </div>
+      </dialog>
+
       <dialog id="codex-dialog" class="codex-dialog-grand" aria-labelledby="codex-title">
         <div class="dialog-content codex-dialog-content">
           <header class="codex-header">
-            <div class="codex-title-wrap">
-              <span class="celestial-pill">天机阁 · 仙藏全卷</span>
-              <h2 id="codex-title" class="codex-title">符文图鉴与历劫战史</h2>
-            </div>
-            <button id="codex-close" type="button" class="btn-subtle-close" aria-label="关闭天机阁">✕</button>
+            <h2 id="codex-title" class="codex-title">图鉴</h2>
+            <button id="codex-close" type="button" class="btn-subtle-close" aria-label="关闭图鉴">✕</button>
           </header>
 
           <nav class="codex-nav-tabs" role="tablist">
-            <button type="button" id="tab-btn-runes" class="codex-tab-btn active" role="tab" aria-selected="true" aria-controls="codex-panel-runes">符文宝典 (26)</button>
-            <button type="button" id="tab-btn-relics" class="codex-tab-btn" role="tab" aria-selected="false" aria-controls="codex-panel-relics">仙家灵宝 (15)</button>
-            <button type="button" id="tab-btn-archives" class="codex-tab-btn" role="tab" aria-selected="false" aria-controls="codex-panel-archives">历劫战史</button>
+            <button type="button" id="tab-btn-runes" class="codex-tab-btn active" role="tab" aria-selected="true" aria-controls="codex-panel-runes">符文</button>
+            <button type="button" id="tab-btn-relics" class="codex-tab-btn" role="tab" aria-selected="false" aria-controls="codex-panel-relics">遗物</button>
+            <button type="button" id="tab-btn-archives" class="codex-tab-btn" role="tab" aria-selected="false" aria-controls="codex-panel-archives">战绩</button>
           </nav>
 
           <!-- Tab 1 内容：符文宝典 -->
           <section id="codex-panel-runes" class="codex-panel active" role="tabpanel">
-            <div class="codex-filter-bar">
-              <button type="button" class="codex-filter-btn active" data-filter="all">全部 (26)</button>
-              <button type="button" class="codex-filter-btn" data-filter="chain">⚡ 连锁 (7)</button>
-              <button type="button" class="codex-filter-btn" data-filter="poison">💧 剧毒 (6)</button>
-              <button type="button" class="codex-filter-btn" data-filter="gold">◆ 金币 (7)</button>
-              <button type="button" class="codex-filter-btn" data-filter="amplify">✦ 增幅 (6)</button>
+            <div class="codex-rune-tools">
+              <button id="codex-lessons" type="button" aria-haspopup="dialog">阵型练习 <span aria-hidden="true">›</span></button>
+              <details class="codex-stars">
+                <summary>升星规则</summary>
+                <p id="codex-star-note"></p>
+              </details>
+            </div>
+            <div class="codex-filter-bar" role="group" aria-label="按符文流派筛选">
+              <button type="button" class="codex-filter-btn active" data-filter="all" aria-pressed="true">全部</button>
+              <button type="button" class="codex-filter-btn" data-filter="chain" aria-pressed="false">连锁</button>
+              <button type="button" class="codex-filter-btn" data-filter="poison" aria-pressed="false">剧毒</button>
+              <button type="button" class="codex-filter-btn" data-filter="gold" aria-pressed="false">金币</button>
+              <button type="button" class="codex-filter-btn" data-filter="amplify" aria-pressed="false">增幅</button>
             </div>
             <div id="codex-runes-grid" class="codex-runes-grid"></div>
           </section>

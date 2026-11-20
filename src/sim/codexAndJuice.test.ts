@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { catalog, runes } from '../data/catalog';
 import { relics } from '../core/expedition';
 import { getRelicSvgPath } from '../render/glyphs';
-import { getRuneTacticalInfo, runeTacticalMap } from '../data/tacticalTips';
+import { runePlacement } from '../data/tacticalTips';
+import { formationLessons, lessonBoards } from '../data/formationLessons';
+import { simulateFormation } from '../core/tactics';
 import { migrateSave } from '../platform/webMockAdapter';
 import type { RunArchive } from '../platform/adapter';
 import { STAR_MULT } from '../core/types';
@@ -59,12 +61,20 @@ describe('Cycle 2: Codex (天机图鉴) & Tactical Tips Coverage', () => {
     expect(runes.length).toBe(26);
     expect(Object.keys(catalog).length).toBe(26);
 
-    for (const rune of runes) {
-      const tactical = getRuneTacticalInfo(rune.id);
-      expect(tactical.tip.length).toBeGreaterThan(10);
-      expect(tactical.synergyAdvice.length).toBeGreaterThan(5);
-      expect(tactical.recommendedPosition.length).toBeGreaterThan(5);
-      expect(runeTacticalMap[rune.id]).toBeDefined();
+    expect(Object.keys(runePlacement).sort()).toEqual(runes.map(rune => rune.id).sort());
+    expect(Object.values(runePlacement).every(tip => tip.length > 10)).toBe(true);
+  });
+
+  it('improves damage in each playable placement example without changing the available pieces', () => {
+    for (const lesson of formationLessons) {
+      const { original, revised } = lessonBoards(lesson);
+      const ids = original.board.flatMap(piece => piece ? [piece.configId] : []);
+      expect(ids.every(id => Object.hasOwn(catalog, id))).toBe(true);
+      expect(revised.board.flatMap(piece => piece ? [piece.configId] : []).sort()).toEqual(ids.sort());
+      const before = simulateFormation(original, catalog).events.at(-1);
+      const after = simulateFormation(revised, catalog).events.at(-1);
+      if (before?.type !== 'TURN_RESULT' || after?.type !== 'TURN_RESULT') throw new Error(`Missing lesson result: ${lesson.id}`);
+      expect(after.damage, lesson.id).toBeGreaterThan(before.damage);
     }
   });
 
