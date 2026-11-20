@@ -257,7 +257,12 @@ function showForecast() {
   const { hp, result } = placement ?? forecast;
   const change = result.damage - forecast.result.damage;
   panel.dataset.verdict = forecast.verdict;
-  element('forecast-verdict').textContent = forecast.verdictText;
+  const verdict = element('forecast-verdict');
+  const scout = button('forecast-scout');
+  scout.hidden = !!placement || forecast.result.win || (!run.board.some(Boolean) && !run.bench.some(Boolean));
+  verdict.hidden = !scout.hidden;
+  verdict.textContent = forecast.verdictText;
+  scout.setAttribute('aria-label', `还差 ${formatNumber(forecast.result.hp)} 伤害，找打法`);
   element('forecast-fill').style.width = `${Math.min(100, 100 * result.damage / hp)}%`;
 
   if (exactForecast) {
@@ -798,7 +803,7 @@ button('forecast-detail').onclick = () => {
   forecastDialog.showModal();
 };
 button('forecast-close').onclick = () => forecastDialog.close();
-function openCampaignTrial() {
+function openCampaignTrial(quickFind = false) {
   const checkpoint = JSON.stringify(platform.load(false));
   boardTrial.open(run, {
     matches: canReplaceFormation,
@@ -809,12 +814,17 @@ function openCampaignTrial() {
       notice('已应用改阵，可以撤销。');
       return true;
     },
-  }, true);
+  }, true, undefined, quickFind);
 }
 button('forecast-trial').onclick = () => {
   if (!arranging()) return;
   click();
   openCampaignTrial();
+};
+button('forecast-scout').onclick = () => {
+  if (!arranging()) return;
+  click();
+  openCampaignTrial(true);
 };
 
 function openRetryTrial(source: SharedBoard, preserving: boolean) {

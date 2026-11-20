@@ -138,6 +138,7 @@
         <section class="forecast-strip panel" id="forecast" aria-label="战斗推演">
           <div class="forecast-main">
             <span id="forecast-verdict" class="forecast-verdict-pill"></span>
+            <button id="forecast-scout" type="button" class="forecast-verdict-pill" aria-haspopup="dialog" hidden>找打法 <span aria-hidden="true">›</span></button>
             <div class="forecast-gauge" aria-hidden="true"><span id="forecast-fill"></span></div>
             <span id="forecast-readout" class="forecast-readout-text"></span>
           </div>
@@ -390,7 +391,7 @@
           <div class="trial-tools">
             <button id="trial-board-undo" type="button">撤销</button>
             <button id="trial-board-reset" type="button">恢复原阵</button>
-            <button id="trial-board-find" type="button" hidden>找一步</button>
+            <button id="trial-board-find" type="button" hidden>找打法</button>
             <button id="trial-board-check" type="button" class="primary">试打</button>
           </div>
           <button id="trial-board-apply" type="button" hidden>应用到当前阵</button>

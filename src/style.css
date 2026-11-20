@@ -730,6 +730,7 @@ canvas {
   color: #34d399;
 }
 
+#forecast-scout { min-height: 1.57rem; padding: .1rem .3rem; background: #32261f; border-color: #946744; color: #ffd8a5; }
 .forecast-gauge {
   width: 2.8rem;
   height: 0.2rem;
@@ -1453,7 +1454,7 @@ canvas {
 .trial-scores div:last-child dd, #trial-board-delta[data-direction=up], #trial-board-result[data-win=true] { color: #c8e5b1; }
 #trial-board-delta[data-direction=down], #trial-board-result[data-win=false] { color: #f0b490; }
 .trial-board-inspect, #trial-board-result { min-height: 1.25em; font-size: .76rem; line-height: 1.4; }
-.trial-board-guide { padding: .38rem .5rem; border-left: 2px solid #a5c38b; background: #26312a; color: #d3e5c5; font-size: .76rem; line-height: 1.4; }
+.trial-board-guide { padding: .38rem .5rem; border-left: 2px solid #a5c38b; background: #26312a; color: #d3e5c5; font-size: .76rem; line-height: 1.4; white-space: pre-line; }
 .trial-conditions { padding: .4rem .49rem; border: 1px solid #5d5243; background: #1d2228; color: #ddd0c1; font-size: .72rem; }
 .trial-conditions p { margin-top: .22rem; color: #c3c7cc; }
 .trial-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(0, 1.25fr); gap: .32rem; }

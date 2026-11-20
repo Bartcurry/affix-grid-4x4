@@ -1,7 +1,7 @@
 import { boardShareUrl, type SharedBoard } from '../core/boardShare';
 import { battleTarget } from '../core/bounties';
 import { affixAt, encounters, relics } from '../core/expedition';
-import { bestFormationMove } from '../core/formationMove';
+import { bestFormationMove, type FormationPlan } from '../core/formationMove';
 import { toCoords } from '../core/grid';
 import { planTurn, runeFootprint } from '../core/tactics';
 import type { Catalog, Rune, Slot } from '../core/types';
@@ -34,7 +34,8 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
   let selected: Slot | undefined;
   let moves: Move[];
   let tried = false;
-  let suggested: Move | undefined;
+  let suggested: Move[] = [];
+  let search: Worker | undefined;
   let availableApply: ApplyFormation | undefined;
   let practice: PracticeGoal | undefined;
   const delta = (value: number) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${format(Math.abs(value))}`;
@@ -46,6 +47,7 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
   }
 
   function clearAttempt() {
+    stopSearch();
     tried = false;
     get('current').textContent = '待试打';
     get('delta').textContent = '';
@@ -55,8 +57,14 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
     shareStatus.textContent = '换位和试打都只在这里生效。';
     link.hidden = true;
     guide.hidden = true;
-    suggested = undefined;
+    suggested = [];
     updateControls();
+  }
+
+  function stopSearch() {
+    search?.terminate();
+    search = undefined;
+    find.disabled = false;
   }
 
   function exchange([from, to]: Move) {
@@ -68,7 +76,7 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
     const config = picked ? catalog[picked.configId] : undefined;
     const reach = config && selected?.zone === 'board' ? runeFootprint(config, selected.index) : undefined;
     const inspect = get('inspect');
-    inspect.hidden = !config && !!suggested;
+    inspect.hidden = !config && suggested.length > 0;
     inspect.textContent = config && picked
       ? `${config.name} · ${picked.star} 星${picked.bonusPower ? ` · 威力 +${format(picked.bonusPower)}` : ''}。 ${config.desc}`
       : '先点一枚符文，再点棋盘或备战区的目标格。';
@@ -86,9 +94,9 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
         cell.setAttribute('aria-pressed', String(isPicked));
         cell.setAttribute('aria-label', `${zone === 'board' ? '棋盘' : '备战区'}第 ${index + 1} 格，${type?.name ?? '空格'}${rune ? `，${rune.star} 星` : ''}${tile ? `，${tileNames[tile]}位` : ''}`);
         if (zone === 'board') cell.dataset.reach = reach?.links.has(index) ? 'chain' : reach?.effects.has(index) ? 'effect' : '';
-        if (suggested) {
-          if (suggested[0].zone === zone && suggested[0].index === index) cell.dataset.suggestion = 'from';
-          if (suggested[1].zone === zone && suggested[1].index === index) cell.dataset.suggestion = 'to';
+        for (const [from, to] of suggested) {
+          if (from.zone === zone && from.index === index) cell.dataset.suggestion = 'from';
+          if (to.zone === zone && to.index === index) cell.dataset.suggestion = 'to';
         }
         const number = document.createElement('small');
         number.textContent = String(index + 1);
@@ -148,36 +156,80 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
   }
 
   get('close').onclick = () => dialog.close();
-  get('check').onclick = () => { click(); showResult(planTurn(active, catalog)); };
-  find.onclick = () => {
+  dialog.addEventListener('close', stopSearch);
+  get('check').onclick = () => {
     click();
-    const current = moves.length ? planTurn(active, catalog) : original;
-    const move = bestFormationMove(active, catalog, current.result.damage);
-    if (!move) {
+    if (search) { stopSearch(); guide.hidden = true; }
+    showResult(planTurn(active, catalog));
+  };
+
+  function showPlan(plan: FormationPlan | undefined, current: ReturnType<typeof planTurn>) {
+    if (!plan) {
       showResult(current);
-      guide.textContent = '单步换位已试完。可以继续手动试两步。';
+      guide.textContent = '暂时没找到更高伤害的摆法。可以继续换位，或到符文铺试买。';
       guide.hidden = false;
       return;
     }
     const place = ({ zone, index }: Slot) => `${zone === 'bench' ? '备战区' : '棋盘'}第 ${index + 1} 格`;
-    const fromRune = active[move.from.zone][move.from.index]!;
-    const occupied = !!active[move.to.zone][move.to.index];
-    const middle = move.to.zone === 'board' && [1, 2].includes(toCoords(move.to.index).col);
-    const fromEdge = move.from.zone === 'board' && [0, 3].includes(toCoords(move.from.index).col);
-    const positional = battleTarget(active.wave, active.bountyRoute).encounter === 'flanks' && middle && fromEdge
-      ? '打石狮时，把主力放在中间两列。' : '';
-    suggested = [move.from, move.to];
-    moves.push(suggested);
-    exchange(suggested);
+    const spot = ({ zone, index }: Slot) => `${zone === 'bench' ? '备战 ' : ''}${index + 1}`;
+    suggested = [];
+    const descriptions = plan.moves.map(({ from, to }, index) => {
+      const fromRune = active[from.zone][from.index]!;
+      const occupied = !!active[to.zone][to.index];
+      const action = occupied ? `和${place(to)}换位` : `移到${place(to)}`;
+      const move: Move = [from, to];
+      suggested.push(move);
+      moves.push(move);
+      exchange(move);
+      const middle = to.zone === 'board' && [1, 2].includes(toCoords(to.index).col);
+      const fromEdge = from.zone === 'board' && [0, 3].includes(toCoords(from.index).col);
+      const positional = plan.moves.length === 1 && battleTarget(active.wave, active.bountyRoute).encounter === 'flanks' && middle && fromEdge
+        ? ' 石狮的中间两列更好打。' : '';
+      const name = catalog[fromRune.configId].name;
+      if (plan.moves.length === 1) return `${place(from)}的${name}${action}。${positional}`;
+      return `第 ${index + 1} 步 · ${name} ${spot(from)} → ${spot(to)}${occupied ? '（换位）' : ''}`;
+    });
     selected = undefined;
-    const action = occupied ? `和${place(move.to)}换位` : `移到${place(move.to)}`;
-    guide.textContent = `${place(move.from)}的${catalog[fromRune.configId].name}${action}。 ${positional}`;
+    guide.textContent = descriptions.join('\n');
     guide.hidden = false;
     link.hidden = true;
     shareStatus.textContent = '换位和试打都只在这里生效。';
     draw();
     showResult(planTurn(active, catalog));
-  };
+  }
+
+  function findPlan() {
+    if (search) return;
+    const current = moves.length ? planTurn(active, catalog) : original;
+    const fallback = () => {
+      const move = bestFormationMove(active, catalog, current.result.damage);
+      showPlan(move ? { moves: [move], result: move.result } : undefined, current);
+    };
+    try {
+      const worker = new Worker(new URL('./formationSearch.worker.ts', import.meta.url), { type: 'module' });
+      search = worker;
+      find.disabled = true;
+      guide.textContent = '正在试换一两步…';
+      guide.hidden = false;
+      worker.onmessage = (event: MessageEvent<FormationPlan | undefined>) => {
+        if (search !== worker || !dialog.open) return;
+        stopSearch();
+        showPlan(event.data, current);
+      };
+      worker.onerror = event => {
+        event.preventDefault();
+        if (search !== worker || !dialog.open) return;
+        stopSearch();
+        fallback();
+      };
+      worker.postMessage({ board: active, result: current.result });
+    } catch {
+      stopSearch();
+      fallback();
+    }
+  }
+
+  find.onclick = () => { click(); findPlan(); };
   apply.onclick = () => {
     click();
     if (availableApply?.apply(active)) dialog.close();
@@ -218,7 +270,7 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
 
   return {
     dialog,
-    open(snapshot: SharedBoard, applyToRun?: ApplyFormation, fromCampaign = false, goal?: PracticeGoal) {
+    open(snapshot: SharedBoard, applyToRun?: ApplyFormation, fromCampaign = false, goal?: PracticeGoal, quickFind = false) {
       if (dialog.open) return;
       active = { ...snapshot, board: [...snapshot.board], bench: [...snapshot.bench] };
       availableApply = applyToRun;
@@ -246,6 +298,7 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
       draw();
       dialog.showModal();
       dialog.scrollTop = 0;
+      if (quickFind) findPlan();
     },
   };
 }

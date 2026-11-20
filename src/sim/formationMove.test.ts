@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bestFormationMove } from '../core/formationMove';
+import { bestFormationMove, findFormationPlan } from '../core/formationMove';
 import { createMulberry32 } from '../core/rng';
 import { newRun, swapRunes } from '../core/shopEngine';
 import { planTurn } from '../core/tactics';
@@ -22,10 +22,27 @@ describe('formation moves', () => {
     expect(original.result).toMatchObject({ win: false, damage: 567 });
     const best = bestFormationMove(run, catalog, original.result.damage)!;
     expect(best).toMatchObject({ from: { zone: 'board', index: 0 }, to: { zone: 'board', index: 1 }, result: { win: true, damage: 892 } });
+    expect(findFormationPlan(run, catalog, original.result)?.moves).toEqual([best]);
     expect(run).toEqual(before);
     expect(swapRunes(run, best.from, best.to)).toBe(true);
     expect(planTurn(run, catalog).result).toEqual(best.result);
     expect(bestFormationMove(run, catalog, best.result.damage)).toBeUndefined();
+  });
+
+  it('finds a two-step clear when every individual swap falls short', () => {
+    const run = centerFixture();
+    run.board[0] = { configId: 'spark_orb', star: 3, bonusPower: 60 };
+    run.board[12] = { configId: 'spark_orb', star: 3, bonusPower: 60 };
+    const prior = structuredClone(run);
+    const original = planTurn(run, catalog).result;
+    expect(original.damage).toBe(504);
+    expect(bestFormationMove(run, catalog, original.damage)?.result.win).toBe(false);
+    const hint = findFormationPlan(run, catalog, original)!;
+    expect(hint.moves).toHaveLength(2);
+    expect(hint.result).toMatchObject({ damage: 794, win: true });
+    expect(run).toEqual(prior);
+    for (const { from, to } of hint.moves) expect(swapRunes(run, from, to)).toBe(true);
+    expect(planTurn(run, catalog).result).toEqual(hint.result);
   });
 
   it('matches an independent exhaustive check including occupied bench swaps and relics', () => {
