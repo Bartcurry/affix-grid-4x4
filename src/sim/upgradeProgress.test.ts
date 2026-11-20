@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createMulberry32 } from '../core/rng';
 import { preparePurchase, purchaseLayouts } from '../core/purchasePreview';
-import { buyRune, newRun, swapRunes, UndoStack } from '../core/shopEngine';
+import { buyRune, newRun, settleTurn, swapRunes, UndoStack } from '../core/shopEngine';
 import { planTurn } from '../core/tactics';
 import { previewUpgrade, upgradeProgress } from '../core/upgradeProgress';
 import { catalog } from '../data/catalog';
@@ -46,6 +46,15 @@ describe('upgrade book', () => {
     run.gold = 0;
     expect(previewUpgrade(run, 1, catalog)).toBeUndefined();
   });
+
+  it('reports a lost synergy when two board copies merge into one and respects legacy rules', () => {
+    const run = fixture();
+    run.board[0] = { configId: 'spark_orb', star: 1 };
+    run.board[2] = { configId: 'prism_right', star: 1 };
+    expect(previewUpgrade(run, 1, catalog)?.synergyChanges).toEqual([{ label: '连锁', before: 3, after: 0 }]);
+    run.enableSynergies = false;
+    expect(previewUpgrade(run, 1, catalog)?.synergyChanges).toEqual([]);
+  });
 });
 
 describe('shop purchase previews', () => {
@@ -71,5 +80,26 @@ describe('shop purchase previews', () => {
     expect(planTurn(run, catalog).result).toEqual(placements[recommended!]!.result);
     expect(undo.pop(run)).toBe(true);
     expect(run).toEqual(original);
+  });
+
+  it('finds a profitable clearing placement distinct from the strongest one and matches settlement', () => {
+    const run = newRun(catalog, createMulberry32(667));
+    Object.assign(run, { wave: 3, gold: 20, rngState: 667, tileModifiers: {}, board: Array(16).fill(null),
+      bench: Array(4).fill(null), shop: [{ configId: 'prism_right', locked: false }, null, null] });
+    run.board[1] = { configId: 'spark_orb', star: 3, bonusPower: 100 };
+    run.board[5] = { configId: 'copper_mine', star: 1 };
+    const purchase = preparePurchase(run, 0, catalog)!;
+    const { placements, recommended, economy } = purchaseLayouts(purchase, catalog);
+    expect(recommended).toBe(0);
+    expect(economy).toBe(4);
+    const strongest = placements[recommended!]!;
+    const richest = placements[economy!]!;
+    expect(richest.result.win).toBe(true);
+    expect(richest.result.damage).toBeLessThan(strongest.result.damage);
+    expect(richest.wallet.gold).toBeGreaterThan(strongest.wallet.gold);
+    expect(richest.wallet.interest).toBeGreaterThan(strongest.wallet.interest);
+    const result = planTurn(richest.run, catalog).result;
+    settleTurn(richest.run, result, catalog, createMulberry32(667));
+    expect(richest.run.gold).toBe(richest.wallet.gold);
   });
 });

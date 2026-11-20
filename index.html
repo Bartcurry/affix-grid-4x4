@@ -501,19 +501,27 @@
           <p id="purchase-blocked" hidden></p>
           <section id="purchase-plan" aria-label="买入和摆位推演" hidden>
             <header class="purchase-summary">
-              <div><span>本波推演伤害</span><strong id="purchase-damage"></strong></div>
-              <div><span>买完剩余金币</span><strong id="purchase-gold"></strong></div>
+              <div>
+                <span>本波伤害</span><strong id="purchase-damage"></strong>
+                <small id="purchase-verdict"></small>
+              </div>
+              <div>
+                <span>本波结算后</span><strong id="purchase-wallet"></strong>
+                <small id="purchase-interest"></small>
+              </div>
             </header>
             <div class="purchase-stage">
               <div id="purchase-board" class="purchase-board" role="group" aria-label="选棋盘上的落点"></div>
               <div class="purchase-controls">
                 <p id="purchase-placement"></p>
-                <p id="purchase-verdict"></p>
                 <button id="purchase-stay" type="button" aria-pressed="false">只买入</button>
                 <button id="purchase-recommend" type="button" hidden>推荐落点</button>
+                <button id="purchase-economy" type="button" hidden></button>
               </div>
             </div>
+            <ul id="purchase-synergies" class="synergy-changes" aria-label="共鸣变化" hidden></ul>
             <p id="purchase-status" class="purchase-status" role="status" hidden></p>
+            <p class="purchase-payment">买入时的金币 <strong id="purchase-gold"></strong></p>
             <button id="purchase-confirm" type="button" class="primary"></button>
           </section>
         </div>
@@ -637,6 +645,7 @@
               <strong id="upgrades-destination"></strong>
               <p id="upgrades-freed"></p>
               <p>推演伤害 <b id="upgrades-damage"></b></p>
+              <ul id="upgrades-synergies" class="synergy-changes" aria-label="升星后的共鸣变化" hidden></ul>
             </div>
             <div class="upgrades-stock"><p id="upgrades-stock"></p><button id="upgrades-offer" type="button" hidden>看现货</button></div>
           </section>

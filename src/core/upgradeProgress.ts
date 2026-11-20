@@ -1,5 +1,6 @@
 import { preparePurchase } from './purchasePreview';
 import { purchaseInfo } from './shopEngine';
+import { synergyTierChanges } from './synergy';
 import { planTurn } from './tactics';
 import type { Catalog, Run, Slot } from './types';
 
@@ -31,5 +32,5 @@ export function previewUpgrade(run: Run, index: number, catalog: Catalog) {
   const freed = (['board', 'bench'] as const).flatMap(zone =>
     run[zone].flatMap((rune, index) => rune && !candidate[zone][index] ? [{ zone, index }] : []));
   const { hp, result } = planTurn(candidate, catalog);
-  return { final, freed, hp, result };
+  return { final, freed, hp, result, synergyChanges: synergyTierChanges(run, candidate.board, catalog) };
 }

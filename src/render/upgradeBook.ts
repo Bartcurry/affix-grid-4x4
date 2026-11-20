@@ -1,6 +1,7 @@
 import { purchaseInfo } from '../core/shopEngine';
 import { previewUpgrade, upgradeProgress } from '../core/upgradeProgress';
 import type { Catalog, Run, Slot } from '../core/types';
+import { renderSynergyChanges } from './synergyChanges';
 
 export function bindUpgradeBook(
   catalog: Catalog,
@@ -106,6 +107,7 @@ export function bindUpgradeBook(
         const damage = get('damage');
         damage.toggleAttribute('data-lower', plan.result.damage < currentDamage);
         damage.textContent = `${format(currentDamage)} → ${format(plan.result.damage)} / 敌血 ${format(plan.hp)}`;
+        renderSynergyChanges(get('synergies'), plan.synergyChanges);
         quickBuy.textContent = `买入升 ${rune.star} 星`;
         quickBuy.onclick = () => { if (buy(index, id)) dialog.close(); };
       }

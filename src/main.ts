@@ -15,7 +15,7 @@ import { STAR_MULT, initialRuneState, type BattleEvent, type OpeningId, type Run
 import { catalog } from './data/catalog';
 import { CanvasRenderer, formatNumber, runeVectors } from './render/canvasRenderer';
 import { getArchetypeEmblemPath, getBossSvgPath, getRelicSvgPath } from './render/glyphs';
-import { countSynergies } from './core/synergy';
+import { archetypeLabel, countSynergies, synergyTypes } from './core/synergy';
 import { bindDragDrop } from './render/dragDrop';
 import { bindUpgradeBook } from './render/upgradeBook';
 import { bindChallengeRoom, bindShareRoom } from './render/challengeRoom';
@@ -113,7 +113,6 @@ const bossColors: Record<string, string> = {
 };
 
 const rarityLabel = { common: '普通', rare: '稀有', epic: '史诗' };
-const archetypeLabel = { chain: '连锁', poison: '剧毒', gold: '金币', amplify: '增幅' };
 
 const arranging = () => challengeEntered && !sideLanding && phase === 'ARRANGE' && canArrange(run);
 const persist = () => {
@@ -329,7 +328,6 @@ function spawnGoldParticles(sourceEl: HTMLElement) {
   }
 }
 
-const synergyTypes = ['chain', 'poison', 'gold', 'amplify'] as const;
 const lastSynergyTiers = { chain: 0, poison: 0, gold: 0, amplify: 0 };
 
 function updateSynergiesUi() {
@@ -595,7 +593,7 @@ button('purchase-open').onclick = () => {
   const checkpoint = JSON.stringify(saved);
   const saveMatches = !saved || (canArrange(saved) && sameBattleSetup(saved, run) && sameFormation(saved, run) &&
     JSON.stringify(saved.shop) === JSON.stringify(run.shop));
-  showPurchase(run, first, forecast.result.damage, (index, target) => saveMatches && run === original &&
+  showPurchase(run, first, forecast.result, (index, target) => saveMatches && run === original &&
     JSON.stringify(platform.load(false)?.run) === checkpoint && buyOffer(index, target));
 };
 

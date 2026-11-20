@@ -1,6 +1,8 @@
-import type { Catalog, Slots } from './types';
+import type { Catalog, Run, Slots } from './types';
 
 export type SynergyType = 'chain' | 'poison' | 'gold' | 'amplify';
+export const synergyTypes = ['chain', 'poison', 'gold', 'amplify'] as const;
+export const archetypeLabel: Record<SynergyType, string> = { chain: '连锁', poison: '剧毒', gold: '金币', amplify: '增幅' };
 
 export interface SynergyInfo {
   type: SynergyType;
@@ -15,6 +17,17 @@ export interface SynergyInfo {
 }
 
 export type SynergyMap = Record<SynergyType, SynergyInfo>;
+
+export function synergyTierChanges(before: Pick<Run, 'board' | 'enableSynergies'>, after: Readonly<Slots>, catalog: Catalog) {
+  if (before.enableSynergies === false) return [];
+  const original = countSynergies(before.board, catalog);
+  const next = countSynergies(after, catalog);
+  return synergyTypes.flatMap(type => original[type].tier === next[type].tier ? [] : [{
+    label: archetypeLabel[type],
+    before: [0, original[type].tier1Threshold, original[type].tier2Threshold][original[type].tier],
+    after: [0, next[type].tier1Threshold, next[type].tier2Threshold][next[type].tier],
+  }]);
+}
 
 export function countSynergies(board: Readonly<Slots>, catalog: Catalog): SynergyMap {
   const counts: Record<SynergyType, number> = {
