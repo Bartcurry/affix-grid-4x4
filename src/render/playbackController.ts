@@ -48,6 +48,25 @@ export function planPlayback(events: readonly BattleEvent[]) {
   return { beats, result };
 }
 
+export function planJournalReplay(events: readonly BattleEvent[]) {
+  const { beats } = planPlayback(events);
+  const cues = new Map<number, number>();
+  let offset = 0;
+  for (const beat of beats) {
+    // A review frame is the exact state after the event at step - 1.
+    const link = beat.events.findIndex(event => event.type === 'CHAIN_LINK');
+    cues.set(offset + (link < 0 ? beat.events.length : link + 1), beat.hold);
+    offset += beat.events.length;
+  }
+  const gateStep = events.findIndex(event => event.type === 'DAMAGE' && event.gateBlocked) + 1;
+  if (gateStep) cues.set(gateStep, 440);
+  cues.set(events.length, 0);
+  return {
+    cues: [...cues].sort(([a], [b]) => a - b).map(([step, hold]) => ({ step, hold })),
+    gateStep,
+  };
+}
+
 export class PlaybackController {
   private rate: PlaybackSpeed = 1;
   private skipped = false;

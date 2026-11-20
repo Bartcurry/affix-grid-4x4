@@ -4,6 +4,7 @@ import { encounters } from '../core/expedition';
 import { GRID_SIZE, toCoords } from '../core/grid';
 import { damageLeaders, journalPlayback, journalRows, type JournalFilter } from '../core/journal';
 import type { BattleEvent, BattleJournal, Catalog, Slots } from '../core/types';
+import { planJournalReplay } from './playbackController';
 
 export function bindBattleJournal(catalog: Catalog, format: (value: number) => string, glyph: (owner: HTMLElement, id: string) => void,
   tryBoard: (board: SharedBoard) => void) {
@@ -13,14 +14,21 @@ export function bindBattleJournal(catalog: Catalog, format: (value: number) => s
   const details = get<HTMLDetailsElement>('journal-details');
   const seek = get<HTMLInputElement>('journal-seek');
   const health = get<HTMLProgressElement>('journal-health');
+  const play = get<HTMLButtonElement>('journal-play');
+  const speed = get<HTMLButtonElement>('journal-speed');
   const prev = get<HTMLButtonElement>('journal-prev');
   const next = get<HTMLButtonElement>('journal-next');
   const hardest = get<HTMLButtonElement>('journal-hardest');
+  const gate = get<HTMLButtonElement>('journal-gate');
+  const description = get('journal-frame');
   const link = get('journal-link');
   const filters = [...dialog.querySelectorAll<HTMLButtonElement>('[data-filter]')];
   let log: BattleJournal | undefined;
   let board: Slots = [];
   let playback: ReturnType<typeof journalPlayback> | undefined;
+  let replay: ReturnType<typeof planJournalReplay>;
+  let replayTimer: ReturnType<typeof setTimeout> | undefined;
+  let rate: 1 | 2 = 1;
   let cells: HTMLElement[] = [];
   let step = 0;
   const signed = (value: number) => `${value < 0 ? '−' : '+'}${format(Math.abs(value))}`;
@@ -87,7 +95,7 @@ export function bindBattleJournal(catalog: Catalog, format: (value: number) => s
       cell.toggleAttribute('data-target', position === target);
     }
     kind.dataset.kind = event?.type.toLowerCase() ?? 'start';
-    get('journal-frame').textContent = event ? describe(event, previousPoison) : '本波开战时的站位';
+    description.textContent = event ? describe(event, previousPoison) : '本波开战时的站位';
     health.max = maxHp;
     health.value = hp;
     get('journal-hp').textContent = format(hp);
@@ -98,6 +106,34 @@ export function bindBattleJournal(catalog: Catalog, format: (value: number) => s
     get('journal-count').textContent = `${step} / ${frames.length - 1} 步`;
     prev.disabled = step === 0;
     next.disabled = step === frames.length - 1;
+  }
+
+  function updatePlayButton() {
+    const playing = replayTimer !== undefined;
+    play.textContent = playing ? '暂停' : next.disabled ? '重播' : '播放';
+    description.setAttribute('aria-live', playing ? 'off' : 'polite');
+  }
+
+  function pauseReplay() {
+    clearTimeout(replayTimer);
+    replayTimer = undefined;
+    updatePlayButton();
+  }
+
+  function seekTo(index: number) {
+    setStep(index);
+    pauseReplay();
+  }
+
+  function advanceReplay() {
+    const cue = replay.cues.find(candidate => candidate.step > step);
+    if (!dialog.open || !cue) {
+      pauseReplay();
+      return;
+    }
+    setStep(cue.step);
+    if (next.disabled) pauseReplay();
+    else replayTimer = setTimeout(advanceReplay, cue.hold / rate);
   }
 
   function showDamageLeaders(entry: BattleJournal) {
@@ -142,7 +178,7 @@ export function bindBattleJournal(catalog: Catalog, format: (value: number) => s
       if (event.type === 'DAMAGE') label.append(` · 剩余敌血 ${format(event.hp)}`);
       if (event.type === 'GOLD') label.append(` · 手里剩 ${format(event.gold)} 金`);
       button.onclick = () => {
-        setStep(step);
+        seekTo(step);
         details.open = false;
         seek.focus({ preventScroll: true });
         seek.scrollIntoView({ block: 'nearest' });
@@ -156,12 +192,28 @@ export function bindBattleJournal(catalog: Catalog, format: (value: number) => s
   }
 
   for (const item of filters) item.onclick = () => draw(item.dataset.filter as JournalFilter);
-  seek.oninput = () => setStep(seek.valueAsNumber);
-  prev.onclick = () => setStep(step - 1);
-  next.onclick = () => setStep(step + 1);
-  hardest.onclick = () => setStep(playback!.hardestStep);
-  get('journal-end').onclick = () => setStep(Number(seek.max));
+  play.onclick = () => {
+    if (replayTimer !== undefined) {
+      pauseReplay();
+      return;
+    }
+    if (next.disabled) setStep(0);
+    replayTimer = setTimeout(advanceReplay, 150 / rate);
+    updatePlayButton();
+  };
+  speed.onclick = () => {
+    rate = rate === 1 ? 2 : 1;
+    speed.textContent = `${rate}×`;
+    speed.setAttribute('aria-label', `回放速度 ${rate} 倍，点击切换`);
+  };
+  seek.oninput = () => seekTo(seek.valueAsNumber);
+  prev.onclick = () => seekTo(step - 1);
+  next.onclick = () => seekTo(step + 1);
+  hardest.onclick = () => seekTo(playback!.hardestStep);
+  gate.onclick = () => seekTo(replay.gateStep);
+  get('journal-end').onclick = () => seekTo(Number(seek.max));
   get('journal-close').onclick = () => dialog.close();
+  dialog.addEventListener('close', () => { if (!dialog.open) pauseReplay(); });
   return (entry: BattleJournal | undefined) => {
     const result = entry?.events.at(-1);
     if (!entry || result?.type !== 'TURN_RESULT' || dialog.open) return;
@@ -170,8 +222,10 @@ export function bindBattleJournal(catalog: Catalog, format: (value: number) => s
     log = entry;
     board = snapshot.board;
     playback = journalPlayback(entry, snapshot.gold);
+    replay = planJournalReplay(entry.events);
     seek.max = String(entry.events.length);
     hardest.disabled = playback.hardestStep === 0;
+    gate.hidden = replay.gateStep === 0;
     cells = board.map((rune, position) => {
       const cell = document.createElement('span');
       const number = document.createElement('small');
@@ -190,11 +244,14 @@ export function bindBattleJournal(catalog: Catalog, format: (value: number) => s
     get('journal-summary').textContent = `${format(result.damage)} 伤害 · ${result.combo} 次触发 · ${result.win ? '打过了' : `还差 ${format(result.hp)} 点`}`;
     const tryOriginal = get('journal-try');
     tryOriginal.hidden = !snapshot.board.some(Boolean) && !snapshot.bench.some(Boolean);
-    tryOriginal.onclick = () => tryBoard(snapshot);
+    tryOriginal.onclick = () => {
+      pauseReplay();
+      tryBoard(snapshot);
+    };
     showDamageLeaders(entry);
     details.open = false;
     draw('all');
-    setStep(0);
+    seekTo(0);
     dialog.showModal();
     dialog.scrollTop = 0;
   };

@@ -445,11 +445,17 @@
               </div>
             </div>
             <div class="journal-transport">
+              <button id="journal-play" type="button">播放</button>
               <button id="journal-prev" type="button" aria-label="上一步">‹</button>
               <label><span id="journal-count"></span><input id="journal-seek" type="range" min="0" max="1" value="0" aria-label="回放进度"></label>
               <button id="journal-next" type="button" aria-label="下一步">›</button>
+              <button id="journal-speed" type="button" aria-label="回放速度 1 倍，点击切换">1×</button>
             </div>
-            <div class="journal-jumps"><button id="journal-hardest" type="button">最大一击</button><button id="journal-end" type="button">回合结算</button></div>
+            <div class="journal-jumps">
+              <button id="journal-hardest" type="button">最大一击</button>
+              <button id="journal-gate" type="button" hidden>首次轮锁</button>
+              <button id="journal-end" type="button">回合结算</button>
+            </div>
           </section>
           <details id="journal-details">
             <summary>伤害排行与完整记录</summary>
