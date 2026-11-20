@@ -1147,7 +1147,45 @@ canvas {
   color: var(--text-muted);
 }
 
-#share-open { flex: none; min-height: 1.95rem; padding: .15rem .48rem; color: #f1cb86; font-size: .73rem; border-color: #987548; background: #29221d; }
+:is(#share-open, #daily-open) { flex: none; min-height: 1.95rem; padding: .15rem .48rem; color: #f1cb86; font-size: .73rem; border-color: #987548; background: #29221d; }
+#daily-open { color: #d2e1c0; border-color: #657a5a; background: #232c25; }
+.daily-dialog { width: min(30rem, calc(100% - 1.35rem)); max-height: 94dvh; }
+.daily-dialog .dialog-content { padding: clamp(.65rem, 3.45vw, 1.05rem); gap: .6rem; }
+.daily-heading, .daily-footer { display: flex; align-items: center; justify-content: space-between; gap: .55rem; }
+#daily-date { color: #c7b496; font: .72rem var(--mono-font); }
+#daily-close { width: 2.45rem; height: 2.45rem; padding: 0; font-size: 1.4rem; }
+.daily-stage { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, .85fr); gap: clamp(.45rem, 2.3vw, .85rem); align-items: center; padding: .56rem; background: linear-gradient(130deg, #252822, #171c23 78%); border: 1px solid #5d6757; }
+.daily-board { display: grid; width: min(100%, 13rem); grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .15rem; }
+.daily-board > * { position: relative; display: grid; place-items: center; min-width: 0; min-height: 0; padding: 0; aspect-ratio: 1; border-radius: 3px; border: 1px solid #323936; background: #14191d; }
+.daily-board button { color: var(--rune-ink); border-color: #647263; background: #242c2c; }
+.daily-board small { position: absolute; top: .07rem; left: .11rem; color: #93968a; font: clamp(.44rem, 1.5vw, .64rem) var(--mono-font); }
+.daily-board button small { color: #c3c7b6; }
+.daily-board .rune-icon-svg { width: 61%; height: 61%; }
+.daily-board [data-hint] { border-style: dashed; border-color: #e4c483; box-shadow: inset 0 0 0 1px #d4ac68; }
+.daily-board [aria-pressed=true] { background: #3e3425; border-color: #f8cf7d; box-shadow: inset 0 0 0 1px #e9be78; }
+.daily-board i { position: absolute; bottom: .07rem; right: .07rem; color: #ffd0a2; font: normal clamp(.45rem, 1.35vw, .59rem) var(--mono-font); }
+.daily-brief { display: grid; gap: .3rem; overflow-wrap: anywhere; }
+.daily-brief strong { color: #f3d9a9; font-size: .87rem; }
+.daily-brief p { color: #c4c9c0; font-size: .72rem; line-height: 1.4; }
+#daily-moves, #daily-best { color: #d7e9bd; }
+#daily-result { min-height: 2.6em; margin: 0; font-size: .79rem; line-height: 1.45; }
+#daily-result[data-win=true] { color: #cce8ac; }
+#daily-result[data-win=false] { color: #ffc9a2; }
+.daily-tools { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.25fr); gap: .3rem; }
+.daily-tools button, #daily-copy, #opening-daily { min-height: 2.55rem; padding: .2rem .3rem; font-size: .78rem; }
+.daily-tools .primary { color: #221a12; background: #efc682; border-color: #f8d498; }
+.daily-tools .primary:hover { background: #f7d79e; }
+.daily-archive { border: 1px solid #535849; background: #171e21; }
+.daily-archive summary { cursor: pointer; padding: .53rem .58rem; color: #e4dac5; font-size: .78rem; }
+#daily-streak { float: right; color: #bdd7aa; }
+.daily-dates { display: grid; grid-template-columns: repeat(auto-fit, minmax(2.8rem, 1fr)); gap: .23rem; padding: 0 .4rem .4rem; }
+.daily-dates button { display: grid; justify-items: center; align-content: center; gap: .12rem; min-height: 2.5rem; padding: .14rem; font: .68rem var(--mono-font); }
+.daily-dates button[aria-pressed=true] { color: #f6d29a; border-color: #d7aa6a; background: #382e23; }
+.daily-dates small { font-size: .63rem; }
+.daily-footer span { color: #c0c9b6; font-size: .7rem; }
+#daily-copy { flex: none; padding-inline: .5rem; color: #dceac9; border-color: #657a5a; }
+#daily-link { width: 100%; min-width: 0; padding: .44rem; color: #e7e5dc; background: #11171b; border: 1px solid #64725c; font: .72rem var(--mono-font); }
+#opening-daily { color: #dce8cc; background: #232d27; border-color: #6c805e; }
 .invite-dialog { width: min(29rem, calc(100% - 1.5rem)); max-height: 93dvh; }
 .invite-dialog .dialog-content { padding: clamp(.75rem, 4vw, 1.15rem); gap: .7rem; }
 .invite-heading { display: flex; align-items: start; justify-content: space-between; gap: .5rem; }

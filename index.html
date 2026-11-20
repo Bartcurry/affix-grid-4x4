@@ -96,6 +96,7 @@
           <span id="board-count" class="board-counter">已布阵 0/16</span>
           <span id="arena-hint" class="arena-hint-text">点符文看作用，拖动或轻击换位</span>
           <span id="phase" class="phase-pill">布阵</span>
+          <button id="daily-open" type="button" aria-haspopup="dialog">每日</button>
           <button id="share-open" type="button" aria-haspopup="dialog">分享</button>
           <button id="inspect-jump" type="button" hidden>看词条</button>
         </div>
@@ -190,6 +191,40 @@
 
       <!-- 浮动通知 Toast -->
       <p id="notice" class="notice" role="status" aria-live="polite"></p>
+
+      <dialog id="daily-dialog" class="daily-dialog" aria-labelledby="daily-title">
+        <div class="dialog-content">
+          <header class="daily-heading">
+            <div><p id="daily-date"></p><h2 id="daily-title"></h2></div>
+            <button id="daily-close" type="button" aria-label="关闭每日残局">×</button>
+          </header>
+          <div class="daily-stage">
+            <div id="daily-board" class="daily-board" role="group" aria-label="点两枚符文换位"></div>
+            <div class="daily-brief">
+              <strong id="daily-enemy"></strong>
+              <p id="daily-rules"></p>
+              <p id="daily-moves"></p>
+              <p id="daily-best" hidden></p>
+            </div>
+          </div>
+          <p id="daily-result" role="status">点两枚符文换位，再试打。</p>
+          <div class="daily-tools">
+            <button id="daily-undo" type="button">撤销</button>
+            <button id="daily-reset" type="button">重摆</button>
+            <button id="daily-hint" type="button">提示</button>
+            <button id="daily-check" type="button" class="primary">试打</button>
+          </div>
+          <details id="daily-archive" class="daily-archive">
+            <summary>近七期 <strong id="daily-streak"></strong></summary>
+            <div id="daily-dates" class="daily-dates" role="group" aria-label="选择谜题日期"></div>
+          </details>
+          <div class="daily-footer">
+            <span id="daily-share-status" role="status">每天北京时间零点换题</span>
+            <button id="daily-copy" type="button">复制挑战</button>
+          </div>
+          <input id="daily-link" type="url" readonly aria-label="每日残局链接" hidden />
+        </div>
+      </dialog>
 
       <dialog id="challenge-dialog" class="invite-dialog" aria-labelledby="challenge-title">
         <div class="dialog-content">
@@ -298,6 +333,7 @@
               <button id="opening-back" type="button">再择良机</button>
             </div>
           </div>
+          <button id="opening-daily" type="button" aria-haspopup="dialog">先玩一题每日残局</button>
           <button id="opening-close" type="button" class="btn-subtle-close">守静笃行 · 回阵</button>
         </div>
       </dialog>

@@ -3,6 +3,7 @@ import { bossHealth, simulateBattle } from './core/battleEngine';
 import { affixAt, encounterAt, encounters, relics, upcomingEncounter } from './core/expedition';
 import { isOpening, openingIds, openings, runScore, updateRecords } from './core/openings';
 import { challengeParam, challengeSaveKey, matchesChallenge, readChallenge } from './core/challenge';
+import { readDailyLink } from './core/daily';
 import { createMulberry32, decodeSeed, generateSeedCode } from './core/rng';
 import { planTurn, previewPlacement, runeFootprint, usesTutorial } from './core/tactics';
 import { buyRune, canArrange, chooseRelic, newRun, purchaseInfo, refreshShop, resolveLoss, runeAt, sellRune, sellValue, settleTurn, startEndless, swapRunes, toggleLock, UndoStack, victoryPayout } from './core/shopEngine';
@@ -14,6 +15,7 @@ import { countSynergies } from './core/synergy';
 import { bindDragDrop } from './render/dragDrop';
 import { bindUpgradeBook } from './render/upgradeBook';
 import { bindChallengeRoom, bindShareRoom } from './render/challengeRoom';
+import { bindDailyRoom } from './render/dailyRoom';
 import { PlaybackController } from './render/playbackController';
 import { SynthAudio } from './audio/synthAudio';
 import { WebMockAdapter } from './platform/webMockAdapter';
@@ -39,9 +41,12 @@ const audio = new SynthAudio();
 const player = new PlaybackController();
 const invite = new URLSearchParams(location.search).get(challengeParam);
 const challenge = readChallenge(invite);
+const dailyRequest = new URLSearchParams(location.search).get('daily');
+const sharedDaily = challenge ? undefined : readDailyLink(dailyRequest);
+let dailyLanding = !!sharedDaily;
 const createPlatform = (key?: string) => new WebMockAdapter(catalog, element('ad'), element('ad-text'), button('cancel-ad'), key);
 const platform = createPlatform(challenge ? challengeSaveKey(challenge) : undefined);
-const loaded = platform.load();
+const loaded = platform.load(!sharedDaily);
 const saved = challenge && loaded && !matchesChallenge(loaded.run, challenge) ? null : loaded;
 const mainRun = challenge && !saved ? createPlatform().load(false)?.run : undefined;
 const matchingMain = challenge && mainRun && matchesChallenge(mainRun, challenge) ? mainRun : undefined;
@@ -84,9 +89,9 @@ const bossColors: Record<string, string> = {
 const rarityLabel = { common: '普通', rare: '稀有', epic: '史诗' };
 const archetypeLabel = { chain: '连锁', poison: '剧毒', gold: '金币', amplify: '增幅' };
 
-const arranging = () => challengeEntered && phase === 'ARRANGE' && canArrange(run);
+const arranging = () => challengeEntered && !dailyLanding && phase === 'ARRANGE' && canArrange(run);
 const persist = () => {
-  if (!challengeEntered) return;
+  if (!challengeEntered || dailyLanding) return;
   records = updateRecords(records, run);
   platform.save({
     schemaVersion: 2,
@@ -139,6 +144,9 @@ function iconPath(owner: HTMLElement, pathData: string) {
 }
 
 const emptyIcon = 'M16 3l13 13-13 13L3 16 16 3Zm0 6v14m-7-7h14';
+const daily = bindDailyRoom(catalog, (node, id) => iconPath(node, runeVectors[id] ?? emptyIcon), click);
+const openDaily = () => { if (phase === 'ARRANGE') { click(); daily.open(); } };
+button('daily-open').onclick = button('opening-daily').onclick = openDaily;
 const updateUpgrades = bindUpgradeBook(catalog, (owner, id) => iconPath(owner, runeVectors[id] ?? emptyIcon), formatNumber,
   id => { trackedUpgrade = id; click(); redraw(); },
   slot => { click(); select(slot); element('arena').focus(); },
@@ -426,6 +434,7 @@ function syncControls() {
   button('support').disabled = phase === 'PLAYBACK';
   button('help').disabled = phase === 'PLAYBACK';
   button('share-open').disabled = phase === 'PLAYBACK';
+  button('daily-open').disabled = phase === 'PLAYBACK';
   button('share-open').hidden = run.enableSynergies === false;
   button('share-open').textContent = challenge ? '发战绩' : '分享';
   button('openings').disabled = challenge ? !challengeEntered || phase === 'PLAYBACK' : !arranging();
@@ -822,6 +831,7 @@ function resetOpeningChoice() {
   element('opening-confirm').hidden = true;
   element('opening-choices').hidden = false;
   element('opening-close').hidden = false;
+  element('opening-daily').hidden = false;
 }
 
 function openOpenings(first = false) {
@@ -830,6 +840,7 @@ function openOpenings(first = false) {
   element('opening-note').textContent = replacing
     ? '换开局会另开一局。现在这局的最高纪录会保留。'
     : first && invite !== null ? '这个邀请来自旧版或已失效。你可以选一套阵直接开局。'
+    : first && dailyRequest !== null && !sharedDaily ? '这条每日链接已失效。可以直接玩今天的题。'
     : '四套阵都能直接打第一波，后面怎么摆由你。';
   button('opening-close').textContent = first ? '用借火开局' : '回到当前局';
   openingDialog.dataset.first = String(first);
@@ -905,6 +916,7 @@ function openOpenings(first = false) {
       element('opening-warning').textContent = `要以「${route.title}」重开吗？当前局的阵容、金币与遗物将归零。`;
       element('opening-choices').hidden = true;
       element('opening-close').hidden = true;
+      element('opening-daily').hidden = true;
       element('opening-confirm').hidden = false;
       button('opening-back').focus();
     };
@@ -1407,10 +1419,25 @@ button('ambient').onclick = () => {
   notice(active ? '五音雅乐：禅音悠扬' : '五音雅乐：已静音');
 };
 
-redraw(!!saved && !challenge);
-if (challenge) showChallenge(challenge, run, true, !saved, matchingMain);
-else {
+function openLanding() {
+  if (challenge) { showChallenge(challenge, run, true, !saved, matchingMain); return; }
   if (saved) showOutcome();
   else openOpenings(true);
   if (invite !== null) notice('这个邀请来自旧版或已失效。');
+  else if (dailyRequest !== null && !sharedDaily) notice('这条每日链接已失效。可以从「每日」玩今天的题。');
+}
+
+redraw(!!saved && !challenge && !sharedDaily);
+if (sharedDaily && daily.open(sharedDaily)) {
+  daily.dialog.addEventListener('close', () => {
+    dailyLanding = false;
+    const address = new URL(location.href);
+    address.searchParams.delete('daily');
+    window.history.replaceState(window.history.state, '', address);
+    redraw(false);
+    openLanding();
+  }, { once: true });
+} else {
+  if (dailyLanding) { dailyLanding = false; redraw(false); }
+  openLanding();
 }
