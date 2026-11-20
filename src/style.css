@@ -483,6 +483,14 @@ button:focus-visible, canvas:focus-visible {
 }
 
 .enemy-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.challenge-progress {
+  display: flex; align-items: center; justify-content: space-between; gap: .42rem;
+  padding: .26rem .34rem .26rem .5rem; border: 1px solid #52677a; background: #1a2633; color: #c9dce9; border-radius: 4px;
+}
+.challenge-progress p { min-width: 0; font-size: .76rem; line-height: 1.35; }
+.challenge-progress[data-rank="0"] { border-color: #836842; background: #2b2723; color: #eed1a2; }
+.challenge-progress[data-rank="1"] { border-color: #698357; background: #243128; color: #d6e9bd; }
+#challenge-reply { flex: none; min-height: 2.15rem; padding-inline: .42rem; font-size: .76rem; color: #d9ebf0; border-color: #5e7b8c; }
 .first-clear {
   display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: .3rem;
   padding: .3rem .36rem .3rem .5rem; border: 1px solid #6b7451; background: #243028; border-radius: 4px;
@@ -1466,6 +1474,14 @@ dialog::backdrop {
 .challenge-scores strong { overflow-wrap: anywhere; color: #fbeece; font-size: 1.52rem; line-height: 1.25; }
 .challenge-scores small { color: var(--text-sub); font-family: var(--mono-font); }
 .challenge-dialog .dialog-content > .challenge-status[data-rank="1"] { color: #b4dfa5; }
+.challenge-dialog .dialog-content > .challenge-status[data-rank="0"] { color: #e8cf9e; }
+.challenge-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem; }
+.challenge-actions button { min-height: 2.48rem; padding-inline: .4rem; font-size: .84rem; }
+.challenge-actions .primary { grid-column: 1 / -1; background: #efbc70; border-color: #f5d298; color: #25160e; font-weight: 750; }
+.challenge-actions .primary:not(:disabled):hover { background: #f8ce8d; color: #25160e; }
+#challenge-share-score { color: #c7e6e5; border-color: #587a7b; }
+#challenge-share-score.primary { color: #25160e; border-color: #f5d298; }
+.challenge-dialog[data-reply-first] #challenge-leave { grid-column: 1 / -1; }
 .invite-details { color: var(--text-sub); font-size: .8rem; }
 .invite-details summary { cursor: pointer; padding-block: .3rem; }
 #invite-text { width: 100%; min-height: 5.1rem; resize: vertical; background: #141519; border: 1px solid #655139; border-radius: 4px; padding: .45rem; color: #f5deb8; font: inherit; }

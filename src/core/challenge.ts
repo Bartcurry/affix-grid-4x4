@@ -58,3 +58,17 @@ export function challengeSaveKey(challenge: Challenge) {
 export function compareScores(player: OpeningRecord, target: OpeningRecord) {
   return Math.sign(player.cleared - target.cleared || player.combo - target.combo);
 }
+
+export function matchesChallenge(run: Run, target: Challenge) {
+  return challengeSaveKey(challengeFromRun(run)) === challengeSaveKey(target);
+}
+
+export function challengeProgress(player: OpeningRecord, target: OpeningRecord) {
+  const rank = compareScores(player, target);
+  if (rank > 0) return { rank, short: '已领先', text: '你超过了这个战绩。' };
+  if (rank === 0) return { rank, short: '已追平', text: '你追平了这个战绩。' };
+  const missing = target.cleared - player.cleared;
+  if (missing > 0) return { rank, short: `还差 ${missing} 波`, text: `还差 ${missing} 波追上对方，波数相同再比连击。` };
+  const combo = target.combo - player.combo;
+  return { rank, short: `还差 ${combo} 连击`, text: `波数已追平，再多 ${combo} 连击。` };
+}

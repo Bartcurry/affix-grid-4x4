@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { challengeFromRun, challengeParam, challengeSaveKey, challengeUrl, compareScores, readChallenge } from '../core/challenge';
+import { challengeFromRun, challengeParam, challengeProgress, challengeSaveKey, challengeUrl, compareScores, matchesChallenge, readChallenge } from '../core/challenge';
 import { createMulberry32, decodeSeed } from '../core/rng';
 import { newRun } from '../core/shopEngine';
 import { catalog } from '../data/catalog';
@@ -55,5 +55,22 @@ describe('shared campaign challenges', () => {
     expect(compareScores({ cleared: 6, combo: 10 }, target)).toBe(1);
     expect(compareScores({ cleared: 6, combo: 8 }, target)).toBe(-1);
     expect(compareScores(target, target)).toBe(0);
+  });
+
+  it('matches written seeds to their shared form only with the same opening and rules', () => {
+    const seed = 'shared-seed';
+    const run = newRun(catalog, createMulberry32(decodeSeed(seed)), 'poison', seed);
+    const target = { ...challengeFromRun(run), cleared: 8, combo: 35 };
+    expect(matchesChallenge(run, target)).toBe(true);
+    expect(matchesChallenge({ ...run, opening: 'gold' }, target)).toBe(false);
+    expect(matchesChallenge({ ...run, endlessRule: undefined }, target)).toBe(false);
+  });
+
+  it('distinguishes catching up in waves from catching up in combo', () => {
+    const target = { cleared: 4, combo: 12 };
+    expect(challengeProgress({ cleared: 3, combo: 20 }, target)).toMatchObject({ rank: -1, short: '还差 1 波' });
+    expect(challengeProgress({ cleared: 4, combo: 10 }, target)).toMatchObject({ rank: -1, short: '还差 2 连击' });
+    expect(challengeProgress(target, target)).toMatchObject({ rank: 0, short: '已追平' });
+    expect(challengeProgress({ cleared: 5, combo: 4 }, target)).toMatchObject({ rank: 1, short: '已领先' });
   });
 });

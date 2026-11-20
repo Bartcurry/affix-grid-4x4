@@ -160,7 +160,7 @@ export class WebMockAdapter implements PlatformAdapter {
   constructor(private readonly catalog: Catalog, private readonly ad: HTMLDialogElement, private readonly adText: HTMLElement,
     private readonly cancelButton: HTMLButtonElement, private readonly saveKey = SAVE_KEY_V2) {}
 
-  load(): SaveData | null {
+  load(saveMigration = true): SaveData | null {
     try {
       const rawV2 = localStorage.getItem(this.saveKey);
       if (rawV2) {
@@ -170,7 +170,7 @@ export class WebMockAdapter implements PlatformAdapter {
       const rawV1 = localStorage.getItem(SAVE_KEY_V1);
       if (rawV1) {
         const migrated = migrateSave(rawV1, this.catalog);
-        this.save(migrated);
+        if (saveMigration) this.save(migrated);
         return migrated;
       }
       return null;

@@ -91,6 +91,10 @@
           <p id="enemy-hint" class="enemy-hint" hidden></p>
           <button id="trial-open" type="button" aria-haspopup="dialog" hidden></button>
         </div>
+        <div id="challenge-progress" class="challenge-progress" hidden>
+          <p id="challenge-progress-line" role="status"></p>
+          <button id="challenge-reply" type="button" aria-haspopup="dialog" hidden>回传战绩</button>
+        </div>
         <div id="first-clear" class="first-clear" hidden>
           <p id="first-clear-summary" role="status"></p>
           <button id="first-clear-supply" type="button" aria-haspopup="dialog"></button>
@@ -262,11 +266,13 @@
           <p>从同一个种子开局。先比通关波数，波数相同再比最高连击。</p>
           <div class="challenge-scores">
             <div><h3>朋友的战绩</h3><strong id="challenge-target-wave"></strong><small id="challenge-target-combo"></small></div>
-            <div><h3>你的战绩</h3><strong id="challenge-player-wave"></strong><small id="challenge-player-combo"></small></div>
+            <div><h3 id="challenge-player-label">你的战绩</h3><strong id="challenge-player-wave"></strong><small id="challenge-player-combo"></small></div>
           </div>
           <p id="challenge-status" class="challenge-status" hidden></p>
-          <div class="dialog-actions">
-            <button id="challenge-enter" class="primary" type="button" autofocus>开始同局挑战</button>
+          <div class="challenge-actions">
+            <button id="challenge-quick" class="primary" type="button" autofocus hidden>开打首波</button>
+            <button id="challenge-enter" type="button">开始同局挑战</button>
+            <button id="challenge-share-score" type="button" aria-haspopup="dialog" hidden>回传战绩</button>
             <button id="challenge-leave" type="button">回主线</button>
           </div>
         </div>

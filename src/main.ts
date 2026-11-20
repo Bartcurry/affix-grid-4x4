@@ -1,6 +1,6 @@
 import './style.css';
 import { affixAt, armorLayers, encounters, lastGate, relics, upcomingEncounter } from './core/expedition';
-import { challengeParam, challengeSaveKey, readChallenge } from './core/challenge';
+import { challengeParam, challengeProgress, challengeSaveKey, matchesChallenge, readChallenge } from './core/challenge';
 import { boardFromJournal, boardSharePrefix, boardShareUrl, readSharedBoard, type SharedBoard } from './core/boardShare';
 import { findLesson } from './core/formationGuide';
 import { claimCamp } from './core/endlessCamp';
@@ -12,7 +12,7 @@ import { createMulberry32, decodeSeed, generateSeedCode } from './core/rng';
 import { planTurn, prepareBattle, previewPlacement, runeFootprint } from './core/tactics';
 import { battleTarget, trialOptions } from './core/trials';
 import { buyRune, canArrange, chooseRelic, newRun, purchaseInfo, refreshShop, resolveLoss, runeAt, selectTrial, sellRune, sellValue, settleTurn, startEndless, swapRunes, toggleLock, UndoStack, victoryPayout } from './core/shopEngine';
-import { STAR_MULT, initialRuneState, type BattleEvent, type OpeningId, type Rune, type RuneState, type Slot } from './core/types';
+import { STAR_MULT, initialRuneState, type BattleEvent, type OpeningId, type Run, type Rune, type RuneState, type Slot } from './core/types';
 import { catalog } from './data/catalog';
 import { CanvasRenderer, formatNumber, runeVectors } from './render/canvasRenderer';
 import { getBossSvgPath } from './render/glyphs';
@@ -50,10 +50,12 @@ const invalidChallenge = challengeQuery !== null && !challenge;
 const sharedBoard = readSharedBoard(location.hash, catalog);
 const invalidBoard = location.hash.startsWith(boardSharePrefix) && !sharedBoard;
 const directLesson = !sharedBoard && !challenge ? findLesson(new URLSearchParams(location.search).get('lesson')) : undefined;
-const platform = new WebMockAdapter(catalog, element('ad'), element('ad-text'), button('cancel-ad'), challenge ? challengeSaveKey(challenge) : undefined);
+const browserSaves = (key?: string) => new WebMockAdapter(catalog, element('ad'), element('ad-text'), button('cancel-ad'), key);
+const platform = browserSaves(challenge ? challengeSaveKey(challenge) : undefined);
 const loaded = sharedBoard || directLesson ? null : platform.load();
-const saved = challenge && loaded && (loaded.run.seed !== challenge.seed || loaded.run.opening !== challenge.opening ||
-  loaded.run.relicRule !== challenge.relicRule || loaded.run.trialRule !== challenge.trialRule || loaded.run.endlessRule !== challenge.endlessRule) ? null : loaded;
+const saved = challenge && loaded && !matchesChallenge(loaded.run, challenge) ? null : loaded;
+const mainRunForReply = challenge && !saved && !sharedBoard ? browserSaves().load(false)?.run : undefined;
+const comparableMain = challenge && mainRunForReply && matchesChallenge(mainRunForReply, challenge) ? mainRunForReply : undefined;
 
 const initialSeed = challenge?.seed ?? generateSeedCode().code;
 function createOpeningRun(opening: OpeningId, seed?: string) {
@@ -110,12 +112,17 @@ const persist = () => {
 const click = () => { audio.unlock(); audio.click(); };
 const inviteRoom = bindInviteRoom(click, catalog, formatNumber);
 const shareRun = () => inviteRoom(run);
-const challengeRoom = bindChallengeRoom(click, persist, () => {
+const replyWith = (source: Run) => { if (challenge) { click(); inviteRoom(source, { replyTo: challenge }); } };
+const challengeRoom = bindChallengeRoom(click, quick => {
+  persist();
+  if (quick) void startBattle();
+}, () => {
   const mainPage = new URL(location.href);
   mainPage.searchParams.delete(challengeParam);
   location.replace(mainPage.href);
-});
+}, replyWith);
 button('invite-open').onclick = () => { if (phase === 'ARRANGE') { click(); shareRun(); } };
+button('challenge-reply').onclick = () => { if (phase === 'ARRANGE') replyWith(run); };
 if (challenge) {
   button('openings').textContent = '同局';
   button('openings').title = '同局战绩';
@@ -518,10 +525,27 @@ const offers = Array.from({ length: 3 }, (_, index) => {
   return { card, preview, icon, name, meta, lock, buy, tryButton };
 });
 
+function updateChallengeProgress() {
+  if (!challenge) return;
+  const player = runScore(run);
+  const progress = challengeProgress(player, challenge);
+  const panel = element('challenge-progress');
+  const line = element('challenge-progress-line');
+  const count = challenge.cleared ? `${player.cleared} / ${challenge.cleared} 波` : `已过 ${player.cleared} 波`;
+  const text = `同局 ${count} · ${progress.short}`;
+  panel.hidden = false;
+  panel.dataset.rank = String(progress.rank);
+  if (line.textContent !== text) line.textContent = text;
+  const reply = button('challenge-reply');
+  reply.hidden = !player.cleared && !player.combo;
+  reply.disabled = phase === 'PLAYBACK';
+}
+
 function redraw(save = true) {
   if (arranging()) forecast = planTurn(run, catalog);
   placement = null;
   updateHud(); markWaves(); syncControls(); showForecast(); inspect();
+  updateChallengeProgress();
   updateFirstClear();
   const tip = forecast && arranging() ? fieldTip(run, catalog, forecast) : null;
   element('field-tip').hidden = !tip;
@@ -903,8 +927,8 @@ function showOutcome() {
     const replay = boardFromJournal(run.lastJournal);
     const canShareLast = replay && boardShareUrl(location.href, replay);
     const actions: ResultAction[] = [
-      ...(canShareLast ? [{ label: '分享最后一波', act: () => inviteRoom(run, true) }] : []),
-      { label: '分享同局挑战', act: shareRun },
+      ...(canShareLast ? [{ label: '分享最后一波', act: () => inviteRoom(run, { preferBoard: true }) }] : []),
+      { label: challenge ? '回传战绩' : '分享同局挑战', act: challenge ? () => replyWith(run) : shareRun },
       { label: '导出战绩 PNG', act: async () => {
         const feedback = element('result-feedback');
         feedback.hidden = await platform.exportScore(run);
@@ -1066,7 +1090,7 @@ button('help').onclick = () => {
 
 redraw(!!saved);
 function showLanding() {
-  if (challenge && !saved) challengeRoom(challenge, run, true);
+  if (challenge && !saved) challengeRoom(challenge, run, true, comparableMain);
   else if (saved) {
     showOutcome();
     if (invalidChallenge) notice('这条同局邀请已失效。已回到主线。');
