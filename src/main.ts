@@ -127,10 +127,6 @@ if (challenge) {
   button('openings').textContent = '同局';
   button('openings').title = '同局战绩';
 }
-const journal = bindBattleJournal(catalog, formatNumber);
-const reviewLast = () => journal(run.lastJournal);
-const showResult = bindResultRoom(resultDialog, catalog, (owner, id) => iconPath(owner, runeVectors[id] ?? emptyIcon), formatNumber, click, reviewLast);
-button('journal-open').onclick = () => { click(); reviewLast(); };
 const openTrial = bindTrialRoom(catalog, formatNumber, choice => {
   if (!arranging() || !selectTrial(run, choice !== 'normal', choice === 'alternate' ? 'alternate' : undefined)) return false;
   click(); resetTimeline(); redraw();
@@ -154,6 +150,10 @@ function iconPath(owner: HTMLElement, pathData: string) {
 
 const emptyIcon = 'M16 3l13 13-13 13L3 16 16 3Zm0 6v14m-7-7h14';
 const runeGlyph = (owner: HTMLElement, id: string) => iconPath(owner, runeVectors[id] ?? emptyIcon);
+const journal = bindBattleJournal(catalog, formatNumber, runeGlyph);
+const reviewLast = () => journal(run.lastJournal);
+const showResult = bindResultRoom(resultDialog, catalog, runeGlyph, formatNumber, click, reviewLast);
+button('journal-open').onclick = () => { click(); reviewLast(); };
 const showBoardTrial = (snapshot: SharedBoard, options?: TrialOptions) => openBoardTrial(snapshot, catalog, runeGlyph, formatNumber, click, journal, options);
 const formationGuide = bindFormationGuide(catalog, runeGlyph, formatNumber, click, showBoardTrial);
 const showCamp = bindEndlessCampRoom(catalog, runeGlyph, formatNumber, (kind, cell) => {

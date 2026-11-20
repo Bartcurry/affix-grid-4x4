@@ -82,3 +82,31 @@ export function foughtHealth(journal: BattleJournal | undefined, wave: number, t
   const result = journal.events.at(-1);
   return result?.type === 'TURN_RESULT' && result.hp > 0 ? result.damage + result.hp : battleTarget(wave, journal.trialWave, journal.trialRoute).hp;
 }
+
+export function journalPlayback(journal: BattleJournal) {
+  const maxHp = foughtHealth(journal, journal.wave, journal.trialWave, journal.trialRoute);
+  let hp = maxHp;
+  let poison = 0;
+  let gold = journal.gold;
+  let hardestHit = 0;
+  let hardestStep = 0;
+  const frames = [{ event: null as BattleEvent | null, hp, poison, gold, previousPoison: poison }];
+
+  for (const event of journal.events) {
+    const previousPoison = poison;
+    switch (event.type) {
+      case 'DAMAGE':
+        hp = event.hp;
+        if (event.amount > hardestHit) {
+          hardestHit = event.amount;
+          hardestStep = frames.length;
+        }
+        break;
+      case 'POISON': poison = event.poison; break;
+      case 'GOLD': gold = event.gold; break;
+      case 'TURN_RESULT': ({ hp, poison, gold } = event); break;
+    }
+    frames.push({ event, hp, poison, gold, previousPoison });
+  }
+  return { frames, maxHp, hardestStep };
+}

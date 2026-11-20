@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { simulateBattle } from '../core/battleEngine';
 import { boardFromJournal, boardShareUrl, readSharedBoard } from '../core/boardShare';
-import { damageLeaders, journalRows, readJournal } from '../core/journal';
+import { damageLeaders, journalPlayback, journalRows, readJournal } from '../core/journal';
 import { createMulberry32 } from '../core/rng';
 import { newRun } from '../core/shopEngine';
 import { prepareBattle } from '../core/tactics';
@@ -33,6 +33,21 @@ describe('battle journal', () => {
     expect(journalRows(journal, 'chain').some(({ event }) => event.type === 'CHAIN_LINK')).toBe(true);
     expect(journalRows(journal, 'economy')).toHaveLength(1);
     expect(journalRows(journal, 'all').some(({ event }) => event.type === 'TURN_RESULT' as string)).toBe(false);
+  });
+
+  it('seeks to the recorded moment, keeping damage, poison and gold in sync', () => {
+    const { maxHp, frames, hardestStep } = journalPlayback(journal);
+    expect(maxHp).toBe(100);
+    expect(frames[0]).toMatchObject({ event: null, hp: 100, poison: 0, gold: 8 });
+    expect(frames.slice(1).map(frame => frame.event)).toEqual(journal.events);
+    expect(frames[hardestStep].event).toMatchObject({ type: 'DAMAGE', amount: 24, source: 5 });
+    expect(frames.filter(frame => frame.event?.type === 'POISON').map(({ previousPoison, poison }) => [previousPoison, poison]))
+      .toEqual([[0, 7], [7, 12], [12, 6], [6, 4]]);
+    const result = journal.events.at(-1);
+    if (result?.type !== 'TURN_RESULT') throw new Error('Missing test battle result');
+    const { hp, poison, gold } = result;
+    expect(frames.at(-1)).toMatchObject({ hp, poison, gold });
+    expect(journalPlayback({ ...journal, events: [] }).hardestStep).toBe(0);
   });
 
   it('retains a valid journal on reload and drops only a malformed journal', () => {
