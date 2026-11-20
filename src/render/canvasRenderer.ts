@@ -311,7 +311,7 @@ export class CanvasRenderer {
     this.frame = 0;
     const { canvas, ctx } = this;
     const rect = canvas.getBoundingClientRect();
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const dpr = Math.min((typeof window !== 'undefined' ? window.devicePixelRatio : 1) || 1, 3);
     const pxWidth = Math.max(1, Math.round(rect.width * dpr));
     const pxHeight = Math.max(1, Math.round(rect.height * dpr));
 
@@ -487,17 +487,18 @@ export class CanvasRenderer {
     }
 
     const pulseActive = now - this.pulseAt < 320;
-    if (
-      !this.reducedMotion.matches ||
-      this.animations.length ||
-      this.particles.length ||
+    const hasMarchingAnts = Boolean(this.selection && footprint?.effects.size);
+    const hasActiveEffects =
+      this.animations.length > 0 ||
+      this.particles.length > 0 ||
       shake > 0 ||
       pulseActive ||
       this.comboCount > 0 ||
-      this.drag ||
-      this.selection ||
-      this.popScales.size
-    ) {
+      Boolean(this.drag) ||
+      hasMarchingAnts ||
+      this.popScales.size > 0;
+
+    if (!this.reducedMotion.matches && hasActiveEffects) {
       this.invalidate();
     }
     this.lastFrameTime = now;

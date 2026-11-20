@@ -17,9 +17,29 @@ const AMBIENT_PENTATONIC_FREQS = [
 ];
 
 export class SynthAudio {
-  muted = false;
-  ambientMuted = false;
+  private _muted = false;
+  private _ambientMuted = false;
   private context?: AudioContext;
+
+  get muted(): boolean { return this._muted; }
+  set muted(val: boolean) {
+    this._muted = Boolean(val);
+    if (this._muted) {
+      this.stopAmbient();
+    } else if (!this._ambientMuted && this.context?.state === 'running') {
+      this.startAmbient();
+    }
+  }
+
+  get ambientMuted(): boolean { return this._ambientMuted; }
+  set ambientMuted(val: boolean) {
+    this._ambientMuted = Boolean(val);
+    if (this._ambientMuted) {
+      this.stopAmbient();
+    } else if (!this._muted && this.context?.state === 'running') {
+      this.startAmbient();
+    }
+  }
 
   // 五音雅乐背景氛围节点
   private ambientGain?: GainNode;
@@ -147,9 +167,10 @@ export class SynthAudio {
    * 程序化拨响一枚古琴/编钟五声音阶禅音
    */
   private playProceduralPentatonicPluck() {
-    if (!this.context || this.context.state !== 'running' || this.muted || this.ambientMuted) return;
+    if (!this.context || this.context.state !== 'running' || this._muted || this._ambientMuted || !this.isAmbientRunning) return;
     const ctx = this.context;
     const now = ctx.currentTime;
+    const outputTarget = this.ambientGain ?? ctx.destination;
 
     // 随机选择五声音阶中的一组谐音
     const idx = Math.floor(Math.random() * AMBIENT_PENTATONIC_FREQS.length);
@@ -166,7 +187,7 @@ export class SynthAudio {
     gain1.gain.exponentialRampToValueAtTime(0.024, now + 0.04);
     gain1.gain.exponentialRampToValueAtTime(0.0005, now + length);
 
-    voice1.connect(gain1).connect(ctx.destination);
+    voice1.connect(gain1).connect(outputTarget);
     voice1.start(now);
     voice1.stop(now + length + 0.05);
 
@@ -180,7 +201,7 @@ export class SynthAudio {
     gain2.gain.exponentialRampToValueAtTime(0.012, now + 0.03);
     gain2.gain.exponentialRampToValueAtTime(0.0005, now + length * 0.7);
 
-    voice2.connect(gain2).connect(ctx.destination);
+    voice2.connect(gain2).connect(outputTarget);
     voice2.start(now);
     voice2.stop(now + length * 0.7 + 0.05);
 
@@ -194,24 +215,34 @@ export class SynthAudio {
   stopAmbient() {
     clearTimeout(this.ambientTimer);
     if (!this.isAmbientRunning) return;
+    this.isAmbientRunning = false;
+
+    const osc1 = this.ambientDroneOsc1;
+    const osc2 = this.ambientDroneOsc2;
+    const filter = this.ambientFilter;
+    const gain = this.ambientGain;
+    this.ambientDroneOsc1 = undefined;
+    this.ambientDroneOsc2 = undefined;
+    this.ambientFilter = undefined;
+    this.ambientGain = undefined;
+
     try {
-      if (this.context && this.ambientGain && this.context.state === 'running') {
+      if (this.context && gain && this.context.state === 'running') {
         const now = this.context.currentTime;
-        this.ambientGain.gain.setValueAtTime(this.ambientGain.gain.value, now);
-        this.ambientGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+        gain.gain.setValueAtTime(gain.gain.value, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
       }
       setTimeout(() => {
         try {
-          this.ambientDroneOsc1?.stop();
-          this.ambientDroneOsc2?.stop();
-          this.ambientDroneOsc1?.disconnect();
-          this.ambientDroneOsc2?.disconnect();
-          this.ambientFilter?.disconnect();
-          this.ambientGain?.disconnect();
+          osc1?.stop();
+          osc2?.stop();
+          osc1?.disconnect();
+          osc2?.disconnect();
+          filter?.disconnect();
+          gain?.disconnect();
         } catch {}
       }, 350);
     } catch {}
-    this.isAmbientRunning = false;
   }
 
   /**

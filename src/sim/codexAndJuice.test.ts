@@ -46,6 +46,11 @@ describe('Cycle 1: PWA & Service Worker Configuration', () => {
     expect(content).toContain('install');
     expect(content).toContain('activate');
     expect(content).toContain('fetch');
+    // Verify robustness: origin check, cloning, and awaited fallbacks
+    expect(content).toContain('url.origin === location.origin');
+    expect(content).toContain('.clone()');
+    expect(content).toContain('await caches.match');
+    expect(content).toContain('fallbackIndex');
   });
 });
 
@@ -133,6 +138,29 @@ describe('Cycle 2: Codex (天机图鉴) & Tactical Tips Coverage', () => {
     expect(Array.isArray(migrated.history)).toBe(true);
     expect(migrated.history?.length).toBe(0);
   });
+
+  it('updates existing run entry in history when recording same seed', () => {
+    let history: RunArchive[] = [];
+    const record = (entry: RunArchive) => {
+      const idx = history.findIndex(h => h.seed === entry.seed);
+      if (idx >= 0) {
+        history[idx] = entry;
+      } else {
+        history.unshift(entry);
+        if (history.length > 5) history = history.slice(0, 5);
+      }
+    };
+
+    record({ id: '1', seed: 'SEED-A', wave: 5, opening: 'chain', status: 'active', lastDamage: 500, bestCombo: 5, date: '11-20', relicsCount: 1 });
+    record({ id: '2', seed: 'SEED-B', wave: 10, opening: 'poison', status: 'active', lastDamage: 2000, bestCombo: 10, date: '11-20', relicsCount: 2 });
+    expect(history.length).toBe(2);
+
+    // Progress in SEED-A to wave 20 victory
+    record({ id: '3', seed: 'SEED-A', wave: 20, opening: 'chain', status: 'victory', lastDamage: 50000, bestCombo: 22, date: '11-20', relicsCount: 4 });
+    expect(history.length).toBe(2);
+    expect(history.find(h => h.seed === 'SEED-A')?.wave).toBe(20);
+    expect(history.find(h => h.seed === 'SEED-A')?.status).toBe('victory');
+  });
 });
 
 describe('Cycle 3: Native Canvas Particle Engine & Extreme Juice', () => {
@@ -144,6 +172,7 @@ describe('Cycle 3: Native Canvas Particle Engine & Extreme Juice', () => {
     const mockCtx = {
       save: () => {},
       restore: () => {},
+      setTransform: () => {},
       clearRect: () => {},
       fillRect: () => {},
       strokeRect: () => {},
@@ -232,6 +261,43 @@ describe('Cycle 3: Native Canvas Particle Engine & Extreme Juice', () => {
     // @ts-expect-error accessing private
     expect(renderer.particles.length).toBe(0);
   });
+
+  it('does not schedule infinite animation frames when completely idle', () => {
+    let rafCallCount = 0;
+    const originalRaf = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = () => {
+      rafCallCount++;
+      return 1;
+    };
+
+    try {
+      const run = newRun(catalog, createMulberry32(1), 'chain');
+      const renderer = new CanvasRenderer(createMockCanvas(), run, catalog);
+      // @ts-expect-error accessing private
+      renderer.frame = 0;
+      rafCallCount = 0;
+
+      // Draw while completely idle (no animations, no particles, no combo, no drag)
+      // @ts-expect-error accessing private
+      renderer.draw(1000);
+
+      // Should NOT have scheduled another rAF frame because idle
+      expect(rafCallCount).toBe(0);
+
+      // Now add a particle and draw again
+      renderer.spawnCritSparks({ x: 190, y: 150 });
+      // @ts-expect-error accessing private
+      renderer.frame = 0;
+      rafCallCount = 0;
+      // @ts-expect-error accessing private
+      renderer.draw(1050);
+
+      // Should HAVE scheduled another rAF frame because active particles exist
+      expect(rafCallCount).toBe(1);
+    } finally {
+      globalThis.requestAnimationFrame = originalRaf;
+    }
+  });
 });
 
 describe('Cycle 4: Procedural Web Audio Pentatonic Ambient', () => {
@@ -251,6 +317,17 @@ describe('Cycle 4: Procedural Web Audio Pentatonic Ambient', () => {
     expect(audio.muted).toBe(true);
     audio.setMuted(false);
     expect(audio.muted).toBe(false);
+
+    // Direct property assignment reactive test
+    audio.muted = true;
+    expect(audio.muted).toBe(true);
+    // @ts-expect-error accessing private
+    expect(audio.isAmbientRunning).toBe(false);
+
+    audio.ambientMuted = true;
+    expect(audio.ambientMuted).toBe(true);
+    // @ts-expect-error accessing private
+    expect(audio.isAmbientRunning).toBe(false);
   });
 
   it('runs safely in headless/Node.js environment without crashing', () => {

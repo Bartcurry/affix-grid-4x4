@@ -731,8 +731,9 @@ function recordRunHistory(runToRecord: Run) {
     date: new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
     relicsCount: runToRecord.relics.length,
   };
-  if (history.length && history[0].seed === entry.seed && history[0].wave === entry.wave && history[0].status === entry.status) {
-    history[0] = entry;
+  const existingIdx = history.findIndex(item => item.seed === entry.seed);
+  if (existingIdx >= 0) {
+    history[existingIdx] = entry;
   } else {
     history.unshift(entry);
     if (history.length > 5) history = history.slice(0, 5);
@@ -1148,11 +1149,25 @@ function renderCodexRunes() {
     desc.className = 'codex-rune-desc';
     desc.textContent = rune.desc;
 
-    // 3-star Tier Preview
+    // 3-star Tier Preview & Detailed Numerical Stats
     const preview = document.createElement('div');
     preview.className = 'codex-star-preview';
-    const mults: [string, number][] = [['1★ 基础', 1.0], ['2★ 升阶', 2.2], ['3★ 极意', 5.0]];
-    mults.forEach(([label, mult]) => {
+
+    const baseTrigger = rune.triggers.find(t => t.value?.base !== undefined);
+    const baseVal = baseTrigger?.value?.base;
+    const effectType = baseTrigger?.effect;
+    const unit = effectType === 'ADD_POISON' ? '层'
+      : effectType === 'GAIN_GOLD' ? '金'
+      : effectType === 'DEAL_DAMAGE' ? '伤'
+      : '';
+
+    const mults: [string, number, string | null][] = [
+      ['1★ 基础', 1.0, baseVal !== undefined ? `${Math.round(baseVal * 1)}${unit}` : null],
+      ['2★ 升阶', 2.2, baseVal !== undefined ? `${Math.round(baseVal * 2.2)}${unit}` : null],
+      ['3★ 极意', 5.0, baseVal !== undefined ? `${Math.round(baseVal * 5)}${unit}` : null],
+    ];
+
+    mults.forEach(([label, mult, valStr]) => {
       const step = document.createElement('div');
       step.className = 'codex-star-step';
       const stepLabel = document.createElement('span');
@@ -1160,16 +1175,29 @@ function renderCodexRunes() {
       stepLabel.textContent = label;
       const stepVal = document.createElement('span');
       stepVal.className = 'codex-star-val';
-      stepVal.textContent = `×${mult}`;
+      stepVal.textContent = valStr ? `×${mult} (${valStr})` : `×${mult}`;
       step.append(stepLabel, stepVal);
       preview.append(step);
     });
 
-    // Tactical Tip
+    // Tactical Tip, Synergy/Counter Guidance & Placement
     const tactical = getRuneTacticalInfo(rune.id);
     const tipBox = document.createElement('div');
     tipBox.className = 'codex-tactical-tip';
-    tipBox.innerHTML = `<strong>【战法】</strong>${tactical.tip} · <em>${tactical.recommendedPosition}</em>`;
+
+    const pTip = document.createElement('div');
+    pTip.className = 'codex-tip-line';
+    pTip.innerHTML = `<strong>【战法】</strong>${tactical.tip}`;
+
+    const pSynergy = document.createElement('div');
+    pSynergy.className = 'codex-tip-line';
+    pSynergy.innerHTML = `<strong>【克制协同】</strong>${tactical.synergyAdvice}`;
+
+    const pPos = document.createElement('div');
+    pPos.className = 'codex-tip-line';
+    pPos.innerHTML = `<strong>【推荐落位】</strong>${tactical.recommendedPosition}`;
+
+    tipBox.append(pTip, pSynergy, pPos);
 
     card.append(head, desc, preview, tipBox);
     return card;
@@ -1295,6 +1323,7 @@ function renderCodexArchives() {
 
 button('codex').onclick = () => openCodex();
 button('codex-close').onclick = () => codexDialog.close();
+codexDialog.addEventListener('click', (event) => { if (event.target === codexDialog) codexDialog.close(); });
 
 element('tab-btn-runes').onclick = () => { click(); switchCodexTab('runes'); };
 element('tab-btn-relics').onclick = () => { click(); switchCodexTab('relics'); };

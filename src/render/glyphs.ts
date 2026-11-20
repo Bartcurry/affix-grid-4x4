@@ -138,7 +138,8 @@ export const UI_GLYPHS = {
 
 // 预先缓存 Path2D 对象提升 Canvas 渲染效率
 const pathCache = new Map<string, Path2D>();
-export function getCachedPath(d: string): Path2D {
+export function getCachedPath(d: string): Path2D | null {
+  if (typeof Path2D === 'undefined') return null;
   let path = pathCache.get(d);
   if (!path) {
     path = new Path2D(d);
@@ -181,6 +182,7 @@ export function drawRuneGlyph(
 ): void {
   const d = getRuneSvgPath(runeId, archetype);
   const path = getCachedPath(d);
+  if (!path) return;
   const scale = size / 32;
 
   ctx.save();
@@ -236,6 +238,7 @@ export function drawBossGlyph(
 ): void {
   const d = getBossSvgPath(bossId);
   const path = getCachedPath(d);
+  if (!path) return;
   const scale = size / 32;
 
   ctx.save();

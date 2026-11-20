@@ -2080,15 +2080,19 @@ dialog::backdrop {
   color: #94a3b8;
   background: rgba(212, 175, 55, 0.06);
   border-left: 2px solid var(--gold-primary);
-  padding: 0.3rem 0.5rem;
+  padding: 0.35rem 0.55rem;
   border-radius: 0 4px 4px 0;
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.25rem;
 }
 
 .codex-tactical-tip strong {
   color: var(--gold-bright);
+}
+
+.codex-tip-line {
+  line-height: 1.45;
 }
 
 /* 仙家灵宝网格 */

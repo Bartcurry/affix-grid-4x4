@@ -43,7 +43,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(req)
         .then((response) => {
-          if (response && response.status === 200) {
+          if (response && response.status === 200 && url.origin === location.origin) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
           }
@@ -52,29 +52,43 @@ self.addEventListener('fetch', (event) => {
         .catch(async () => {
           const cached = await caches.match(req);
           if (cached) return cached;
-          return caches.match('./index.html') || caches.match('/');
+          const fallbackIndex = await caches.match('./index.html');
+          if (fallbackIndex) return fallbackIndex;
+          const fallbackRoot = await caches.match('./');
+          if (fallbackRoot) return fallbackRoot;
+          const fallbackSlash = await caches.match('/');
+          if (fallbackSlash) return fallbackSlash;
+          return new Response('<h1>4×4 词条法阵 · 离线缓冲中</h1><p>请刷新重试</p>', {
+            headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          });
         })
     );
     return;
   }
+
+  // Only handle HTTP/HTTPS requests
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
   // For static assets (JS, CSS, images, SVGs): Stale-While-Revalidate or Cache first
   event.respondWith(
     caches.match(req).then((cachedResponse) => {
       if (cachedResponse) {
         // Fetch in background to update cache for next time
-        fetch(req)
-          .then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200) {
-              caches.open(CACHE_NAME).then((cache) => cache.put(req, networkResponse));
-            }
-          })
-          .catch(() => {});
+        if (url.origin === location.origin) {
+          fetch(req)
+            .then((networkResponse) => {
+              if (networkResponse && networkResponse.status === 200) {
+                const clone = networkResponse.clone();
+                caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+              }
+            })
+            .catch(() => {});
+        }
         return cachedResponse;
       }
 
       return fetch(req).then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200 && (url.origin === location.origin)) {
+        if (networkResponse && networkResponse.status === 200 && url.origin === location.origin) {
           const clone = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
         }
