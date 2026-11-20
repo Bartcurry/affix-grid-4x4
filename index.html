@@ -278,9 +278,48 @@
           </details>
           <div class="daily-footer">
             <span id="daily-share-status" role="status">每天北京时间零点换题</span>
+            <button id="relay-open" type="button" aria-haspopup="dialog">三阵接力</button>
             <button id="daily-copy" type="button">复制挑战</button>
           </div>
           <input id="daily-link" type="url" readonly aria-label="每日残局链接" hidden />
+        </div>
+      </dialog>
+
+      <dialog id="relay-dialog" class="daily-dialog relay-dialog" aria-labelledby="relay-title">
+        <div class="dialog-content">
+          <header class="daily-heading">
+            <div><p id="relay-date"></p><h2 id="relay-title">三阵接力</h2></div>
+            <button id="relay-close" type="button" aria-label="关闭三阵接力">×</button>
+          </header>
+          <p id="relay-friend" class="daily-friend" hidden></p>
+          <ol id="relay-stages" class="relay-stages" aria-label="三阵进度"></ol>
+          <div class="relay-metrics">
+            <div><span>剩余换位</span><strong id="relay-budget"></strong></div>
+            <div><span>已锁定伤害</span><strong id="relay-total"></strong></div>
+          </div>
+          <section id="relay-stage" class="daily-stage" aria-label="当前棋盘">
+            <div id="relay-board" class="daily-board" role="group" aria-label="点两枚符文换位"></div>
+            <div class="daily-brief">
+              <h3 id="relay-name" tabindex="-1"></h3>
+              <p id="relay-enemy"></p>
+              <p id="relay-moves"></p>
+              <p id="relay-rules"></p>
+            </div>
+          </section>
+          <p id="relay-result" class="relay-result" role="status"></p>
+          <div id="relay-tools" class="relay-tools">
+            <button id="relay-undo" type="button">撤销</button>
+            <button id="relay-reset" type="button">重摆本阵</button>
+            <button id="relay-check" type="button">试打</button>
+            <button id="relay-lock" type="button" class="primary" disabled>锁定本阵</button>
+          </div>
+          <div class="relay-footer">
+            <p id="relay-best"></p>
+            <button id="relay-restart" type="button" hidden>重开接力</button>
+            <button id="relay-copy" type="button">复制挑战</button>
+          </div>
+          <p id="relay-share" class="relay-share" role="status" hidden></p>
+          <input id="relay-link" type="url" readonly aria-label="三阵接力链接" hidden />
         </div>
       </dialog>
 

@@ -2,9 +2,9 @@ import { betterDailyRecord, dailyHint, dailyInviteScore, dailyLink, dailyPuzzle,
   shanghaiDay, validDailyDate, type DailyGoal, type DailyInvite, type DailyPuzzle, type DailyRecord } from '../core/daily';
 import { encounters } from '../core/expedition';
 import type { Catalog } from '../core/types';
+import { drawPuzzleBoard } from './puzzleBoard';
 
 const storageKey = 'affix-grid-4x4.daily.v2';
-const tileNames = { li_fire: '离火', xuan_ice: '玄冰', spirit_gathering: '聚灵' } as const;
 type Move = [number, number];
 
 export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: string) => void, click: () => void) {
@@ -83,37 +83,10 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
   }
 
   function draw(focus?: number) {
-    const { formation } = puzzle;
-    board.replaceChildren(...Array.from({ length: 16 }, (_, cell) => {
-      const index = formation.cells.indexOf(cell);
-      const number = document.createElement('small');
-      number.textContent = String(cell + 1);
-      if (index === -1) {
-        const empty = document.createElement('span');
-        empty.setAttribute('aria-hidden', 'true');
-        empty.append(number);
-        return empty;
-      }
-      const rune = catalog[pieces[index]];
-      const tile = formation.tiles?.[cell];
-      const slot = document.createElement('button');
-      slot.type = 'button';
-      slot.dataset.cell = String(cell);
-      slot.dataset.index = String(index);
-      slot.style.setProperty('--rune-ink', rune.color);
-      slot.setAttribute('aria-pressed', String(index === selected));
-      slot.toggleAttribute('data-hint', index === hinted);
-      if (tile) {
-        const marker = document.createElement('i');
-        marker.textContent = tileNames[tile];
-        marker.setAttribute('aria-hidden', 'true');
-        slot.append(marker);
-      }
-      slot.setAttribute('aria-label', `第 ${cell + 1} 格，${rune.name}${tile ? `，${tileNames[tile]}位` : ''}${index === hinted ? '，提示格' : ''}`);
-      slot.append(number);
-      glyph(slot, rune.id);
-      slot.onclick = () => {
+    drawPuzzleBoard(board, puzzle.formation, pieces, catalog, glyph, {
+      selected, hinted, focus, pick(index) {
         click();
+        const rune = catalog[pieces[index]];
         const start = selected;
         if (start === index) {
           selected = undefined;
@@ -130,10 +103,8 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
           stats();
         }
         draw(index);
-      };
-      return slot;
-    }));
-    if (focus !== undefined) board.querySelector<HTMLButtonElement>(`[data-index="${focus}"]`)?.focus({ preventScroll: true });
+      },
+    });
   }
 
   function reset() {

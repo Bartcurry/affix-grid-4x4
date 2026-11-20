@@ -136,7 +136,7 @@ function swaps(pieces: readonly string[]) {
 type Route = { moves: number; damage: number };
 type Analysis = {
   hp: number; peakDamage: number; pool: Pick<DailyPuzzle, 'pieces' | 'par' | 'targetDamage'>[];
-  routes: Map<string, Route>; peakRoutes: Map<string, Route>;
+  routes: Map<string, Route>; peakRoutes: Map<string, Route>; damageAt: Map<string, number>;
 };
 const cache = new WeakMap<Catalog, Map<Formation, Analysis>>();
 
@@ -183,9 +183,18 @@ function analyze(formation: Formation, catalog: Catalog) {
   });
   const multiStep = eligible.filter(position => position.par >= 2);
   const analysis = { hp, peakDamage, pool: multiStep.length ? multiStep : eligible, routes,
-    peakRoutes: findRoutes(positions, peakDamage) };
+    peakRoutes: findRoutes(positions, peakDamage), damageAt: new Map(positions.map(position => [signature(position.pieces), position.damage])) };
   analyses.set(formation, analysis);
   return analysis;
+}
+
+function choosePuzzle(day: string, formation: Formation, offset: number, separateGoals: boolean, catalog: Catalog): DailyPuzzle | undefined {
+  const { hp, pool, peakDamage } = analyze(formation, catalog);
+  const distinct = separateGoals ? pool.filter(position => position.targetDamage < peakDamage) : [];
+  const available = distinct.length > 1 ? distinct : pool;
+  if (!available.length) return;
+  const setup = available[offset % available.length];
+  return { day, formation, hp, peakDamage, ...setup, pieces: [...setup.pieces] };
 }
 
 export function dailyPuzzle(day: string, catalog: Catalog): DailyPuzzle | undefined {
@@ -194,14 +203,32 @@ export function dailyPuzzle(day: string, catalog: Catalog): DailyPuzzle | undefi
   const index = (Date.parse(day) - Date.parse(expanded ? expandedEpoch : epoch)) / dayMs;
   const formations = expanded ? expandedFormations : originalFormations;
   const formationIndex = index % formations.length;
-  const formation = formations[formationIndex];
-  const { hp, pool, peakDamage } = analyze(formation, catalog);
-  const distinct = expanded ? pool.filter(position => position.targetDamage < peakDamage) : [];
-  const available = distinct.length > 1 ? distinct : pool;
-  if (!available.length) return;
-  const offset = Math.floor(index / formations.length) + formationIndex * 17;
-  const setup = available[offset % available.length];
-  return { day, formation, hp, peakDamage, ...setup, pieces: [...setup.pieces] };
+  return choosePuzzle(day, formations[formationIndex], Math.floor(index / formations.length) + formationIndex * 17, expanded, catalog);
+}
+
+export function relayStage(day: string, weekIndex: number, stage: number, catalog: Catalog) {
+  const formation = expandedFormations[(weekIndex + stage * 5) % expandedFormations.length];
+  return choosePuzzle(day, formation, weekIndex * 3 + stage * 17 + 1, true, catalog);
+}
+
+export function dailyDamageByBudget(puzzle: DailyPuzzle, extra: number, catalog: Catalog) {
+  const { damageAt } = analyze(puzzle.formation, catalog);
+  const seen = new Set([signature(puzzle.pieces)]);
+  let frontier = [puzzle.pieces];
+  let best = 0;
+  const scores: number[] = [];
+  for (let depth = 0; depth <= puzzle.par + extra; depth++) {
+    for (const pieces of frontier) best = Math.max(best, damageAt.get(signature(pieces))!);
+    if (depth >= puzzle.par) scores.push(best);
+    if (depth === puzzle.par + extra) break;
+    frontier = frontier.flatMap(swaps).filter(pieces => {
+      const key = signature(pieces);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  return scores;
 }
 
 export function dailyHint(puzzle: DailyPuzzle, pieces: readonly string[], catalog: Catalog, goal: DailyGoal = 'clear') {
