@@ -1,5 +1,6 @@
 import { BENCH_SIZE, generateTileModifiers, newRun, SHOP_SIZE } from '../core/shopEngine';
 import { CELL_COUNT } from '../core/grid';
+import { readJournal } from '../core/journal';
 import { relics } from '../core/expedition';
 import { isOpening, openingIds, openings, type RunRecords } from '../core/openings';
 import { createMulberry32, decodeSeed, generateSeedCode } from '../core/rng';
@@ -117,6 +118,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
     const pendingRelicsList = Array.isArray(rawRun.pendingRelics)
       ? rawRun.pendingRelics.filter((id: any) => typeof id === 'string' && Object.hasOwn(relics, id))
       : [];
+    const journal = readJournal(rawRun.lastJournal, catalog);
 
     const migratedRun: Run = {
       seed,
@@ -144,6 +146,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       ...(rawRun.altarRule === 1 ? { altarRule: 1 } : {}),
       ...(Array.isArray(rawRun.lastCellDamage) && rawRun.lastCellDamage.length === CELL_COUNT && rawRun.lastCellDamage.every(damageCount)
         ? { lastCellDamage: rawRun.lastCellDamage } : {}),
+      ...(journal ? { lastJournal: journal } : {}),
     };
 
     return {

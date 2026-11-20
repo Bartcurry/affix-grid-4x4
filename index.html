@@ -97,6 +97,7 @@
           <span id="arena-hint" class="arena-hint-text">点符文看作用，拖动或轻击换位</span>
           <span id="phase" class="phase-pill">布阵</span>
           <button id="daily-open" type="button" aria-haspopup="dialog">每日</button>
+          <button id="journal-open" type="button" aria-haspopup="dialog" hidden>复盘</button>
           <button id="share-open" type="button" aria-haspopup="dialog">分享</button>
           <button id="inspect-jump" type="button" hidden>看词条</button>
         </div>
@@ -308,6 +309,44 @@
             <button id="trial-board-copy" type="button" disabled>复制改阵</button>
           </div>
           <input id="trial-board-link" type="url" readonly aria-label="改阵挑战链接" hidden />
+        </div>
+      </dialog>
+
+      <dialog id="journal-dialog" class="journal-dialog" aria-labelledby="journal-title">
+        <div class="dialog-content">
+          <h2 id="journal-title"></h2><p id="journal-summary"></p>
+          <section class="journal-playback" aria-label="逐步复盘">
+            <div class="journal-stage">
+              <div class="journal-board" aria-hidden="true">
+                <div id="journal-board"></div><span id="journal-link" hidden></span>
+              </div>
+              <div class="journal-scene">
+                <p id="journal-frame-kind"></p>
+                <p id="journal-frame" aria-live="polite"></p>
+                <div class="journal-vitals">
+                  <div class="journal-health"><span>剩余敌血</span><strong id="journal-hp"></strong></div>
+                  <progress id="journal-health" aria-label="剩余敌血" max="1" value="0"></progress>
+                  <div class="journal-resources"><span>毒 <strong id="journal-poison"></strong></span><span>金 <strong id="journal-gold"></strong></span></div>
+                </div>
+              </div>
+            </div>
+            <div class="journal-transport">
+              <button id="journal-prev" type="button" aria-label="上一步">‹</button>
+              <label><span id="journal-count"></span><input id="journal-seek" type="range" min="0" max="1" value="0" aria-label="回放进度"></label>
+              <button id="journal-next" type="button" aria-label="下一步">›</button>
+            </div>
+            <div class="journal-jumps"><button id="journal-hardest" type="button">最大一击</button><button id="journal-end" type="button">回合结算</button></div>
+          </section>
+          <details id="journal-details">
+            <summary>伤害排行与完整记录</summary>
+            <section id="journal-damage" class="journal-damage" aria-labelledby="journal-damage-title" hidden>
+              <h3 id="journal-damage-title">本波伤害最高的来源</h3>
+              <ol id="journal-leaders"></ol>
+            </section>
+            <div class="journal-filters" role="group" aria-label="筛选记录"><button type="button" data-filter="all">全部</button><button type="button" data-filter="chain">触发</button><button type="button" data-filter="damage">伤害与毒</button><button type="button" data-filter="economy">金币</button><button type="button" data-filter="support">增益</button></div>
+            <ol id="journal-rows" aria-label="战斗事件"></ol><p id="journal-empty" hidden>这类事件没有发生。</p>
+          </details>
+          <div class="journal-actions"><button id="journal-try" type="button">试这波原阵</button><button id="journal-close" type="button">收起复盘</button></div>
         </div>
       </dialog>
 

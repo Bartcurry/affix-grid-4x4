@@ -3,7 +3,7 @@ import { bossHealth, simulateBattle } from './core/battleEngine';
 import { affixAt, encounterAt, encounters, relics, upcomingEncounter } from './core/expedition';
 import { isOpening, openingIds, openings, runScore, updateRecords } from './core/openings';
 import { challengeParam, challengeSaveKey, matchesChallenge, readChallenge } from './core/challenge';
-import { boardShareParam, boardShareUrl, readSharedBoard, sameBattleSetup, sameFormation, type SharedBoard } from './core/boardShare';
+import { boardShareParam, boardShareUrl, encodeBoardToken, readSharedBoard, sameBattleSetup, sameFormation, type SharedBoard } from './core/boardShare';
 import { readDailyLink } from './core/daily';
 import { createMulberry32, decodeSeed, generateSeedCode } from './core/rng';
 import { planTurn, previewPlacement, runeFootprint, usesTutorial } from './core/tactics';
@@ -18,6 +18,7 @@ import { bindUpgradeBook } from './render/upgradeBook';
 import { bindChallengeRoom, bindShareRoom } from './render/challengeRoom';
 import { bindDailyRoom } from './render/dailyRoom';
 import { bindBoardTrial } from './render/boardTrialRoom';
+import { bindBattleJournal } from './render/battleJournal';
 import { bindRelicRoom } from './render/relicRoom';
 import { renderOpeningPreview } from './render/openingPreview';
 import { PlaybackController } from './render/playbackController';
@@ -160,6 +161,9 @@ const emptyIcon = 'M16 3l13 13-13 13L3 16 16 3Zm0 6v14m-7-7h14';
 const runeGlyph = (node: HTMLElement, id: string) => iconPath(node, runeVectors[id] ?? emptyIcon);
 const daily = bindDailyRoom(catalog, runeGlyph, click);
 const boardTrial = bindBoardTrial(catalog, runeGlyph, formatNumber, click);
+const showJournal = bindBattleJournal(catalog, formatNumber, runeGlyph, board => { click(); boardTrial.open(board, undefined, true); });
+const reviewLast = () => showJournal(run.lastJournal);
+button('journal-open').onclick = () => { if (phase === 'ARRANGE') { click(); reviewLast(); } };
 const openDaily = () => { if (phase === 'ARRANGE') { click(); daily.open(); } };
 button('daily-open').onclick = button('opening-daily').onclick = openDaily;
 const updateUpgrades = bindUpgradeBook(catalog, runeGlyph, formatNumber,
@@ -450,6 +454,7 @@ function syncControls() {
   button('support').disabled = phase === 'PLAYBACK';
   button('help').disabled = phase === 'PLAYBACK';
   button('share-open').disabled = phase === 'PLAYBACK';
+  button('journal-open').hidden = !run.lastJournal || phase === 'PLAYBACK';
   button('daily-open').disabled = phase === 'PLAYBACK';
   button('share-open').hidden = run.enableSynergies === false;
   button('share-open').textContent = challenge ? '发战绩' : '分享';
@@ -944,6 +949,7 @@ function showOutcome(archive = true) {
       else notice(protectedRetry ? '护盾保留。现在可以重新布阵。' : '护盾 −1，重新布阵后可再次挑战。');
     };
     showPanel(`第 ${run.wave} 波没打过`, `你打了 ${formatNumber(run.lastDamage)} 点，还差 ${formatNumber(bossHealth(run.wave) - run.lastDamage)} 点。\n重来时${encounters[encounterAt(run.wave)].name}会回满血；看一次模拟广告可以保住护盾。`, [
+      ...(run.lastJournal ? [{ label: '看看怎么打的', act: reviewLast }] : []),
       { label: '看广告 · 无损改阵重打', primary: true, act: async () => { if (await platform.showRewardedVideo('retry')) after(true); } },
       { label: '扣除 1 点护盾', act: () => after(false) },
     ]);
@@ -955,17 +961,18 @@ function showOutcome(archive = true) {
     }
     let mvpHtml = '';
     const cellDamages = run.lastCellDamage ?? (forecast?.byCell ? forecast.byCell.map(c => c.damage) : null);
+    const foughtBoard = run.lastJournal ? readSharedBoard(run.lastJournal.formation, catalog, true)?.board ?? run.board : run.board;
     if (cellDamages) {
       let maxDmg = -1;
       let mvpIdx = -1;
       cellDamages.forEach((dmg, idx) => {
-        if (dmg > maxDmg && run.board[idx]) {
+        if (dmg > maxDmg && foughtBoard[idx]) {
           maxDmg = dmg;
           mvpIdx = idx;
         }
       });
-      if (mvpIdx >= 0 && run.board[mvpIdx] && maxDmg > 0) {
-        const r = run.board[mvpIdx]!;
+      if (mvpIdx >= 0 && foughtBoard[mvpIdx] && maxDmg > 0) {
+        const r = foughtBoard[mvpIdx]!;
         const c = catalog[r.configId];
         const totalDmg = run.lastDamage > 0 ? run.lastDamage : maxDmg;
         const pct = Math.min(100, Math.round((maxDmg / totalDmg) * 100));
@@ -979,6 +986,7 @@ function showOutcome(archive = true) {
       }
     }
     const actions: Action[] = [
+      ...(run.lastJournal ? [{ label: '查看末战复盘', act: reviewLast }] : []),
       { label: '导出战绩 PNG', act: async () => { if (!await platform.exportScore(run)) notice('战绩导出失败，请再试一次。'); } },
       ...(run.enableSynergies !== false ? [{ label: '分享战绩', act: () => shareRoom(run, !!challenge) }] : []),
       challenge ? { label: '再打一次', act: () => startOpening(challenge.opening), primary: !won }
@@ -1034,11 +1042,13 @@ async function startBattle(quick = false) {
   if (run.wave !== 1) firstClearPayout = undefined;
   undoStack.clear();
   click(); resetTimeline(); phase = 'PLAYBACK'; redraw(false);
+  const formation = encodeBoardToken(run);
+  const maxHp = bossHealth(run.wave);
   const battlePrng = createMulberry32(run.rngState);
   const events = simulateBattle({
     board: run.board,
     bench: run.bench,
-    hp: bossHealth(run.wave),
+    hp: maxHp,
     gold: run.gold,
     poison: 0,
     seed: battlePrng.getState(),
@@ -1061,13 +1071,14 @@ async function startBattle(quick = false) {
   run.lastCellDamage = cellDamage;
 
   const result = await player.play(events, consume, {
-    maxHp: bossHealth(run.wave),
+    maxHp,
     onHitStop: () => {
       renderer.pulseBorder();
       audio.hitStopChord();
     },
   });
   phase = 'ARRANGE'; states.clear(); renderer.clearEffects(); audio.finish(result.win);
+  run.lastJournal = formation ? { formation, maxHp, events } : undefined;
   const payout = victoryPayout(run, result.gold, catalog);
   const prng = createMulberry32(run.rngState);
   settleTurn(run, result, catalog, prng);

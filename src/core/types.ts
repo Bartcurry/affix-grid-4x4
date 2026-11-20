@@ -82,6 +82,7 @@ export interface Run {
   enableSynergies?: boolean;
   altarRule?: 1;
   lastCellDamage?: number[];
+  lastJournal?: BattleJournal;
 }
 
 export type BattleEvent =
@@ -94,6 +95,11 @@ export type BattleEvent =
   | { type: 'TURN_RESULT'; damage: number; combo: number; hp: number; poison: number; gold: number; win: boolean };
 
 export type TurnResult = Extract<BattleEvent, { type: 'TURN_RESULT' }>;
+export interface BattleJournal {
+  formation: string;
+  maxHp: number;
+  events: BattleEvent[];
+}
 export type Random = () => number;
 export type Catalog = Readonly<Record<string, RuneConfig>>;
 export const STAR_MULT = { 1: 1, 2: 2.2, 3: 5 } as const;

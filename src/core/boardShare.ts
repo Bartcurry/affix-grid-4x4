@@ -30,20 +30,29 @@ export function sameFormation(a: SharedBoard, b: SharedBoard) {
     a.bench.every((piece, index) => pieceKey(piece) === pieceKey(b.bench[index]));
 }
 
+export function encodeBoardToken(run: SharedBoard) {
+  try {
+    const raw = [revision, run.opening, run.wave, run.gold, run.shield, run.rngState, run.enableSynergies !== false, run.relics,
+      Object.entries(run.tileModifiers).map(([index, tile]) => [Number(index), tile]), run.board.map(tuple), run.bench.map(tuple)];
+    const token = btoa(JSON.stringify(raw)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
+    return token.length <= maxTokenLength ? token : undefined;
+  } catch {
+    return;
+  }
+}
+
 export function boardShareUrl(page: string, run: SharedBoard) {
   const url = new URL(page);
   if ((url.protocol !== 'https:' && url.protocol !== 'http:') || (!run.board.some(Boolean) && !run.bench.some(Boolean))) return;
-  const raw = [revision, run.opening, run.wave, run.gold, run.shield, run.rngState, run.enableSynergies !== false, run.relics,
-    Object.entries(run.tileModifiers).map(([index, tile]) => [Number(index), tile]), run.board.map(tuple), run.bench.map(tuple)];
-  const token = btoa(JSON.stringify(raw)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
-  if (token.length > maxTokenLength) return;
+  const token = encodeBoardToken(run);
+  if (!token) return;
   url.search = '';
   url.hash = '';
   url.searchParams.set(boardShareParam, token);
   return url.href;
 }
 
-export function readSharedBoard(token: string | null, catalog: Catalog): SharedBoard | undefined {
+export function readSharedBoard(token: string | null, catalog: Catalog, allowEmpty = false): SharedBoard | undefined {
   if (!token || token.length > maxTokenLength || !/^[A-Za-z0-9_-]+$/.test(token)) return;
   try {
     const raw: unknown = JSON.parse(atob(token.replaceAll('-', '+').replaceAll('_', '/')));
@@ -62,7 +71,7 @@ export function readSharedBoard(token: string | null, catalog: Catalog): SharedB
     }
     const board = readSlots(rawBoard, CELL_COUNT, catalog);
     const bench = readSlots(rawBench, BENCH_SIZE, catalog);
-    if (!board || !bench || (!board.some(Boolean) && !bench.some(Boolean))) return;
+    if (!board || !bench || (!allowEmpty && !board.some(Boolean) && !bench.some(Boolean))) return;
     return { opening, wave, gold, shield, rngState, enableSynergies, relics: owned as RelicId[], tileModifiers, board, bench };
   } catch {
     return;

@@ -61,7 +61,7 @@ export function planTurn(run: BattleSetup, catalog: Catalog) {
     if (event.type === 'CELL_ACTIVATE') byCell[event.index].activations++;
     if (event.type !== 'DAMAGE') continue;
     enemyDelta += event.enemyDelta ?? 0;
-    if (event.kind === 'poison') poisonDamage += event.amount;
+    if (event.kind === 'poison' && event.source === null) poisonDamage += event.amount;
     else if (event.kind === 'tutorial') tutorialDamage += event.amount;
     else if (event.source !== null) byCell[event.source].damage += event.amount;
   }
