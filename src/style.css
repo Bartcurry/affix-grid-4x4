@@ -1681,8 +1681,14 @@ dialog::backdrop {
 .reforge-open { background: #27322e; color: #d4eccd; border-color: #789981; }
 .reforge-dialog { border-color: #98ae91; background: linear-gradient(145deg, #242c29, #151a24 67%); }
 #reforge-close { width: 2.35rem; min-height: 2.35rem; padding: 0; font-size: 1.25rem; }
+.reforge-search { display: flex; flex-wrap: wrap; align-items: center; gap: .36rem .62rem; padding-bottom: .55rem; border-bottom: 1px solid #66817473; }
+#reforge-search { min-height: 2.75rem; padding: .24rem .65rem; border-color: #89a991; background: #2d3e34; color: #e3ecd6; font-size: .8rem; font-weight: 700; }
+#reforge-search:hover { background: #3d5241; }
+#reforge-advice { color: #d4d1bc; font-size: .75rem; }
+#reforge-advice[data-win="true"] { color: #bce8ac; }
 .reforge-dialog .trial-tiles { width: min(100%, 10rem); }
 .reforge-dialog .trial-tiles button:disabled { opacity: .57; }
+.reforge-dialog .trial-tiles button[data-suggestion="to"] { opacity: 1; }
 .reforge-pick { display: grid; gap: .35rem; min-width: 0; font-size: .75rem; }
 #reforge-source { color: #dbebce; font-weight: 700; }
 .reforge-pick label { color: #b7c7b6; }
@@ -1705,6 +1711,7 @@ dialog::backdrop {
 #reforge-damage[data-change=up] { color: #ace7b9; }
 #reforge-damage[data-change=down], #reforge-status { color: #f0b88e; }
 .reforge-dialog #reforge-destination { font-size: .77rem; }
+#reforge-swap { color: #b9e7d2; font-size: .77rem; }
 #reforge-confirm { min-height: 2.55rem; background: #c2dcad; border-color: #d5e9ba; color: #1c291e; font-weight: 750; }
 #reforge-confirm:hover { background: #d5e9ba; color: #1c291e; }
 .bounty-open span:first-of-type { flex: 1; color: #e3ceb0; }

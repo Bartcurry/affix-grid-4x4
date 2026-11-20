@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { canReforge, prepareReforge, previewReforges, reforgeWave } from '../core/reforge';
+import { bestFormationMove } from '../core/formationMove';
+import { canReforge, findReforgeSuggestion, prepareReforge, previewReforges, reforgeWave } from '../core/reforge';
 import { createMulberry32 } from '../core/rng';
 import { createSnapshot, newRun, restoreSnapshot, UndoStack } from '../core/shopEngine';
 import { planTurn } from '../core/tactics';
@@ -60,5 +61,34 @@ describe('campaign rune reforge', () => {
     expect(canReforge({ ...run, pendingLoss: true })).toBe(false);
     expect(canReforge({ ...run, endless: true })).toBe(false);
     expect(canReforge(migrateSave({ run: { ...run, reforgeRule: undefined } }, catalog).run)).toBe(false);
+  });
+
+  it('finds a winning reforge with a follow-up swap and prepares both without spending the live opportunity', () => {
+    const run = fixture();
+    run.tileModifiers = { 3: 'li_fire', 10: 'xuan_ice', 15: 'spirit_gathering' };
+    run.board.fill(null);
+    run.bench.fill(null);
+    run.board[0] = { configId: 'plague_crown', star: 3, bonusPower: 12 };
+    run.board[9] = { configId: 'toxic_detonator', star: 3, bonusPower: 78 };
+    run.board[10] = { configId: 'catalyst_flask', star: 3, bonusPower: 43 };
+    run.shield = 2;
+    run.rngState = 667;
+
+    const prior = structuredClone(run);
+    const before = planTurn(run, catalog).result;
+    expect(bestFormationMove(run, catalog, before.damage)?.result.win).not.toBe(true);
+    const suggestion = findReforgeSuggestion(run, catalog, before.damage)!;
+    const { from, target, swap, result } = suggestion;
+    expect(swap).toBeDefined();
+    expect(result.win).toBe(true);
+    expect(previewReforges(run, from, catalog).find(item => item.target.id === target)?.result.win).toBe(false);
+
+    const prepared = prepareReforge(run, from, target, catalog, swap)!;
+    expect(prepared.final.slot).toEqual(swap!.to);
+    expect(planTurn(prepared.candidate, catalog).result).toEqual(result);
+    expect(canReforge(prepared.candidate)).toBe(false);
+    expect(prepared.candidate.gold).toBe(run.gold);
+    expect(prepareReforge(run, from, target, catalog, { from: swap!.from, to: swap!.from })).toBeUndefined();
+    expect(run).toEqual(prior);
   });
 });

@@ -204,9 +204,9 @@ button('reforge-open').onclick = () => {
   click();
   const original = run;
   const checkpoint = JSON.stringify(platform.load(false)?.run);
-  showReforge(run, forecast.result.damage, (from, target) => {
+  showReforge(run, forecast.result.damage, (from, target, swap) => {
     if (!arranging() || run !== original || JSON.stringify(platform.load(false)?.run) !== checkpoint) return false;
-    const prepared = prepareReforge(run, from, target, catalog);
+    const prepared = prepareReforge(run, from, target, catalog, swap);
     if (!prepared) return false;
     undoStack.push(run);
     restoreSnapshot(run, createSnapshot(prepared.candidate));
@@ -215,7 +215,7 @@ button('reforge-open').onclick = () => {
     click();
     audio.jadeChime();
     redraw();
-    notice(`已转铸为${catalog[target].name}，可以撤销。`);
+    notice(swap ? '已完成转铸和换位，可以一起撤销。' : `已转铸为${catalog[target].name}，可以撤销。`);
     return true;
   });
 };
