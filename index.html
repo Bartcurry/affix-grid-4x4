@@ -104,7 +104,7 @@
         </div>
         <div id="first-clear" class="first-clear" hidden>
           <span id="first-clear-score"></span>
-          <button id="first-clear-supply" type="button"></button>
+          <button id="first-clear-supply" type="button" aria-haspopup="dialog"></button>
           <button id="first-clear-close" type="button" aria-label="关闭首胜提示">×</button>
         </div>
         <button class="bounty-open" id="bounty-open" type="button" aria-haspopup="dialog" hidden>
@@ -625,11 +625,27 @@
       <!-- 弹窗：挑选开局法阵 -->
       <dialog id="opening-dialog" class="opening-dialog-grand" aria-labelledby="opening-title">
         <div class="dialog-content">
-          <div class="opening-hero-banner">
-            <h2 id="opening-title" class="opening-grand-title">挑一套开局</h2>
-            <p id="opening-note" class="opening-grand-subtitle"></p>
-          </div>
+          <header class="opening-hero-banner">
+            <img class="opening-mark" src="icon.svg" width="52" height="52" alt="" />
+            <div>
+              <h2 id="opening-title" class="opening-grand-title">词条法阵</h2>
+              <p id="opening-note" class="opening-grand-subtitle"></p>
+            </div>
+            <button id="opening-close" type="button" aria-label="回到当前局" title="回到当前局">×</button>
+          </header>
           <div id="opening-choices" class="opening-choices-grid" role="group" aria-label="选择起手阵"></div>
+          <div id="opening-actions" class="opening-actions">
+            <button id="opening-quick" class="primary" type="button">开局并打首波</button>
+            <button id="opening-prepare" type="button">先布阵</button>
+          </div>
+          <nav id="opening-extra" class="opening-extra" aria-label="短局玩法">
+            <button id="opening-daily" type="button" aria-haspopup="dialog">
+              <strong>每日残局</strong><span>一题两种目标</span>
+            </button>
+            <button id="opening-relay" type="button" aria-haspopup="dialog">
+              <strong>三阵接力</strong><span>三阵共用步数</span>
+            </button>
+          </nav>
           <section id="opening-preview" class="opening-preview" aria-label="首波推演">
             <div id="opening-board" class="opening-board" role="group" aria-label="点符文看首波表现"></div>
             <div class="opening-preview-side">
@@ -643,10 +659,6 @@
             </div>
             <p id="opening-tip" aria-live="polite"></p>
           </section>
-          <div id="opening-actions" class="opening-actions">
-            <button id="opening-quick" class="primary" type="button">开局并打首波</button>
-            <button id="opening-prepare" type="button">先布阵</button>
-          </div>
           <details id="opening-settings" class="opening-settings">
             <summary>种子码</summary>
             <div class="seed-input-row">
@@ -660,10 +672,6 @@
               <button id="opening-start" class="primary" type="button">确认开新局</button>
               <button id="opening-back" type="button">返回选阵</button>
             </div>
-          </div>
-          <div id="opening-extra" class="opening-extra">
-            <button id="opening-daily" type="button" aria-haspopup="dialog">先玩每日残局</button>
-            <button id="opening-close" type="button">回到当前局</button>
           </div>
         </div>
       </dialog>

@@ -172,6 +172,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       speed: parsed.speed === 0 || parsed.speed === 2 ? parsed.speed : 1,
       exactForecast: !!parsed.exactForecast,
       ...(typeof parsed.trackedUpgrade === 'string' && Object.hasOwn(catalog, parsed.trackedUpgrade) ? { trackedUpgrade: parsed.trackedUpgrade } : {}),
+      ...(wave === 2 && natural(parsed.firstClearPayout) ? { firstClearPayout: parsed.firstClearPayout } : {}),
       records: defaultRecords,
       history: defaultHistory,
       ambientMuted: !!parsed.ambientMuted,

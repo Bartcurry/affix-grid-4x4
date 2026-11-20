@@ -26,6 +26,7 @@ export interface SaveData {
   speed: PlaybackSpeed;
   exactForecast?: boolean;
   trackedUpgrade?: string;
+  firstClearPayout?: number;
   records: RunRecords;
   history?: RunArchive[];
   ambientMuted?: boolean;

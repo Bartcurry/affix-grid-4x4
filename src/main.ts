@@ -101,7 +101,7 @@ let victoryTimer: ReturnType<typeof setTimeout>;
 let ghostTimer: ReturnType<typeof setTimeout>;
 let dialogDismissible = false;
 let bossArmorHits = 0;
-let firstClearPayout: number | undefined;
+let firstClearPayout = saved?.firstClearPayout;
 let lastBattleAt = -Infinity;
 const states = new Map<number, RuneState>();
 const renderer = new CanvasRenderer(element('arena'), run, catalog);
@@ -121,6 +121,7 @@ const persist = () => {
     speed: player.speed,
     exactForecast,
     trackedUpgrade,
+    firstClearPayout,
     records,
     history,
     ambientMuted: audio.ambientMuted,
@@ -209,7 +210,7 @@ const reviewLast = () => showJournal(run.lastJournal);
 button('journal-open').onclick = () => { if (phase === 'ARRANGE') { click(); reviewLast(); } };
 const openDaily = () => { if (phase === 'ARRANGE') { click(); daily.open(); } };
 button('daily-open').onclick = button('opening-daily').onclick = openDaily;
-button('relay-open').onclick = () => { click(); relay.open(); };
+button('relay-open').onclick = button('opening-relay').onclick = () => { click(); relay.open(); };
 const updateUpgrades = bindUpgradeBook(catalog, runeGlyph, formatNumber,
   id => { trackedUpgrade = id; click(); redraw(); },
   slot => { click(); select(slot); element('arena').focus(); },
@@ -585,10 +586,8 @@ const offers = Array.from({ length: 3 }, (_, index) => {
   return { card, preview, icon, name, meta, lock, buy };
 });
 
-button('purchase-open').onclick = () => {
-  if (!arranging() || !forecast) return;
-  const first = shopInspect !== null && run.shop[shopInspect] ? shopInspect : run.shop.findIndex(Boolean);
-  if (first < 0) return;
+function openPurchase(first: number) {
+  if (!arranging() || !forecast || !run.shop[first]) return;
   click();
   const original = run;
   const saved = platform.load(false)?.run;
@@ -597,6 +596,10 @@ button('purchase-open').onclick = () => {
     JSON.stringify(saved.shop) === JSON.stringify(run.shop));
   showPurchase(run, first, forecast.result, (index, target) => saveMatches && run === original &&
     JSON.stringify(platform.load(false)?.run) === checkpoint && buyOffer(index, target));
+}
+
+button('purchase-open').onclick = () => {
+  openPurchase(shopInspect !== null && run.shop[shopInspect] ? shopInspect : run.shop.findIndex(Boolean));
 };
 
 function buyOffer(index: number, target?: Slot) {
@@ -631,14 +634,15 @@ function showFirstClear() {
   if (banner.hidden) return;
   element('first-clear-score').textContent = `首波拿下 · +${firstClearPayout} 金`;
   const action = button('first-clear-supply');
-  action.textContent = `补货 · ${catalog[supply].name}`;
-  action.onclick = () => { click(); offers[stock].preview.focus(); };
+  action.textContent = `试摆 ${catalog[supply].name}`;
+  action.onclick = () => openPurchase(stock);
 }
 
 button('first-clear-close').onclick = () => {
   click();
   firstClearPayout = undefined;
   showFirstClear();
+  persist();
 };
 
 function redraw(save = true) {
@@ -997,11 +1001,12 @@ function openOpenings(first = false) {
   fallbackOpeningSeed = generateSeedCode().code;
   openingSeed.value = fallbackOpeningSeed;
   element<HTMLDetailsElement>('opening-settings').open = false;
-  element('opening-note').textContent = openingReplacesRun ? '可以先试算起手阵。确认后才会开新局。'
+  element('opening-title').textContent = first ? '词条法阵' : '挑一套新开局';
+  element('opening-note').textContent = openingReplacesRun ? '选好起手阵，再确认开新局。'
     : first && invite !== null ? '这个邀请来自旧版或已失效。你可以选一套阵直接开局。'
     : first && dailyRequest !== null && !sharedDaily ? '这条每日链接已失效。可以直接玩今天的题。'
     : first && boardRequested && !sharedBoard ? '这条阵型链接已失效。可以选一套起手阵开始。'
-    : '点一套阵，看它怎么打首波。';
+    : '在 4×4 棋盘布阵，守住 20 波。';
   button('opening-close').hidden = first || run.status !== 'active';
   openingDialog.dataset.first = String(first);
   showOpeningPreview();
@@ -1241,7 +1246,7 @@ async function startBattle(quick = false) {
   const prng = createMulberry32(run.rngState);
   settleTurn(run, result, catalog, prng);
   run.rngState = prng.getState();
-  if (quick && result.win && run.wave === 2) firstClearPayout = payout.total;
+  if (result.win && run.wave === 2) firstClearPayout = payout.total;
   redraw();
   if (result.win && run.status === 'active' && !run.pendingRelics.length && !run.pendingCamp) {
     if (run.wave - 1 >= 20) {
