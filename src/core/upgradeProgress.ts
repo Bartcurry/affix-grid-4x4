@@ -1,4 +1,5 @@
-import { buyRune, createSnapshot, purchaseInfo, restoreSnapshot } from './shopEngine';
+import { preparePurchase } from './purchasePreview';
+import { purchaseInfo } from './shopEngine';
 import { planTurn } from './tactics';
 import type { Catalog, Run, Slot } from './types';
 
@@ -24,12 +25,9 @@ export function upgradeProgress(run: Pick<Run, 'board' | 'bench' | 'shop'>) {
 export function previewUpgrade(run: Run, index: number, catalog: Catalog) {
   const { blocked, willMerge } = purchaseInfo(run, index, catalog);
   if (blocked || !willMerge) return;
-  const candidate = { ...run };
-  restoreSnapshot(candidate, createSnapshot(run));
-  const configId = run.shop[index]?.configId;
-  const merges = buyRune(candidate, index, catalog);
-  const final = merges?.reverse().find(merge => merge.rune.configId === configId);
-  if (!final) return;
+  const setup = preparePurchase(run, index, catalog);
+  if (!setup?.merge) return;
+  const { candidate, merge: final } = setup;
   const freed = (['board', 'bench'] as const).flatMap(zone =>
     run[zone].flatMap((rune, index) => rune && !candidate[zone][index] ? [{ zone, index }] : []));
   const { hp, result } = planTurn(candidate, catalog);

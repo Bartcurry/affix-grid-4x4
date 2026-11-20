@@ -7,7 +7,8 @@ import { boardShareParam, boardShareUrl, encodeBoardToken, readSharedBoard, same
 import { readDailyLink } from './core/daily';
 import { createMulberry32, decodeSeed, generateSeedCode } from './core/rng';
 import { planTurn, previewPlacement, runeFootprint, usesTutorial } from './core/tactics';
-import { buyRune, canArrange, chooseRelic, newRun, purchaseInfo, refreshShop, resolveLoss, runeAt, sellRune, sellValue, settleTurn, startEndless, swapRunes, toggleLock, UndoStack, victoryPayout } from './core/shopEngine';
+import { canArrange, chooseRelic, createSnapshot, newRun, purchaseInfo, refreshShop, resolveLoss, restoreSnapshot, runeAt, sellRune, sellValue, settleTurn, startEndless, swapRunes, toggleLock, UndoStack, victoryPayout } from './core/shopEngine';
+import { preparePurchase } from './core/purchasePreview';
 import { STAR_MULT, initialRuneState, type BattleEvent, type OpeningId, type Rune, type Run, type RuneState, type Slot } from './core/types';
 import { catalog } from './data/catalog';
 import { CanvasRenderer, formatNumber, runeVectors } from './render/canvasRenderer';
@@ -22,6 +23,7 @@ import { bindBattleJournal } from './render/battleJournal';
 import { bindEncounterRoom } from './render/encounterRoom';
 import { bindFormationLessons } from './render/formationLessons';
 import { bindRetryScout } from './render/retryScout';
+import { bindPurchaseRoom } from './render/purchaseRoom';
 import { bindRelicRoom } from './render/relicRoom';
 import { renderOpeningPreview } from './render/openingPreview';
 import { PlaybackController } from './render/playbackController';
@@ -165,6 +167,7 @@ const emptyIcon = 'M16 3l13 13-13 13L3 16 16 3Zm0 6v14m-7-7h14';
 const runeGlyph = (node: HTMLElement, id: string) => iconPath(node, runeVectors[id] ?? emptyIcon);
 const daily = bindDailyRoom(catalog, runeGlyph, click);
 const boardTrial = bindBoardTrial(catalog, runeGlyph, formatNumber, click);
+const showPurchase = bindPurchaseRoom(catalog, runeGlyph, click);
 const retryScout = bindRetryScout(catalog, click, openRetryTrial);
 const showFormationLessons = bindFormationLessons(catalog, runeGlyph, click,
   (board, name, damage) => boardTrial.open(board, undefined, true, { name, damage }));
@@ -465,6 +468,7 @@ function syncControls() {
   button('market-jump').hidden = phase === 'PLAYBACK';
   button('undo').disabled = !arranging() || undoStack.length === 0;
   button('battle').disabled = !arranging();
+  button('purchase-open').disabled = !arranging() || !run.shop.some(Boolean);
   button('battle').textContent = phase === 'PLAYBACK' ? '连锁结算中' : '启动法阵';
   button('refresh').textContent = run.shop.every(offer => offer?.locked) ? '商品已全锁定' :
     run.freeRefreshes ? `免费刷新 ×${run.freeRefreshes}` : '刷新 · 2 金';
@@ -540,27 +544,40 @@ const offers = Array.from({ length: 3 }, (_, index) => {
   return { card, preview, icon, name, meta, lock, buy };
 });
 
-function buyOffer(index: number) {
-  if (!arranging() || purchaseInfo(run, index, catalog).blocked) return false;
-  const benchIndex = run.bench.indexOf(null);
+button('purchase-open').onclick = () => {
+  if (!arranging() || !forecast) return;
+  const first = shopInspect !== null && run.shop[shopInspect] ? shopInspect : run.shop.findIndex(Boolean);
+  if (first < 0) return;
+  click();
+  const original = run;
+  const saved = platform.load(false)?.run;
+  const checkpoint = JSON.stringify(saved);
+  const saveMatches = !saved || (canArrange(saved) && sameBattleSetup(saved, run) && sameFormation(saved, run) &&
+    JSON.stringify(saved.shop) === JSON.stringify(run.shop));
+  showPurchase(run, first, forecast.result.damage, (index, target) => saveMatches && run === original &&
+    JSON.stringify(platform.load(false)?.run) === checkpoint && buyOffer(index, target));
+};
+
+function buyOffer(index: number, target?: Slot) {
+  if (!arranging()) return false;
+  const prepared = preparePurchase(run, index, catalog);
+  if (!prepared || (target && !swapRunes(prepared.candidate, prepared.slot, target))) return false;
   undoStack.push(run);
-  const merges = buyRune(run, index, catalog);
-  if (!merges) {
-    undoStack.pop(run);
-    return false;
-  }
+  restoreSnapshot(run, createSnapshot(prepared.candidate));
+  const { merges, slot } = prepared;
   click();
   spawnGoldParticles(offers[index].buy);
   audio.jadeChime();
-  for (const merge of merges) renderer.flash(merge.slot, catalog[merge.rune.configId].color, true);
-  if (merges.length) { audio.merge(); select(merges.at(-1)!.slot); }
-  else if (benchIndex >= 0) {
-    const slot = { zone: 'bench' as const, index: benchIndex };
-    select(slot);
-    const placed = run.bench[benchIndex];
-    if (placed) renderer.flash(slot, catalog[placed.configId].color, false);
-    notice('买到了。在备战区，拖上棋盘才会触发。');
+  for (const merge of merges) {
+    const upgraded = target && merge.slot.zone === slot.zone && merge.slot.index === slot.index ? target : merge.slot;
+    renderer.flash(upgraded, catalog[merge.rune.configId].color, true);
   }
+  if (merges.length) audio.merge();
+  const selected = target ?? merges.at(-1)?.slot ?? slot;
+  select(selected);
+  if (!merges.length) renderer.flash(selected, catalog[prepared.rune.configId].color, false);
+  if (target) notice(`已买入并放到棋盘第 ${target.index + 1} 格，可以一起撤销。`);
+  else if (!merges.length) notice('买到了。在备战区，拖上棋盘才会触发。');
   redraw();
   return true;
 }

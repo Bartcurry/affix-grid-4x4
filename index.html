@@ -178,7 +178,10 @@
               <button type="button" id="reward" class="btn-reward" title="看广告换两次刷新">看广告+2</button>
             </div>
           </div>
-          <button type="button" id="upgrades-open" class="upgrades-open" aria-haspopup="dialog" hidden></button>
+          <div class="shop-tools">
+            <button type="button" id="purchase-open" aria-haspopup="dialog">试买</button>
+            <button type="button" id="upgrades-open" class="upgrades-open" aria-haspopup="dialog" hidden></button>
+          </div>
           <div class="offers" id="offers"></div>
           <div class="market-foot-hidden">
             <button type="button" id="board-jump" hidden>回棋盘</button>
@@ -440,6 +443,35 @@
           <div class="dialog-actions">
             <button id="forecast-close" class="primary" type="button">返回布阵</button>
           </div>
+        </div>
+      </dialog>
+
+      <dialog id="purchase-dialog" aria-labelledby="purchase-title">
+        <div class="dialog-content purchase-room">
+          <header class="purchase-header">
+            <h2 id="purchase-title">试买</h2>
+            <button id="purchase-close" type="button" aria-label="关闭试买">×</button>
+          </header>
+          <div id="purchase-stock" class="purchase-stock" role="group" aria-label="选择商店现货"></div>
+          <p id="purchase-rule"></p>
+          <p id="purchase-blocked" hidden></p>
+          <section id="purchase-plan" aria-label="买入和摆位推演" hidden>
+            <header class="purchase-summary">
+              <div><span>本波推演伤害</span><strong id="purchase-damage"></strong></div>
+              <div><span>买完剩余金币</span><strong id="purchase-gold"></strong></div>
+            </header>
+            <div class="purchase-stage">
+              <div id="purchase-board" class="purchase-board" role="group" aria-label="选棋盘上的落点"></div>
+              <div class="purchase-controls">
+                <p id="purchase-placement"></p>
+                <p id="purchase-verdict"></p>
+                <button id="purchase-stay" type="button" aria-pressed="false">只买入</button>
+                <button id="purchase-recommend" type="button" hidden>推荐落点</button>
+              </div>
+            </div>
+            <p id="purchase-status" class="purchase-status" role="status" hidden></p>
+            <button id="purchase-confirm" type="button" class="primary"></button>
+          </section>
         </div>
       </dialog>
 
