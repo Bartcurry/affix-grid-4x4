@@ -1,5 +1,7 @@
 import { boardShareUrl, type SharedBoard } from '../core/boardShare';
 import { encounterAt, encounters, relics } from '../core/expedition';
+import { bestFormationMove } from '../core/formationMove';
+import { toCoords } from '../core/grid';
 import { planTurn, runeFootprint } from '../core/tactics';
 import type { Catalog, Rune, Slot } from '../core/types';
 
@@ -17,6 +19,8 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
   const reset = get<HTMLButtonElement>('reset');
   const copy = get<HTMLButtonElement>('copy');
   const apply = get<HTMLButtonElement>('apply');
+  const find = get<HTMLButtonElement>('find');
+  const guide = get('guide');
   const link = get<HTMLInputElement>('link');
   const outcome = get('result');
   const shareStatus = get('share-status');
@@ -26,6 +30,7 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
   let selected: Slot | undefined;
   let moves: Move[];
   let tried = false;
+  let suggested: Move | undefined;
   let availableApply: ApplyFormation | undefined;
   const delta = (value: number) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${format(Math.abs(value))}`;
 
@@ -44,6 +49,8 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
     delete outcome.dataset.win;
     shareStatus.textContent = '换位和试打都只在这里生效。';
     link.hidden = true;
+    guide.hidden = true;
+    suggested = undefined;
     updateControls();
   }
 
@@ -55,7 +62,9 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
     const picked = selected && active[selected.zone][selected.index];
     const config = picked ? catalog[picked.configId] : undefined;
     const reach = config && selected?.zone === 'board' ? runeFootprint(config, selected.index) : undefined;
-    get('inspect').textContent = config && picked
+    const inspect = get('inspect');
+    inspect.hidden = !config && !!suggested;
+    inspect.textContent = config && picked
       ? `${config.name} · ${picked.star} 星${picked.bonusPower ? ` · 威力 +${format(picked.bonusPower)}` : ''}。 ${config.desc}`
       : '先点一枚符文，再点棋盘或备战区的目标格。';
     for (const zone of ['board', 'bench'] as const) {
@@ -72,6 +81,10 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
         cell.setAttribute('aria-pressed', String(isPicked));
         cell.setAttribute('aria-label', `${zone === 'board' ? '棋盘' : '备战区'}第 ${index + 1} 格，${type?.name ?? '空格'}${rune ? `，${rune.star} 星` : ''}${tile ? `，${tileNames[tile]}位` : ''}`);
         if (zone === 'board') cell.dataset.reach = reach?.links.has(index) ? 'chain' : reach?.effects.has(index) ? 'effect' : '';
+        if (suggested) {
+          if (suggested[0].zone === zone && suggested[0].index === index) cell.dataset.suggestion = 'from';
+          if (suggested[1].zone === zone && suggested[1].index === index) cell.dataset.suggestion = 'to';
+        }
         const number = document.createElement('small');
         number.textContent = String(index + 1);
         cell.append(number);
@@ -104,9 +117,7 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
     }
   }
 
-  function check() {
-    click();
-    const current = planTurn(active, catalog);
+  function showResult(current: ReturnType<typeof planTurn>) {
     const difference = current.result.damage - original.result.damage;
     const combo = current.result.combo - original.result.combo;
     get('current').textContent = format(current.result.damage);
@@ -129,7 +140,35 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
   }
 
   get('close').onclick = () => dialog.close();
-  get('check').onclick = check;
+  get('check').onclick = () => { click(); showResult(planTurn(active, catalog)); };
+  find.onclick = () => {
+    click();
+    const current = moves.length ? planTurn(active, catalog) : original;
+    const move = bestFormationMove(active, catalog, current.result.damage);
+    if (!move) {
+      showResult(current);
+      guide.textContent = '单步换位已试完。可以继续手动试两步。';
+      guide.hidden = false;
+      return;
+    }
+    const place = ({ zone, index }: Slot) => `${zone === 'bench' ? '备战区' : '棋盘'}第 ${index + 1} 格`;
+    const fromRune = active[move.from.zone][move.from.index]!;
+    const occupied = !!active[move.to.zone][move.to.index];
+    const middle = move.to.zone === 'board' && [1, 2].includes(toCoords(move.to.index).col);
+    const fromEdge = move.from.zone === 'board' && [0, 3].includes(toCoords(move.from.index).col);
+    const positional = encounterAt(active.wave) === 'flanks' && middle && fromEdge ? '打石狮时，把主力放在中间两列。' : '';
+    suggested = [move.from, move.to];
+    moves.push(suggested);
+    exchange(suggested);
+    selected = undefined;
+    const action = occupied ? `和${place(move.to)}换位` : `移到${place(move.to)}`;
+    guide.textContent = `${place(move.from)}的${catalog[fromRune.configId].name}${action}。 ${positional}`;
+    guide.hidden = false;
+    link.hidden = true;
+    shareStatus.textContent = '换位和试打都只在这里生效。';
+    draw();
+    showResult(planTurn(active, catalog));
+  };
   apply.onclick = () => {
     click();
     if (availableApply?.apply(active)) dialog.close();
@@ -170,7 +209,7 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
 
   return {
     dialog,
-    open(snapshot: SharedBoard, applyToRun?: ApplyFormation) {
+    open(snapshot: SharedBoard, applyToRun?: ApplyFormation, fromCampaign = false) {
       if (dialog.open) return;
       active = { ...snapshot, board: [...snapshot.board], bench: [...snapshot.bench] };
       availableApply = applyToRun;
@@ -185,6 +224,8 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
       get('resources').textContent = `${format(active.gold)} 金 · ${active.shield} 护盾 · ${active.relics.length} 件遗物`;
       get('relics').textContent = [enemy.hint, ...active.relics.map(id => relics[id].name)].join(' · ');
       get<HTMLDetailsElement>('conditions').open = false;
+      find.hidden = !fromCampaign;
+      dialog.toggleAttribute('data-campaign', fromCampaign);
       clearAttempt();
       draw();
       dialog.showModal();

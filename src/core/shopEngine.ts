@@ -128,8 +128,9 @@ export function toggleLock(run: Run, index: number): boolean {
   return true;
 }
 
-const validSlot = (run: Run, slot: Slot) => Number.isInteger(slot.index) && slot.index >= 0 && slot.index < run[slot.zone].length;
-export const runeAt = (run: Run, slot: Slot) => validSlot(run, slot) ? run[slot.zone][slot.index] : null;
+const validSlot = (run: Pick<Run, 'board' | 'bench'>, slot: Slot) =>
+  Number.isInteger(slot.index) && slot.index >= 0 && slot.index < run[slot.zone].length;
+export const runeAt = (run: Pick<Run, 'board' | 'bench'>, slot: Slot) => validSlot(run, slot) ? run[slot.zone][slot.index] : null;
 
 export function swapRunes(run: Run, from: Slot, to: Slot): boolean {
   const rune = runeAt(run, from);

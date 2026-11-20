@@ -1,7 +1,6 @@
 import { bossHealth, simulateBattle } from './battleEngine';
 import { affixAt, encounterAt } from './expedition';
 import { resolveTargets } from './grid';
-import { createMulberry32 } from './rng';
 import { runeAt } from './shopEngine';
 import type { Catalog, RuneConfig, Run, Scope, Slot } from './types';
 
@@ -9,43 +8,28 @@ export function usesTutorial(run: Pick<Run, 'wave' | 'board' | 'opening'>) {
   return run.opening === 'chain' && run.wave === 1 && run.board[0]?.configId === 'spark_orb' && run.board[1]?.configId === 'prism_right';
 }
 
-export function planTurn(run: Pick<Run, 'wave' | 'board' | 'gold' | 'relics' | 'opening' | 'tileModifiers' | 'shield' | 'rngState'> & { bench?: Run['bench']; enableSynergies?: boolean }, catalog: Catalog) {
-  const hp = bossHealth(run.wave);
-  const deepBoard = run.board.map(r => r ? { ...r } : null);
-  const encounter = encounterAt(run.wave);
-  const affix = affixAt(run.wave)?.id;
-  const stateSeed = typeof run.rngState === 'number' && Number.isSafeInteger(run.rngState) && run.rngState > 0 ? run.rngState : 1;
-  const enableSynergies = run.enableSynergies ?? true;
-  const bench = run.bench;
+type BattleSetup = Pick<Run, 'wave' | 'board' | 'gold' | 'relics' | 'opening' | 'tileModifiers' | 'shield' | 'rngState'> &
+  Partial<Pick<Run, 'bench' | 'enableSynergies'>>;
 
-  // 1. Guaranteed minimum damage without crits (pure function, does NOT touch run.rngState)
-  const noCritEvents = simulateBattle({
-    board: deepBoard.map(r => r ? { ...r } : null),
-    bench,
-    hp, gold: run.gold, seed: stateSeed, tutorial: usesTutorial(run),
-    encounter, relics: run.relics, tileModifiers: run.tileModifiers, affix, shield: run.shield ?? 3,
-    enableSynergies,
-  }, catalog, () => 1.0);
-  const minResult = noCritEvents.at(-1);
+function battleInput(run: BattleSetup) {
+  return {
+    board: run.board.map(rune => rune ? { ...rune } : null), bench: run.bench,
+    hp: bossHealth(run.wave), gold: run.gold, shield: run.shield ?? 3,
+    seed: Number.isSafeInteger(run.rngState) && run.rngState > 0 ? run.rngState : 1,
+    tutorial: usesTutorial(run), encounter: encounterAt(run.wave), affix: affixAt(run.wave)?.id,
+    relics: run.relics, tileModifiers: run.tileModifiers, enableSynergies: run.enableSynergies ?? true,
+  };
+}
 
-  // 2. Maximum ceiling damage with all crits landing (pure function)
-  const maxCritEvents = simulateBattle({
-    board: deepBoard.map(r => r ? { ...r } : null),
-    bench,
-    hp, gold: run.gold, seed: stateSeed, tutorial: usesTutorial(run),
-    encounter, relics: run.relics, tileModifiers: run.tileModifiers, affix, shield: run.shield ?? 3,
-    enableSynergies,
-  }, catalog, () => 0.0);
-  const maxResult = maxCritEvents.at(-1);
+export function simulateFormation(run: BattleSetup, catalog: Catalog) {
+  const input = battleInput(run);
+  return { hp: input.hp, events: simulateBattle(input, catalog) };
+}
 
-  // 3. Expected deterministic simulation using independent mulberry32 PRNG (does NOT touch run.rngState)
-  const events = simulateBattle({
-    board: deepBoard.map(r => r ? { ...r } : null),
-    bench,
-    hp, gold: run.gold, seed: stateSeed, tutorial: usesTutorial(run),
-    encounter, relics: run.relics, tileModifiers: run.tileModifiers, affix, shield: run.shield ?? 3,
-    enableSynergies,
-  }, catalog, createMulberry32(stateSeed));
+export function planTurn(run: BattleSetup, catalog: Catalog) {
+  const { hp, events } = simulateFormation(run, catalog);
+  const minResult = simulateBattle(battleInput(run), catalog, () => 1).at(-1);
+  const maxResult = simulateBattle(battleInput(run), catalog, () => 0).at(-1);
   const result = events.at(-1);
   if (result?.type !== 'TURN_RESULT' || minResult?.type !== 'TURN_RESULT' || maxResult?.type !== 'TURN_RESULT') throw new Error('Missing battle result');
 
@@ -87,7 +71,7 @@ export function planTurn(run: Pick<Run, 'wave' | 'board' | 'gold' | 'relics' | '
   };
 }
 
-export function previewPlacement(run: Run, from: Slot, to: Slot) {
+export function previewPlacement<T extends Pick<Run, 'board' | 'bench'>>(run: T, from: Slot, to: Slot) {
   if ((from.zone === to.zone && from.index === to.index) || (from.zone === 'bench' && to.zone === 'bench')) return null;
   if (!Number.isInteger(to.index) || to.index < 0 || to.index >= run[to.zone].length) return null;
   const moved = runeAt(run, from);

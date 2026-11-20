@@ -139,6 +139,7 @@
           <div class="forecast-actions">
             <label class="forecast-toggle" title="切换模糊战果与精确数值"><input type="checkbox" id="exact-toggle"><span>精确</span></label>
             <button id="forecast-detail" type="button" class="btn-subtle">明细</button>
+            <button id="forecast-trial" type="button" aria-haspopup="dialog">试阵</button>
           </div>
         </section>
 
@@ -288,6 +289,7 @@
               <div><dt>改阵伤害</dt><dd id="trial-board-current"></dd><small id="trial-board-delta"></small></div>
             </dl>
           </div>
+          <p id="trial-board-guide" class="trial-board-guide" role="status" hidden></p>
           <p id="trial-board-inspect" class="trial-board-inspect"></p>
           <p id="trial-board-result" role="status"></p>
           <details id="trial-board-conditions" class="trial-conditions">
@@ -297,6 +299,7 @@
           <div class="trial-tools">
             <button id="trial-board-undo" type="button">撤销</button>
             <button id="trial-board-reset" type="button">恢复原阵</button>
+            <button id="trial-board-find" type="button" hidden>找一步</button>
             <button id="trial-board-check" type="button" class="primary">试打</button>
           </div>
           <button id="trial-board-apply" type="button" hidden>应用到当前阵</button>

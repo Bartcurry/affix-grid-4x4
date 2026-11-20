@@ -778,6 +778,11 @@ canvas {
   accent-color: var(--gold-primary);
 }
 
+#forecast-trial { min-height: 1.62rem; padding: .13rem .32rem; border-color: #6f8973; background: #23312a; color: #d0e3bd; font-size: .68rem; }
+@media (max-width: 520px) {
+  .forecast-gauge { display: none; }
+}
+
 .btn-subtle {
   border: 0;
   background: transparent;
@@ -1216,6 +1221,8 @@ canvas {
 .trial-tiles button[data-reach=chain] { border-color: #91d2c9; background: #203a3e; }
 .trial-tiles button[data-reach=effect] { border-color: #c3a0db; border-style: dashed; }
 .trial-tiles button[aria-pressed=true] { border-color: #f5cb85; background: #463426; }
+.trial-tiles button[data-suggestion=from] { border-color: #d2a56f; border-style: dashed; }
+.trial-tiles button[data-suggestion=to] { border-color: #acd28f; box-shadow: inset 0 0 0 1px #91af7c; background: #2b392f; }
 .trial-tiles svg { width: 61%; height: 61%; }
 .trial-tiles small, .trial-tiles i, .trial-tiles [data-star]::after { position: absolute; font: clamp(.46rem, 1.75vw, .63rem) var(--mono-font); }
 .trial-tiles small { inset: .08rem auto auto .12rem; color: #b2b7bf; }
@@ -1230,9 +1237,12 @@ canvas {
 .trial-scores div:last-child dd, #trial-board-delta[data-direction=up], #trial-board-result[data-win=true] { color: #c8e5b1; }
 #trial-board-delta[data-direction=down], #trial-board-result[data-win=false] { color: #f0b490; }
 .trial-board-inspect, #trial-board-result { min-height: 1.25em; font-size: .76rem; line-height: 1.4; }
+.trial-board-guide { padding: .38rem .5rem; border-left: 2px solid #a5c38b; background: #26312a; color: #d3e5c5; font-size: .76rem; line-height: 1.4; }
 .trial-conditions { padding: .4rem .49rem; border: 1px solid #5d5243; background: #1d2228; color: #ddd0c1; font-size: .72rem; }
 .trial-conditions p { margin-top: .22rem; color: #c3c7cc; }
 .trial-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(0, 1.25fr); gap: .32rem; }
+.trial-board-dialog[data-campaign] .trial-tools { grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.16fr); }
+.trial-board-dialog[data-campaign] #trial-board-find { border-color: #6f8973; color: #d0e3bd; }
 .trial-tools button, #trial-board-copy { min-height: 2.55rem; padding: .22rem .36rem; font-size: .76rem; }
 #trial-board-copy:enabled { color: #dceac9; border-color: #788d6d; background: #26352c; }
 .trial-tools .primary { color: #261b11; background: #edc07f; border-color: #f9d7a0; }
@@ -1895,9 +1905,9 @@ dialog::backdrop {
 .opening-settings .seed-input-row { margin: 0 0 .4rem; }
 .opening-extra { display: flex; gap: .33rem; }
 .opening-extra > button { flex: 1; min-height: 2.35rem; padding: .22rem; font-size: .75rem; }
-.first-clear { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .25rem .4rem; width: var(--canvas-width, 100%); max-width: 100%; flex-shrink: 0; padding: .25rem .42rem; border: 1px solid #a78756; border-radius: 4px; background: #2b2820; color: #f2cf95; font-size: .73rem; }
-.first-clear > span { flex: 1; font-weight: 700; }
-.first-clear button { min-height: 1.95rem; padding: .12rem .32rem; font-size: .71rem; }
+.first-clear { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: .25rem .4rem; width: 100%; flex-shrink: 0; padding: .25rem .42rem; border: 1px solid #a78756; border-radius: 4px; background: #2b2820; color: #f2cf95; font-size: .73rem; }
+.first-clear > span { font-weight: 700; }
+.first-clear button { min-height: 1.95rem; padding: .12rem .32rem; font-size: .71rem; white-space: nowrap; }
 
 /* ─── 朱砂印章「破阵！」与功勋阵眼 (Vermilion Stamp & MVP) ─── */
 .panel-stamp-wrap {

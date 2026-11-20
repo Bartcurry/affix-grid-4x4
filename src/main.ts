@@ -210,6 +210,7 @@ function showForecast() {
     element('forecast-readout').textContent = `${placement ? '放置后' : '战果预估'} ${formatNumber(forecast.minDamage)} ~ ${formatNumber(forecast.expectedDamage)} / ${formatNumber(hp)} · ${result.combo} 连击${delta}`;
   }
   button('forecast-detail').disabled = !!placement;
+  button('forecast-trial').disabled = !!placement || (!run.board.some(Boolean) && !run.bench.some(Boolean));
 }
 
 function updateBossArmorUi(hits: number, breaking = false) {
@@ -723,6 +724,21 @@ button('forecast-detail').onclick = () => {
   forecastDialog.showModal();
 };
 button('forecast-close').onclick = () => forecastDialog.close();
+button('forecast-trial').onclick = () => {
+  if (!arranging()) return;
+  click();
+  const checkpoint = JSON.stringify(platform.load(false));
+  boardTrial.open(run, {
+    matches: canReplaceFormation,
+    apply: board => {
+      if (!arranging() || JSON.stringify(platform.load(false)) !== checkpoint || !replaceFormation(board)) return false;
+      select(null);
+      redraw();
+      notice('已应用改阵，可以撤销。');
+      return true;
+    },
+  }, true);
+};
 
 interface Action { label: string; act: () => void | Promise<void>; primary?: boolean }
 function showPanel(title: string, text: string, actions: Action[], dismissible = false, mvpHtml?: string, isVictory = false) {
@@ -1423,15 +1439,20 @@ function resumeAfterSideRoom(room: HTMLDialogElement) {
   }, { once: true });
 }
 
-function canApplySharedBoard(board: SharedBoard) {
-  return !!saved && canArrange(run) && sameBattleSetup(run, board) && !sameFormation(run, board);
+function canReplaceFormation(board: SharedBoard) {
+  return canArrange(run) && sameBattleSetup(run, board) && !sameFormation(run, board);
 }
 
-function applySharedBoard(board: SharedBoard) {
-  if (!canApplySharedBoard(board) || JSON.stringify(platform.load(false)) !== JSON.stringify(saved)) return false;
+function replaceFormation(board: SharedBoard) {
+  if (!canReplaceFormation(board)) return false;
   undoStack.push(run);
   run.board = [...board.board];
   run.bench = [...board.bench];
+  return true;
+}
+
+function applySharedBoard(board: SharedBoard) {
+  if (!saved || JSON.stringify(platform.load(false)) !== JSON.stringify(saved) || !replaceFormation(board)) return false;
   appliedSharedBoard = true;
   sideLanding = false;
   persist();
@@ -1440,7 +1461,7 @@ function applySharedBoard(board: SharedBoard) {
 
 redraw(!!saved && !challenge && !sideLanding);
 if (sharedBoard) {
-  boardTrial.open(sharedBoard, { matches: canApplySharedBoard, apply: applySharedBoard });
+  boardTrial.open(sharedBoard, { matches: board => !!saved && canReplaceFormation(board), apply: applySharedBoard });
   resumeAfterSideRoom(boardTrial.dialog);
 } else if (sharedDaily && daily.open(sharedDaily)) {
   resumeAfterSideRoom(daily.dialog);
