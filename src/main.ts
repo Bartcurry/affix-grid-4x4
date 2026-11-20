@@ -78,6 +78,7 @@ let ghostTarget = 100;
 let dialogDismissible = false;
 let bossArmorHits = 0;
 let gateBreached = false;
+let firstClearReward: number | undefined;
 const states = new Map<number, RuneState>();
 const renderer = new CanvasRenderer(element('arena'), run, catalog);
 const undoStack = new UndoStack();
@@ -228,8 +229,11 @@ function updateHud() {
   element('wave').textContent = run.endless ? `无尽 · 第 ${run.wave} 波` : `第 ${run.wave} / 20 波`;
   element('hp-fill').style.width = `${pct}%`;
 
-  // 双层延迟残影血条：实际瞬扣，残影条平滑追平
-  if (pct !== ghostTarget) {
+  if (phase !== 'PLAYBACK') {
+    clearTimeout(ghostTimer);
+    ghostTarget = pct;
+    element('hp-ghost').style.width = `${pct}%`;
+  } else if (pct !== ghostTarget) {
     ghostTarget = pct;
     clearTimeout(ghostTimer);
     ghostTimer = setTimeout(() => { element('hp-ghost').style.width = `${pct}%`; }, 280);
@@ -432,6 +436,23 @@ function tryOffer(index: number, preferred?: number) {
   openMarketPreview(run, index, forecast.result, preferred);
 }
 
+function updateFirstClear() {
+  const panel = element('first-clear');
+  const supply = openings[run.opening].supply;
+  const offer = run.shop.findIndex(item => item?.configId === supply);
+  panel.hidden = firstClearReward === undefined || run.wave !== 2 || !arranging() || offer < 0;
+  if (panel.hidden) return;
+  element('first-clear-summary').textContent = `拿下首波 · ${formatNumber(run.lastDamage)} 伤害 · +${firstClearReward} 金`;
+  const action = button('first-clear-supply');
+  action.textContent = `试摆${catalog[supply].name}`;
+  action.onclick = () => {
+    const origin = run.shop.findIndex(item => item?.configId === supply);
+    if (origin >= 0) tryOffer(origin);
+  };
+}
+
+button('first-clear-dismiss').onclick = () => { click(); firstClearReward = undefined; updateFirstClear(); };
+
 function tryCurrentBoard(suggestion?: [Slot, Slot]) {
   if (!arranging() || placement) return;
   click();
@@ -485,6 +506,7 @@ function redraw(save = true) {
   if (arranging()) forecast = planTurn(run, catalog);
   placement = null;
   updateHud(); markWaves(); syncControls(); showForecast(); inspect();
+  updateFirstClear();
   const tip = forecast && arranging() ? fieldTip(run, catalog, forecast) : null;
   element('field-tip').hidden = !tip;
   const tipAction = button('field-tip-action');
@@ -748,6 +770,7 @@ function startOpening(id: OpeningId, customSeed?: string) {
   if (resultDialog.open) resultDialog.close();
   const seed = customSeed || selectedOpeningSeed();
   run = createOpeningRun(id, seed);
+  firstClearReward = undefined;
   undoStack.clear();
   renderer.setRun(run);
   renderer.cursor = null;
@@ -778,7 +801,8 @@ function previewOpening() {
   const name = openings[openingCandidate].name;
   openingChoices.forEach((item, index) => item.setAttribute('aria-pressed', String(openingIds[index] === openingCandidate)));
   const first = openingDialog.dataset.first === 'true';
-  button('opening-close').textContent = first ? `用${name}开局` : '回到当前局';
+  button('opening-close').textContent = first ? '先布阵' : '回到当前局';
+  button('opening-close').setAttribute('aria-label', first ? `先布阵 · 用${name}开局` : '回到当前局');
   button('opening-play').textContent = replacingOpening ? `用${name}重开` : `用${name}开局`;
   renderOpeningPreview(element('opening-preview'), createOpeningRun(openingCandidate, selectedOpeningSeed()), catalog,
     records[openingCandidate], (owner, id) => iconPath(owner, runeVectors[id] ?? emptyIcon), formatNumber, click);
@@ -790,7 +814,8 @@ function openOpenings(first = false) {
   openingDialog.dataset.first = String(first);
   element('opening-confirm').hidden = true;
   element('opening-setup').hidden = false;
-  button('opening-close').classList.toggle('primary', first);
+  element('opening-game-name').hidden = !first;
+  button('opening-quick').hidden = !first;
   button('opening-play').hidden = first;
   button('opening-daily').hidden = !first;
   element('opening-note').textContent = first && (invalidChallenge || invalidBoard)
@@ -829,10 +854,15 @@ button('opening-close').onclick = () => {
   if (openingDialog.dataset.first === 'true') startOpening(openingCandidate);
   else openingDialog.close();
 };
+button('opening-quick').onclick = () => {
+  if (!openingDialog.open || openingDialog.dataset.first !== 'true') return;
+  startOpening(openingCandidate);
+  void startBattle(true);
+};
 openingDialog.addEventListener('cancel', event => {
   if (openingDialog.dataset.first !== 'true') return;
   event.preventDefault();
-  button('opening-close').focus();
+  button('opening-quick').focus();
 });
 
 function showOutcome() {
@@ -925,8 +955,9 @@ function consume(event: BattleEvent, maxHp: number) {
   updateHud();
 }
 
-button('battle').onclick = async event => {
-  if (!arranging() || event.detail > 1) return;
+async function startBattle(quick = false) {
+  if (!arranging()) return;
+  firstClearReward = undefined;
   const prepared = prepareBattle(run, catalog);
   const { events } = prepared;
   const journal = {
@@ -955,14 +986,18 @@ button('battle').onclick = async event => {
   const prng = createMulberry32(prepared.rngState);
   settleTurn(run, result, catalog, prng);
   run.rngState = prng.getState();
+  if (quick && result.win && run.wave === 2) firstClearReward = payout.total;
   redraw();
   if (result.win && run.status === 'active' && !run.pendingRelics.length) {
     renderer.waveComplete = true; renderer.invalidate();
     victoryTimer = setTimeout(() => { renderer.waveComplete = false; renderer.invalidate(); }, 1500);
-    notice(`打过第 ${run.wave - 1} 波 · ${formatNumber(result.damage)} 伤害 · 过关 +${payout.total} 金${payout.trial ? `（悬赏 +${payout.trial}）` : ''}`);
+    if (firstClearReward === undefined) {
+      notice(`打过第 ${run.wave - 1} 波 · ${formatNumber(result.damage)} 伤害 · 过关 +${payout.total} 金${payout.trial ? `（悬赏 +${payout.trial}）` : ''}`);
+    } else button('first-clear-supply').focus({ preventScroll: true });
   }
   showOutcome();
-};
+}
+button('battle').onclick = event => { if (event.detail <= 1) void startBattle(); };
 
 button('refresh').onclick = () => {
   if (!arranging()) return;

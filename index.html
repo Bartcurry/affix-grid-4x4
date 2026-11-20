@@ -91,6 +91,11 @@
           <p id="enemy-hint" class="enemy-hint" hidden></p>
           <button id="trial-open" type="button" aria-haspopup="dialog" hidden></button>
         </div>
+        <div id="first-clear" class="first-clear" hidden>
+          <p id="first-clear-summary" role="status"></p>
+          <button id="first-clear-supply" type="button" aria-haspopup="dialog"></button>
+          <button id="first-clear-dismiss" type="button" aria-label="收起首波提示">×</button>
+        </div>
       </header>
 
       <!-- 核心黄金区域：4×4 动态法阵棋盘与悬浮词条详情卡片 -->
@@ -377,7 +382,7 @@
       <!-- 弹窗：挑选开局法阵 -->
       <dialog id="opening-dialog" aria-labelledby="opening-title">
         <div class="dialog-content">
-          <h2 id="opening-title">选一套起手阵</h2>
+          <header class="opening-heading"><p id="opening-game-name" hidden>4×4 词条法阵</p><h2 id="opening-title">选一套起手阵</h2></header>
           <p id="opening-note" class="dialog-desc"></p>
           <div id="opening-setup" class="opening-setup">
             <div id="opening-choices" class="opening-choices" role="group" aria-label="起手流派"></div>
@@ -394,7 +399,10 @@
               <p class="opening-supply"><span>第 2 波补货</span><strong id="opening-supply"></strong><small id="opening-record" hidden></small></p>
             </section>
             <button id="opening-play" class="primary" type="button" hidden>重开这套阵</button>
-            <button id="opening-close" type="button">回到当前局</button>
+            <div class="opening-start-actions">
+              <button id="opening-quick" class="primary" type="button" autofocus hidden>开局并打首波</button>
+              <button id="opening-close" type="button">回到当前局</button>
+            </div>
             <div class="opening-extra">
               <button id="opening-daily" type="button" hidden>先试一盘每日残局</button>
               <details id="opening-seed-options">

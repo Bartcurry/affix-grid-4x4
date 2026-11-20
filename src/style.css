@@ -483,6 +483,14 @@ button:focus-visible, canvas:focus-visible {
 }
 
 .enemy-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.first-clear {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: .3rem;
+  padding: .3rem .36rem .3rem .5rem; border: 1px solid #6b7451; background: #243028; border-radius: 4px;
+}
+#first-clear-summary { color: #dbe9b9; font-size: .76rem; line-height: 1.35; }
+#first-clear-supply { min-height: 2.4rem; padding-inline: .42rem; background: #d7e2b3; color: #26301f; border-color: #e1e9c7; font-size: .8rem; font-weight: 750; }
+#first-clear-supply:hover { color: #26301f; background: #e6edce; }
+#first-clear-dismiss { width: 2rem; min-height: 2.4rem; padding: 0; background: transparent; border-color: #526651; color: #c1d0b7; }
 #trial-open { flex: none; min-height: 2rem; padding: .12rem .5rem; border-color: #b17b43; color: #ffcb83; font-size: .75rem; }
 #trial-open[data-active=true] { background: #432a20; border-color: #e8915c; color: #ffdb9e; }
 .wave-track span[data-bounty=true] { background: #f5a45c; box-shadow: 0 0 4px #b66538; }
@@ -1302,6 +1310,8 @@ dialog::backdrop {
 
 #opening-dialog { width: min(27rem, calc(100% - 1.25rem)); }
 #opening-dialog .dialog-content { padding: clamp(.7rem, 4vw, 1.1rem); }
+.opening-heading { display: grid; gap: .16rem; }
+#opening-game-name { color: #d1ab72; font-size: .72rem; font-weight: 750; }
 .opening-setup { display: grid; gap: .58rem; }
 .opening-choices { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .33rem; }
 .opening-option, .opening-preview { --route-ink: #83d8fc; }
@@ -1335,9 +1345,12 @@ dialog::backdrop {
 .opening-supply { margin-top: .42rem; border-top: 1px solid #333e4b; padding-top: .42rem; display: flex; align-items: baseline; flex-wrap: wrap; gap: .23rem .42rem; color: #aebdcd; font-size: .73rem; }
 .opening-supply strong { color: var(--route-ink); }
 .opening-supply small { color: #cbbda8; font-size: .70rem; }
-.opening-setup > button { min-height: 2.55rem; }
-.opening-setup > button.primary { background: #f2c683; border-color: #fbd8a6; color: #24180f; font-weight: 750; }
-.opening-setup > button.primary:not(:disabled):hover { background: #ffdb9d; color: #24180f; }
+.opening-start-actions { display: flex; gap: .36rem; }
+.opening-start-actions button { flex: 1; }
+#opening-quick { flex: 2; }
+.opening-setup > button, .opening-start-actions > button { min-height: 2.6rem; }
+.opening-setup .primary { background: #f2c683; border-color: #fbd8a6; color: #24180f; font-weight: 750; }
+.opening-setup .primary:not(:disabled):hover { background: #ffdb9d; color: #24180f; }
 .opening-extra { display: flex; align-items: start; flex-wrap: wrap; gap: .25rem .5rem; color: #bdc9d8; font-size: .76rem; }
 .opening-extra button, .opening-extra summary { min-height: 2rem; }
 #opening-daily { background: none; border-color: #414b5a; }
@@ -1418,6 +1431,7 @@ dialog::backdrop {
   .hp-fill, .hp-ghost, #forecast-fill { transition: none !important; }
   .primary.battle-btn::after { animation: none !important; }
 }
+.game[data-phase=arrange] :is(.hp-fill, .hp-ghost) { transition: none; }
 .daily-dialog, .journal-dialog { width: min(32rem, calc(100% - 1.5rem)); }
 #daily-open, #journal-open { color: var(--gold-bright); }
 .report-links, .journal-filters { display: flex; align-items: center; flex-wrap: wrap; gap: .3rem; }
