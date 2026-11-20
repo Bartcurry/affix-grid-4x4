@@ -279,7 +279,7 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
       originalPieces = new Map(active.board.flatMap((rune, index) => rune ? [[rune, original.byCell[index].damage] as const] : []));
       moves = [];
       selected = undefined;
-      const { encounter, bounty } = battleTarget(active.wave, active.bountyRoute);
+      const { encounter, bounty } = battleTarget(active.wave, active.bountyRoute, active.finaleRule);
       const enemy = encounters[encounter];
       get('wave').textContent = goal ? `${goal.name} · 练习目标 ${format(goal.damage)} 伤害`
         : applyToRun?.note ?? `第 ${active.wave} 波 · ${bounty?.name ?? enemy.name} · ${format(original.hp)} 生命`;

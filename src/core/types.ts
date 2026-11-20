@@ -90,6 +90,7 @@ export interface Run {
   pendingCamp?: true;
   reforgeRule?: 1;
   reforgeUsed?: true;
+  finaleRule?: 1;
   lastCellDamage?: number[];
   lastJournal?: BattleJournal;
 }
@@ -97,7 +98,7 @@ export interface Run {
 export type BattleEvent =
   | { type: 'CELL_ACTIVATE'; index: number; isChain: boolean; depth: number; combo: number }
   | { type: 'CHAIN_LINK'; from: number; to: number; tutorial?: boolean }
-  | { type: 'DAMAGE'; source: number | null; amount: number; hp: number; crit: boolean; kind: 'rune' | 'poison' | 'tutorial'; enemyDelta?: number }
+  | { type: 'DAMAGE'; source: number | null; amount: number; hp: number; crit: boolean; kind: 'rune' | 'poison' | 'tutorial'; enemyDelta?: number; gateBlocked?: true }
   | { type: 'POISON'; source: number | null; poison: number }
   | { type: 'GOLD'; source: number; gold: number; delta: number }
   | { type: 'RUNE_STATE'; index: number; state: RuneState }

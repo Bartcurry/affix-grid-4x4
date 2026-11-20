@@ -10,10 +10,10 @@ export function usesTutorial(run: Pick<Run, 'wave' | 'board' | 'opening'>) {
 }
 
 type BattleSetup = Pick<Run, 'wave' | 'board' | 'gold' | 'relics' | 'opening' | 'tileModifiers' | 'shield' | 'rngState'> &
-  Partial<Pick<Run, 'bench' | 'enableSynergies' | 'bountyRoute'>>;
+  Partial<Pick<Run, 'bench' | 'enableSynergies' | 'bountyRoute' | 'finaleRule'>>;
 
 function battleInput(run: BattleSetup) {
-  const { hp, encounter } = battleTarget(run.wave, run.bountyRoute);
+  const { hp, encounter } = battleTarget(run.wave, run.bountyRoute, run.finaleRule);
   return {
     board: run.board.map(rune => rune ? { ...rune } : null), bench: run.bench,
     hp, gold: run.gold, shield: run.shield ?? 3,

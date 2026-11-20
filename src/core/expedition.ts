@@ -9,6 +9,7 @@ export const encounters = {
   flanks: { name: '石狮', trait: '中间两列 +10% · 外侧两列 −30%', tip: '试着把主力挪到第 2、3 列，再检查折射镜是否还指着它。列加成只影响符文直伤。' },
   bell: { name: '回音钟', trait: '连锁直伤 +25% · 其他直伤 −10%', tip: '让折射镜、落铃或十字中继器把主力再叫醒一次，连锁那一击会多打伤害。' },
   regent: { name: '闭门王', trait: '前三次符文伤害减半 · 连锁直伤 +20%', tip: '先用小伤害打掉三层护甲，再用连锁带起主力。破甲暴击可以穿过减伤，并消耗一层。' },
+  regent_seal: { name: '闭门王', trait: '三层护甲 · 破甲后同列连打 −30%', tip: '前三次符文直伤减半。破甲后，同列连打少 30% 直伤。换列出手、回合末毒伤和共鸣毒爆都能绕开轮锁。连锁直伤仍提高 20%。' },
 } as const;
 
 export type EncounterId = keyof typeof encounters;
@@ -18,7 +19,7 @@ const campaign: readonly EncounterId[] = [
 ];
 const endless: readonly EncounterId[] = ['armor', 'cistern', 'flanks', 'bell', 'regent'];
 export const encounterAt = (wave: number): EncounterId => campaign[wave - 1] ?? endless[(wave - 21) % endless.length] ?? 'sentry';
-export const armorHitsFor = (encounter: EncounterId) => encounter === 'regent' ? 3 : encounter === 'armor' ? 2 : 0;
+export const armorHitsFor = (encounter: EncounterId) => encounter === 'regent' || encounter === 'regent_seal' ? 3 : encounter === 'armor' ? 2 : 0;
 
 export interface EndlessAffix {
   id: string;
@@ -121,7 +122,7 @@ export function damageModifiers(encounter: EncounterId, owned: readonly RelicId[
     if (encounter === 'cistern') enemy *= .9;
     if (encounter === 'flanks') enemy *= col === 0 || col === 3 ? .7 : 1.1;
     if (encounter === 'bell') enemy *= isChain ? 1.25 : .9;
-    if (encounter === 'regent' && isChain) enemy *= 1.2;
+    if ((encounter === 'regent' || encounter === 'regent_seal') && isChain) enemy *= 1.2;
     if (affix === 'odd_row_frenzy' && row % 2 === 1) {
       enemy *= 1.6;
     }

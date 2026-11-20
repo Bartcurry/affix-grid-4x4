@@ -64,6 +64,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
         ...(natural(item.bountiesCleared) && item.bountiesCleared <= bountyCount ? { bountiesCleared: item.bountiesCleared } : {}),
         ...(item.altarRule === 1 && item.bountyRule === 1 && item.endlessRule === 1 ? { endlessRule: 1 as const } : {}),
         ...(item.altarRule === 1 && item.bountyRule === 1 && item.endlessRule === 1 && item.reforgeRule === 1 ? { reforgeRule: 1 as const } : {}),
+        ...(item.altarRule === 1 && item.bountyRule === 1 && item.endlessRule === 1 && item.reforgeRule === 1 && item.finaleRule === 1 ? { finaleRule: 1 as const } : {}),
         ...(item.endless === true || (natural(item.wave) && item.wave > 20) ? { endless: true as const } : {}),
       }));
   };
@@ -130,6 +131,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
     const bountyRoute = bountyRule && !rawRun.endless && bountyAt(wave, rawRun.bountyRoute) ? rawRun.bountyRoute : undefined;
     const endlessRule = bountyRule && rawRun.endlessRule === 1;
     const reforgeRule = endlessRule && rawRun.reforgeRule === 1;
+    const finaleRule = reforgeRule && rawRun.finaleRule === 1;
     const pendingCamp = endlessRule && rawRun.endless === true && rawRun.status === 'active' &&
       !rawRun.pendingLoss && endlessCampAt(wave) && rawRun.pendingCamp === true;
 
@@ -162,6 +164,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       ...(bountyRule && natural(rawRun.bountiesCleared) && rawRun.bountiesCleared <= bountyCount ? { bountiesCleared: rawRun.bountiesCleared } : {}),
       ...(endlessRule ? { endlessRule: 1 } : {}),
       ...(reforgeRule ? { reforgeRule: 1 } : {}),
+      ...(finaleRule ? { finaleRule: 1 } : {}),
       ...(reforgeRule && wave === reforgeWave && rawRun.reforgeUsed === true ? { reforgeUsed: true } : {}),
       ...(pendingCamp ? { pendingCamp: true } : {}),
       ...(Array.isArray(rawRun.lastCellDamage) && rawRun.lastCellDamage.length === CELL_COUNT && rawRun.lastCellDamage.every(damageCount)

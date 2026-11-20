@@ -16,6 +16,7 @@ export interface RunArchive {
   bountiesCleared?: number;
   endlessRule?: 1;
   reforgeRule?: 1;
+  finaleRule?: 1;
   endless?: true;
 }
 

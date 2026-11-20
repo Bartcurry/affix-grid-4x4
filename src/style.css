@@ -138,7 +138,7 @@ button:focus-visible, canvas:focus-visible {
 [data-enemy=cistern] { --portrait-x: 100%; --enemy-ink: #74ceb0; --enemy-wash: #1b2a24; }
 [data-enemy=flanks] { --portrait-y: 100%; --enemy-ink: #eda454; --enemy-wash: #31251e; }
 [data-enemy=bell] { --portrait-x: 50%; --portrait-y: 100%; --enemy-ink: #73c6ef; --enemy-wash: #1d2933; }
-[data-enemy=regent] { --portrait-x: 100%; --portrait-y: 100%; --enemy-ink: #ed8c89; --enemy-wash: #341f25; }
+:is([data-enemy=regent], [data-enemy=regent_seal]) { --portrait-x: 100%; --portrait-y: 100%; --enemy-ink: #ed8c89; --enemy-wash: #341f25; }
 
 .enemy-portrait {
   position: relative;
@@ -225,6 +225,17 @@ button:focus-visible, canvas:focus-visible {
   display: flex;
   align-items: baseline;
   gap: 0.28rem;
+}
+
+.boss-gate {
+  flex: none;
+  padding: .05rem .24rem;
+  border: 1px solid #9e645d;
+  border-radius: 3px;
+  background: #36232a;
+  color: #ffc2a6;
+  font-size: .62rem;
+  white-space: nowrap;
 }
 
 /* Boss 铁壳减伤盾牌 */
@@ -1820,6 +1831,21 @@ dialog::backdrop {
 .dialog-actions button {
   min-height: 2.6rem;
 }
+
+#panel:has(#panel-stamp-wrap:not([hidden])) #panel-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#panel:has(#panel-stamp-wrap:not([hidden])) #panel-actions .primary {
+  grid-column: 1 / -1;
+  background: #edc089;
+  border-color: #f7d6a0;
+  color: #2d1b12;
+  font-weight: 750;
+}
+
+#panel:has(#panel-stamp-wrap:not([hidden])) #panel-actions .primary:hover { background: #f7d6a0; color: #2d1b12; }
 
 #camp-dialog {
   width: min(29rem, calc(100% - 1.2rem));

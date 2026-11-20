@@ -1,5 +1,5 @@
 import { resolveTargets, toCoords } from './grid';
-import { damageModifiers, type EncounterId } from './expedition';
+import { armorHitsFor, damageModifiers, type EncounterId } from './expedition';
 import type { SynergyMap } from './synergy';
 import { STAR_MULT, type BattleEvent, type Effect, type Random, type RelicId, type Rune, type RuneConfig, type RuneState } from './types';
 
@@ -16,6 +16,7 @@ export interface Combat {
   encounter: EncounterId;
   relics: readonly RelicId[];
   priorHits: number;
+  lastRuneColumn?: number;
   affix?: string;
   synergies?: SynergyMap;
   benchCount: number;
@@ -31,6 +32,8 @@ export interface EffectContext { index: number; isChain: boolean; depth: number;
 export function dealDamage(combat: Combat, source: number | null, value: number, kind: 'rune' | 'poison' | 'tutorial', crit = false, isChain = false) {
   const { relic, enemy } = damageModifiers(combat.encounter, combat.relics, kind, source, isChain, crit, combat.priorHits, combat.affix, combat.benchCount);
   let finalEnemy = enemy;
+  const sealColumn = combat.encounter === 'regent_seal' && kind === 'rune' && source !== null ? toCoords(source).col : undefined;
+  const gateBlocked = sealColumn !== undefined && combat.priorHits >= armorHitsFor(combat.encounter) && sealColumn === combat.lastRuneColumn;
   if (combat.affix === 'shield_tax' && combat.gold < 10) {
     finalEnemy *= 0.8;
   }
@@ -50,11 +53,16 @@ export function dealDamage(combat: Combat, source: number | null, value: number,
   }
 
   const boosted = value * critMult * relic * chainSynergyMult * jadeAbacusMult;
-  const amount = Math.ceil(boosted * finalEnemy);
+  const normalAmount = Math.ceil(boosted * finalEnemy);
+  const amount = gateBlocked ? Math.ceil(boosted * finalEnemy * .7) : normalAmount;
   const enemyDelta = amount - Math.ceil(boosted);
   const hp = Math.max(0, combat.hp - amount);
-  if (combat.emit({ type: 'DAMAGE', source, amount, crit, hp, kind, ...(enemyDelta ? { enemyDelta } : {}) })) {
-    if (kind === 'rune' && amount > 0) combat.priorHits++;
+  if (combat.emit({ type: 'DAMAGE', source, amount, crit, hp, kind, ...(enemyDelta ? { enemyDelta } : {}),
+    ...(amount < normalAmount ? { gateBlocked: true } : {}) })) {
+    if (kind === 'rune' && amount > 0) {
+      combat.priorHits++;
+      combat.lastRuneColumn = sealColumn;
+    }
     combat.hp = hp;
     combat.damage += amount;
     return true;

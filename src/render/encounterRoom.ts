@@ -18,7 +18,7 @@ export function bindEncounterRoom(catalog: Catalog, click: () => void, trial: (w
 
   function draw() {
     const selectedRoute = selected === run.wave ? run.bountyRoute : undefined;
-    const { encounter, hp, bounty } = battleTarget(selected, selectedRoute);
+    const { encounter, hp, bounty } = battleTarget(selected, selectedRoute, run.finaleRule);
     const { name, trait, tip } = encounters[encounter];
     const affix = affixAt(selected);
     const milestone = selected % 4 === 0 && selected !== 20;
@@ -56,7 +56,7 @@ export function bindEncounterRoom(catalog: Catalog, click: () => void, trial: (w
 
   function waveOption(wave: number) {
     const label = document.createElement('label');
-    const { encounter } = battleTarget(wave, wave === run.wave ? run.bountyRoute : undefined);
+    const { encounter } = battleTarget(wave, wave === run.wave ? run.bountyRoute : undefined, run.finaleRule);
     label.dataset.enemy = encounter;
     label.dataset.state = wave === run.wave ? 'current' : wave < run.wave ? 'cleared' : 'ahead';
     const radio = document.createElement('input');

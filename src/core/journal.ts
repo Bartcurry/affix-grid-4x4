@@ -46,7 +46,7 @@ export function readJournal(raw: unknown, catalog: Catalog): BattleJournal | und
     !Array.isArray(events) || !events.length || events.length > MAX_EVENTS || events.at(-1)?.type !== 'TURN_RESULT') return;
   const snapshot = readSharedBoard(formation, catalog, true);
   if (!snapshot) return;
-  const { board, wave } = snapshot;
+  const { board, wave, finaleRule } = snapshot;
   const slot = (index: number) => natural(index) && index < CELL_COUNT && !!board[index];
   const finite = (value: unknown) => typeof value === 'number' && Number.isFinite(value);
   function valid(event: BattleEvent, index: number) {
@@ -56,7 +56,8 @@ export function readJournal(raw: unknown, catalog: Catalog): BattleJournal | und
       case 'CHAIN_LINK': return slot(event.from) && slot(event.to) && (event.tutorial === undefined || event.tutorial === true && wave === 1);
       case 'DAMAGE': return ['rune', 'poison', 'tutorial'].includes(event.kind) && (event.source === null || slot(event.source)) &&
         natural(event.amount) && natural(event.hp) && event.hp <= maxHp && typeof event.crit === 'boolean' &&
-        (event.enemyDelta === undefined || integer(event.enemyDelta));
+        (event.enemyDelta === undefined || integer(event.enemyDelta)) &&
+        (event.gateBlocked === undefined || event.gateBlocked === true && finaleRule === 1 && event.kind === 'rune' && event.source !== null);
       case 'POISON': return (event.source === null || slot(event.source)) && natural(event.poison);
       case 'GOLD': return slot(event.source) && natural(event.gold) && integer(event.delta);
       case 'RUNE_STATE': return slot(event.index) && !!event.state && natural(event.state.chargeStacks) &&

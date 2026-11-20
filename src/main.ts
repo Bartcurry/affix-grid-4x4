@@ -3,6 +3,7 @@ import { simulateBattle } from './core/battleEngine';
 import { battleTarget, bountyCount, bountyPerkText, offersBounties } from './core/bounties';
 import { claimCamp } from './core/endlessCamp';
 import { canReforge, prepareReforge } from './core/reforge';
+import { toCoords } from './core/grid';
 import { affixAt, armorHitsFor, encounters, endlessSegment, relics } from './core/expedition';
 import { isOpening, openingIds, openings, runScore, updateRecords } from './core/openings';
 import { challengeParam, challengeSaveKey, matchesChallenge, readChallenge } from './core/challenge';
@@ -96,7 +97,7 @@ audio.ambientMuted = saved?.ambientMuted ?? false;
 player.speed = saved?.speed ?? 1;
 
 let phase: 'ARRANGE' | 'PLAYBACK' = 'ARRANGE';
-const currentTarget = () => battleTarget(run.wave, run.bountyRoute);
+const currentTarget = () => battleTarget(run.wave, run.bountyRoute, run.finaleRule);
 let displayed = { hp: currentTarget().hp, poison: 0, gold: run.gold, combo: 0 };
 let shopInspect: number | null = null;
 let noticeTimer: ReturnType<typeof setTimeout>;
@@ -104,6 +105,7 @@ let victoryTimer: ReturnType<typeof setTimeout>;
 let ghostTimer: ReturnType<typeof setTimeout>;
 let dialogDismissible = false;
 let bossArmorHits = 0;
+let bossGateColumn: number | undefined;
 let firstClearPayout = saved?.firstClearPayout;
 let lastBattleAt = -Infinity;
 const states = new Map<number, RuneState>();
@@ -295,12 +297,17 @@ function showForecast() {
 
 const bossArmor = element('boss-armor-shields');
 const armorIcons = [1, 2, 3].map(index => element(`boss-shield-${index}`));
-const isArmorHit = (event: BattleEvent) => event.type === 'DAMAGE' && event.kind === 'rune' && event.amount > 0;
+const isArmorHit = (event: BattleEvent): event is Extract<BattleEvent, { type: 'DAMAGE' }> =>
+  event.type === 'DAMAGE' && event.kind === 'rune' && event.amount > 0;
 
-function updateBossArmorUi(hits: number, breaking = false) {
-  const layers = armorHitsFor(currentTarget().encounter);
+function updateBossArmorUi(hits: number, breaking = false, column?: number) {
+  const { encounter } = currentTarget();
+  const layers = armorHitsFor(encounter);
   const remaining = Math.max(0, layers - hits);
-  bossArmor.hidden = !layers;
+  const gate = element('boss-gate');
+  gate.hidden = encounter !== 'regent_seal' || remaining > 0 || column === undefined;
+  gate.textContent = column === undefined ? '' : `封第 ${column + 1} 列`;
+  bossArmor.hidden = !layers || !gate.hidden;
   bossArmor.setAttribute('aria-label', `剩余 ${remaining} / ${layers} 层护甲`);
   armorIcons.forEach((icon, index) => {
     icon.hidden = index >= layers;
@@ -678,9 +685,10 @@ function redraw(save = true) {
   const enemy = encounters[encounter];
   element('enemy-name').textContent = enemy.name;
 
-  const hits = phase === 'PLAYBACK' ? bossArmorHits
-    : run.pendingLoss || run.status !== 'active' ? run.lastJournal?.events.filter(isArmorHit).length ?? 0 : 0;
-  updateBossArmorUi(hits);
+  const recordedHits = run.pendingLoss || run.status !== 'active' ? run.lastJournal?.events.filter(isArmorHit) ?? [] : [];
+  const latest = recordedHits.at(-1)?.source;
+  const column = phase === 'PLAYBACK' ? bossGateColumn : typeof latest === 'number' ? toCoords(latest).col : undefined;
+  updateBossArmorUi(phase === 'PLAYBACK' ? bossArmorHits : recordedHits.length, false, column);
 
   element('game').dataset.enemy = encounter;
   document.getElementById('boss-emblem-path')?.setAttribute('d', getBossSvgPath(encounter));
@@ -793,7 +801,7 @@ function openRelicBag() {
 button('forecast-detail').onclick = () => {
   if (!arranging() || !forecast) return;
   click();
-  const { byCell, result, hp, poisonDamage, tutorialDamage, enemyDelta } = forecast;
+  const { byCell, result, hp, poisonDamage, tutorialDamage, enemyDelta, events } = forecast;
   const sources = byCell.flatMap(({ damage, activations }, index) => {
     const rune = run.board[index];
     return rune && (damage || activations) ? [{ label: `格 ${index + 1} · ${catalog[rune.configId].name}`, detail: `${activations} 次激活`, damage }] : [];
@@ -802,7 +810,9 @@ button('forecast-detail').onclick = () => {
   if (tutorialDamage) sources.push({ label: '首波教学共鸣', detail: '仅首波生效', damage: tutorialDamage });
   sources.sort((left, right) => right.damage - left.damage);
   const impact = enemyDelta ? `\n敌人的招式让伤害${enemyDelta > 0 ? '多' : '少'}了 ${formatNumber(Math.abs(enemyDelta))} 点，已计入总数。` : '';
-  element('forecast-summary').textContent = `预计 ${formatNumber(result.damage)} 伤害 / ${formatNumber(hp)} 生命 · ${result.combo} 连击\n${result.win ? '这套阵容能打过。' : `还差 ${formatNumber(result.hp)} 点。`}${impact}`;
+  const gateHits = events.filter(event => event.type === 'DAMAGE' && event.gateBlocked).length;
+  const lockNote = gateHits ? `\n同列轮锁削弱了 ${gateHits} 次直伤。试着让主力从不同列交替出手。` : '';
+  element('forecast-summary').textContent = `预计 ${formatNumber(result.damage)} 伤害 / ${formatNumber(hp)} 生命 · ${result.combo} 连击\n${result.win ? '这套阵容能打过。' : `还差 ${formatNumber(result.hp)} 点。`}${impact}${lockNote}`;
   const payout = victoryPayout(run, result.gold, catalog);
   const deltaGold = result.gold - run.gold;
   const combatGold = deltaGold < 0 ? `战斗花 ${formatNumber(-deltaGold)} 金` : `战斗赚 ${formatNumber(deltaGold)} 金`;
@@ -914,6 +924,7 @@ function resetTimeline() {
   states.clear();
   renderer.clearEffects();
   bossArmorHits = 0;
+  bossGateColumn = undefined;
   updateBossArmorUi(0);
   displayed = { hp: currentTarget().hp, poison: 0, gold: run.gold, combo: 0 };
   const ghost = document.getElementById('hp-ghost');
@@ -937,11 +948,12 @@ function recordRunHistory(runToRecord: Run) {
     ...(runToRecord.bountiesCleared ? { bountiesCleared: runToRecord.bountiesCleared } : {}),
     ...(runToRecord.endlessRule === 1 ? { endlessRule: 1 } : {}),
     ...(runToRecord.reforgeRule === 1 ? { reforgeRule: 1 } : {}),
+    ...(runToRecord.finaleRule === 1 ? { finaleRule: 1 } : {}),
     ...(runToRecord.endless ? { endless: true } : {}),
   };
   const existingIdx = history.findIndex(item => item.seed === entry.seed && item.opening === entry.opening &&
     item.altarRule === entry.altarRule && item.bountyRule === entry.bountyRule &&
-    item.endlessRule === entry.endlessRule && item.reforgeRule === entry.reforgeRule);
+    item.endlessRule === entry.endlessRule && item.reforgeRule === entry.reforgeRule && item.finaleRule === entry.finaleRule);
   if (existingIdx >= 0) {
     history[existingIdx] = entry;
   } else {
@@ -964,6 +976,7 @@ function makeOpening(id: OpeningId, seed: string) {
   if (challenge && !challenge.bountyRule) delete next.bountyRule;
   if (challenge && !challenge.endlessRule) delete next.endlessRule;
   if (challenge && !challenge.reforgeRule) delete next.reforgeRule;
+  if (challenge && !challenge.finaleRule) delete next.finaleRule;
   return next;
 }
 
@@ -978,6 +991,7 @@ function startOpening(id: OpeningId, customSeed?: string, quick = false, archive
   if (!challenge && archived && !archived.bountyRule) delete run.bountyRule;
   if (!challenge && archived && !archived.endlessRule) delete run.endlessRule;
   if (!challenge && archived && !archived.reforgeRule) delete run.reforgeRule;
+  if (!challenge && archived && !archived.finaleRule) delete run.finaleRule;
   trackedUpgrade = undefined;
   firstClearPayout = undefined;
   lastBattleAt = -Infinity;
@@ -1122,18 +1136,21 @@ function showOutcome(archive = true) {
         const totalDmg = run.lastDamage > 0 ? run.lastDamage : maxDmg;
         const pct = Math.min(100, Math.round((maxDmg / totalDmg) * 100));
         mvpHtml = `
-          <div class="mvp-label">功勋阵眼 · 本局 MVP 符文</div>
+          <div class="mvp-label">末战输出最高</div>
           <div class="mvp-card-body">
             <span class="mvp-rune-name" style="color: ${c.color}">【${c.name}】${'★'.repeat(r.star)}</span>
-            <span class="mvp-rune-stat">倾泻输出 ${formatNumber(maxDmg)} · 战损占比 ${pct}% · 第 ${mvpIdx + 1} 格</span>
+            <span class="mvp-rune-stat">${formatNumber(maxDmg)} 伤害 · 占 ${pct}% · 第 ${mvpIdx + 1} 格</span>
           </div>
         `;
       }
     }
+    const finale = won && run.wave === 20 && run.finaleRule === 1;
+    const finalSetup = finale && run.lastJournal && readSharedBoard(run.lastJournal.formation, catalog);
+    const finalBoardUrl = finalSetup ? boardShareUrl(location.href, finalSetup) : undefined;
     const actions: Action[] = [
       ...(run.lastJournal ? [{ label: '查看末战复盘', act: reviewLast }] : []),
       { label: '导出战绩 PNG', act: async () => { if (!await platform.exportScore(run)) notice('战绩导出失败，请再试一次。'); } },
-      ...(run.enableSynergies !== false ? [{ label: '分享战绩', act: () => shareRoom(run, !!challenge) }] : []),
+      ...(run.enableSynergies !== false ? [{ label: '分享战绩', act: () => shareRoom(run, !!challenge, finalBoardUrl) }] : []),
       challenge ? { label: '再打一次', act: () => startOpening(challenge.opening), primary: !won }
         : { label: '新开一局', act: () => openOpenings(), primary: !won },
     ];
@@ -1145,8 +1162,8 @@ function showOutcome(archive = true) {
       run.rngState = prng.getState();
       resetTimeline(); redraw(); showOutcome();
     } });
-    showPanel(won ? '廿重劫尽 · 大获全胜' : '灵气耗竭 · 护盾归零',
-      `破阵至第 ${run.wave} 波，最高 ${run.bestCombo} 连击。\n最后一轮倾泻 ${formatNumber(run.lastDamage)} 点伤害。${run.bountyRule ? `\n完成悬赏 ${run.bountiesCleared ?? 0} / ${bountyCount}` : ''}\n本局天机玄码：${run.seed}`, actions, false, mvpHtml, won);
+    showPanel(finale ? '闭门王已击破' : won ? '廿重劫尽 · 大获全胜' : '灵气耗竭 · 护盾归零',
+      `${finale ? '守完 20 波' : `破阵至第 ${run.wave} 波`}，最高 ${run.bestCombo} 连击。\n末战打出 ${formatNumber(run.lastDamage)} 点伤害。${run.bountyRule ? `\n完成悬赏 ${run.bountiesCleared ?? 0} / ${bountyCount}` : ''}\n种子码 ${run.seed}`, actions, false, mvpHtml, won);
   }
 }
 
@@ -1158,8 +1175,10 @@ function consume(beat: PlaybackBeat, total: number) {
   let hit: Extract<BattleEvent, { type: 'DAMAGE' }> | undefined;
   let gold: Extract<BattleEvent, { type: 'GOLD' }> | undefined;
   let refreshInspect = false;
-  const armor = armorHitsFor(currentTarget().encounter);
+  const { encounter } = currentTarget();
+  const armor = armorHitsFor(encounter);
   const oldArmorHits = bossArmorHits;
+  const oldGateColumn = bossGateColumn;
   for (const event of beat.events) {
     switch (event.type) {
       case 'CELL_ACTIVATE':
@@ -1175,7 +1194,10 @@ function consume(beat: PlaybackBeat, total: number) {
       case 'DAMAGE':
         displayed.hp = event.hp;
         if (!hit || hit.amount < event.amount) hit = event;
-        if (isArmorHit(event) && bossArmorHits < armor) bossArmorHits++;
+        if (isArmorHit(event)) {
+          if (bossArmorHits < armor) bossArmorHits++;
+          if (encounter === 'regent_seal' && bossArmorHits === armor && event.source !== null) bossGateColumn = toCoords(event.source).col;
+        }
         break;
       case 'POISON': displayed.poison = event.poison; break;
       case 'GOLD': gold = event; displayed.gold = event.gold; break;
@@ -1199,10 +1221,9 @@ function consume(beat: PlaybackBeat, total: number) {
     renderer.play(impact);
     if (impact.crit && !beat.featured) audio.crit();
   }
-  if (bossArmorHits !== oldArmorHits) {
-    updateBossArmorUi(bossArmorHits, true);
-    renderer.spawnBronzeShatter({ x: 190, y: 55 });
-  }
+  const brokeArmor = bossArmorHits !== oldArmorHits;
+  if (brokeArmor || bossGateColumn !== oldGateColumn) updateBossArmorUi(bossArmorHits, brokeArmor, bossGateColumn);
+  if (brokeArmor) renderer.spawnBronzeShatter({ x: 190, y: 55 });
   const moment = element('battle-moment');
   moment.dataset.featured = String(!!beat.featured);
   if (beat.featured) {
@@ -1213,6 +1234,8 @@ function consume(beat: PlaybackBeat, total: number) {
     emblem.classList.add('boss-hit');
     renderer.pulseBorder();
     audio.hitStopChord();
+  } else if (hit?.gateBlocked) {
+    moment.textContent = '同列轮锁 · 伤害减弱';
   } else if (activation) {
     moment.textContent = activation.isChain ? '连锁触发' : '扫描法阵';
   }

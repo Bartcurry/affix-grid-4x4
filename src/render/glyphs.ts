@@ -153,7 +153,7 @@ export function getRuneSvgPath(id: string, archetype?: string): string {
 }
 
 export function getBossSvgPath(bossId: string): string {
-  return BOSS_GLYPHS[bossId] ?? BOSS_GLYPHS.sentry;
+  return BOSS_GLYPHS[bossId === 'regent_seal' ? 'regent' : bossId] ?? BOSS_GLYPHS.sentry;
 }
 
 export function getRelicSvgPath(relicId: string): string {

@@ -37,7 +37,7 @@ export function bindBattleJournal(catalog: Catalog, format: (value: number) => s
         const source = event.kind === 'tutorial' ? '起手共鸣' : event.source === null ? '回合末剧毒' :
           `${runeName(event.source)}${event.kind === 'poison' ? '的羁绊毒爆' : ''}`;
         const modifier = event.enemyDelta ? `（敌人招式 ${signed(event.enemyDelta)}）` : '';
-        return `${source}打出 ${format(event.amount)} 点${event.crit ? '暴击' : '伤害'}${modifier}`;
+        return `${source}打出 ${format(event.amount)} 点${event.crit ? '暴击' : '伤害'}${event.gateBlocked ? ' · 同列轮锁' : ''}${modifier}`;
       }
       case 'POISON': return `${event.source === null ? '毒层衰减' : runeName(event.source)} · ${format(previousPoison)} → ${format(event.poison)} 层毒`;
       case 'GOLD': return `${runeName(event.source)} · ${signed(event.delta)} 金`;
@@ -75,7 +75,7 @@ export function bindBattleJournal(catalog: Catalog, format: (value: number) => s
         link.hidden = source === target;
         break;
       }
-      case 'DAMAGE': source = event.source; kind.textContent = event.crit ? '暴击' : '命中'; break;
+      case 'DAMAGE': source = event.source; kind.textContent = event.gateBlocked ? '同列轮锁' : event.crit ? '暴击' : '命中'; break;
       case 'POISON': source = event.source; kind.textContent = '毒层变化'; break;
       case 'GOLD': source = event.source; kind.textContent = '金币变化'; break;
       case 'RUNE_STATE': source = event.index; kind.textContent = '符文状态'; break;
@@ -185,7 +185,7 @@ export function bindBattleJournal(catalog: Catalog, format: (value: number) => s
       return cell;
     });
     get('journal-board').replaceChildren(...cells);
-    const { encounter, bounty } = battleTarget(snapshot.wave, snapshot.bountyRoute);
+    const { encounter, bounty } = battleTarget(snapshot.wave, snapshot.bountyRoute, snapshot.finaleRule);
     get('journal-title').textContent = `第 ${snapshot.wave} 波 · ${bounty?.name ?? encounters[encounter].name}`;
     get('journal-summary').textContent = `${format(result.damage)} 伤害 · ${result.combo} 次触发 · ${result.win ? '打过了' : `还差 ${format(result.hp)} 点`}`;
     const tryOriginal = get('journal-try');

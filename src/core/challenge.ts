@@ -8,7 +8,8 @@ const altarVersion = 'v8';
 const bountyVersion = 'v9';
 const campVersion = 'v10';
 const reforgeVersion = 'v11';
-const revisions = [legacyVersion, altarVersion, bountyVersion, campVersion, reforgeVersion];
+const finaleVersion = 'v12';
+const revisions = [legacyVersion, altarVersion, bountyVersion, campVersion, reforgeVersion, finaleVersion];
 
 export interface Challenge extends OpeningRecord {
   opening: OpeningId;
@@ -17,15 +18,17 @@ export interface Challenge extends OpeningRecord {
   bountyRule?: 1;
   endlessRule?: 1;
   reforgeRule?: 1;
+  finaleRule?: 1;
 }
 
-const version = (challenge: Challenge) => challenge.reforgeRule === 1 ? reforgeVersion : challenge.endlessRule === 1 ? campVersion
+const version = (challenge: Challenge) => challenge.finaleRule === 1 ? finaleVersion : challenge.reforgeRule === 1 ? reforgeVersion : challenge.endlessRule === 1 ? campVersion
   : challenge.bountyRule === 1 ? bountyVersion : challenge.altarRule === 1 ? altarVersion : legacyVersion;
 
 export function challengeFromRun(run: Run): Challenge {
   return { opening: run.opening, seed: encodeSeed(decodeSeed(run.seed)), ...runScore(run),
     ...(run.altarRule === 1 ? { altarRule: 1 } : {}), ...(run.bountyRule === 1 ? { bountyRule: 1 } : {}),
-    ...(run.endlessRule === 1 ? { endlessRule: 1 } : {}), ...(run.reforgeRule === 1 ? { reforgeRule: 1 } : {}) };
+    ...(run.endlessRule === 1 ? { endlessRule: 1 } : {}), ...(run.reforgeRule === 1 ? { reforgeRule: 1 } : {}),
+    ...(run.finaleRule === 1 ? { finaleRule: 1 } : {}) };
 }
 
 export function readChallenge(raw: string | null): Challenge | undefined {
@@ -40,7 +43,7 @@ export function readChallenge(raw: string | null): Challenge | undefined {
   if (!Number.isSafeInteger(score.cleared) || !Number.isSafeInteger(score.combo)) return;
   return { opening, seed, ...score, ...(rules >= 1 ? { altarRule: 1 } : {}),
     ...(rules >= 2 ? { bountyRule: 1 } : {}), ...(rules >= 3 ? { endlessRule: 1 } : {}),
-    ...(rules >= 4 ? { reforgeRule: 1 } : {}) };
+    ...(rules >= 4 ? { reforgeRule: 1 } : {}), ...(rules >= 5 ? { finaleRule: 1 } : {}) };
 }
 
 export function challengeUrl(page: string, challenge: Challenge): string {
@@ -58,7 +61,7 @@ export function challengeSaveKey(challenge: Challenge) {
 export function matchesChallenge(run: Run, challenge: Challenge) {
   return run.enableSynergies !== false && run.opening === challenge.opening && run.altarRule === challenge.altarRule &&
     run.bountyRule === challenge.bountyRule && run.endlessRule === challenge.endlessRule &&
-    run.reforgeRule === challenge.reforgeRule &&
+    run.reforgeRule === challenge.reforgeRule && run.finaleRule === challenge.finaleRule &&
     encodeSeed(decodeSeed(run.seed)) === challenge.seed;
 }
 

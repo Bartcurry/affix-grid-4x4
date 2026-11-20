@@ -115,6 +115,7 @@ export function newRun(catalog: Catalog, rng: Random, opening: OpeningId = 'chai
     bountyRule: 1,
     endlessRule: 1,
     reforgeRule: 1,
+    finaleRule: 1,
   };
   for (const [index, configId] of setup.pieces) run.board[index] = { configId, star: 1 };
   rollShop(run, catalog, effectiveRng);

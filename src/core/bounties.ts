@@ -42,12 +42,12 @@ export function bountyAt(wave: number, route: unknown) {
   return route === 'standard' || route === 'alternate' ? rounds.get(wave)?.[route] : undefined;
 }
 
-export function battleTarget(wave: number, route?: BountyRoute) {
+export function battleTarget(wave: number, route?: BountyRoute, finaleRule?: 1) {
   const bounty = bountyAt(wave, route);
   const hp = bossHealth(wave);
   return {
     bounty,
-    encounter: bounty?.enemy ?? encounterAt(wave),
+    encounter: bounty?.enemy ?? (wave === 20 && finaleRule === 1 ? 'regent_seal' : encounterAt(wave)),
     hp: bounty ? Math.round(hp * bounty.healthPercent / 100) : hp,
   };
 }
