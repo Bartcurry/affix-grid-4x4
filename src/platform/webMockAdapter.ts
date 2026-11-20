@@ -148,6 +148,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       skin: !!parsed.skin,
       speed: parsed.speed === 2 ? 2 : 1,
       exactForecast: !!parsed.exactForecast,
+      ...(typeof parsed.trackedUpgrade === 'string' && Object.hasOwn(catalog, parsed.trackedUpgrade) ? { trackedUpgrade: parsed.trackedUpgrade } : {}),
       records: defaultRecords,
       history: defaultHistory,
       ambientMuted: !!parsed.ambientMuted,

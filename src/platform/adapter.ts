@@ -20,6 +20,7 @@ export interface SaveData {
   skin: boolean;
   speed: 1 | 2;
   exactForecast?: boolean;
+  trackedUpgrade?: string;
   records: RunRecords;
   history?: RunArchive[];
   ambientMuted?: boolean;

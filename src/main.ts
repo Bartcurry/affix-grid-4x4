@@ -11,6 +11,7 @@ import { CanvasRenderer, formatNumber, runeVectors } from './render/canvasRender
 import { getArchetypeEmblemPath, getBossSvgPath, getRelicSvgPath } from './render/glyphs';
 import { countSynergies } from './core/synergy';
 import { bindDragDrop } from './render/dragDrop';
+import { bindUpgradeBook } from './render/upgradeBook';
 import { PlaybackController } from './render/playbackController';
 import { SynthAudio } from './audio/synthAudio';
 import { WebMockAdapter } from './platform/webMockAdapter';
@@ -45,6 +46,7 @@ let forecast: ReturnType<typeof planTurn> | null = null;
 let placement: ReturnType<typeof planTurn> | null = null;
 let skin = saved?.skin ?? false;
 let exactForecast = saved?.exactForecast ?? false;
+let trackedUpgrade = saved?.trackedUpgrade;
 audio.muted = saved?.muted ?? false;
 audio.ambientMuted = saved?.ambientMuted ?? false;
 player.speed = saved?.speed ?? 1;
@@ -83,6 +85,7 @@ const persist = () => {
     muted: audio.muted,
     speed: player.speed,
     exactForecast,
+    trackedUpgrade,
     records,
     history,
     ambientMuted: audio.ambientMuted,
@@ -106,6 +109,11 @@ function iconPath(owner: HTMLElement, pathData: string) {
 }
 
 const emptyIcon = 'M16 3l13 13-13 13L3 16 16 3Zm0 6v14m-7-7h14';
+const updateUpgrades = bindUpgradeBook(catalog, (owner, id) => iconPath(owner, runeVectors[id] ?? emptyIcon), formatNumber,
+  id => { trackedUpgrade = id; click(); redraw(); },
+  slot => { click(); select(slot); element('arena').focus(); },
+  index => { click(); offers[index].preview.focus(); },
+  (index, id) => run.shop[index]?.configId === id && buyOffer(index));
 
 function notice(text: string) {
   const target = element('notice');
@@ -402,6 +410,7 @@ function doUndo() {
 
 button('undo').onclick = doUndo;
 window.addEventListener('keydown', event => {
+  if (document.querySelector('dialog[open]')) return;
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !event.shiftKey) {
     if (arranging() && undoStack.length > 0) {
       event.preventDefault();
@@ -436,32 +445,34 @@ const offers = Array.from({ length: 3 }, (_, index) => {
   lock.addEventListener('click', () => {
     if (toggleLock(run, index)) { click(); redraw(); }
   });
-  buy.addEventListener('click', () => {
-    if (!arranging()) return;
-    click(); look();
-    spawnGoldParticles(buy);
-    audio.jadeChime();
-    const benchIndex = run.bench.indexOf(null);
-    undoStack.push(run);
-    const merges = buyRune(run, index, catalog);
-    if (!merges) {
-      undoStack.pop(run);
-      return;
-    }
-    for (const merge of merges) renderer.flash(merge.slot, catalog[merge.rune.configId].color, true);
-    if (merges.length) { audio.merge(); select(merges.at(-1)!.slot); }
-    else {
-      if (benchIndex >= 0) {
-        select({ zone: 'bench', index: benchIndex });
-        const placedRune = run.bench[benchIndex];
-        if (placedRune) renderer.flash({ zone: 'bench', index: benchIndex }, catalog[placedRune.configId]?.color ?? '#d4af37', false);
-      }
-      notice('买到了。在备战区，拖上棋盘才会触发。');
-    }
-    redraw();
-  });
+  buy.addEventListener('click', () => { buyOffer(index); });
   return { card, preview, icon, name, meta, lock, buy };
 });
+
+function buyOffer(index: number) {
+  if (!arranging() || purchaseInfo(run, index, catalog).blocked) return false;
+  const benchIndex = run.bench.indexOf(null);
+  undoStack.push(run);
+  const merges = buyRune(run, index, catalog);
+  if (!merges) {
+    undoStack.pop(run);
+    return false;
+  }
+  click();
+  spawnGoldParticles(offers[index].buy);
+  audio.jadeChime();
+  for (const merge of merges) renderer.flash(merge.slot, catalog[merge.rune.configId].color, true);
+  if (merges.length) { audio.merge(); select(merges.at(-1)!.slot); }
+  else if (benchIndex >= 0) {
+    const slot = { zone: 'bench' as const, index: benchIndex };
+    select(slot);
+    const placed = run.bench[benchIndex];
+    if (placed) renderer.flash(slot, catalog[placed.configId].color, false);
+    notice('买到了。在备战区，拖上棋盘才会触发。');
+  }
+  redraw();
+  return true;
+}
 
 function redraw(save = true) {
   if (arranging()) forecast = planTurn(run, catalog);
@@ -513,6 +524,7 @@ function redraw(save = true) {
     item.onclick = openRelicBag;
     return item;
   }));
+  const tracked = updateUpgrades(run, trackedUpgrade, arranging(), forecast?.result.damage ?? 0);
   offers.forEach(({ card, preview, icon, name, meta, lock, buy }, index) => {
     const offer = run.shop[index];
     const config = offer && catalog[offer.configId];
@@ -520,6 +532,7 @@ function redraw(save = true) {
     const { copies, blocked, willMerge } = purchaseInfo(run, index, catalog);
     card.dataset.rarity = config?.rarity ?? '';
     card.dataset.merge = String(willMerge);
+    card.toggleAttribute('data-tracked', !!tracked && config?.id === tracked);
     iconPath(icon, config ? runeVectors[config.id] : emptyIcon);
     name.textContent = config?.name ?? '已售罄';
     meta.textContent = config ? willMerge ? '买下就升星' : copies ? `${rarityLabel[config.rarity]} · 已有 ${copies} 枚` : `${rarityLabel[config.rarity]} · ${archetypeLabel[config.archetype]}` : '换一批再来';
@@ -753,6 +766,7 @@ function startOpening(id: OpeningId, customSeed?: string) {
   const seed = customSeed || element<HTMLInputElement>('opening-seed')?.value.trim() || undefined;
   const initialPrng = createMulberry32(seed ? decodeSeed(seed) : 1);
   run = newRun(catalog, initialPrng, id, seed);
+  trackedUpgrade = undefined;
   undoStack.clear();
   renderer.setRun(run);
   renderer.cursor = null;
