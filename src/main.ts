@@ -673,7 +673,7 @@ function buyOffer(index: number, target?: Slot) {
   if (merges.length) audio.merge();
   const selected = target ?? merges.at(-1)?.slot ?? slot;
   select(selected);
-  if (!merges.length) renderer.flash(selected, catalog[prepared.rune.configId].color, false);
+  if (!merges.length) renderer.land(selected);
   if (target) notice(`已买入并放到棋盘第 ${target.index + 1} 格，可以一起撤销。`);
   else if (!merges.length) notice('买到了。在备战区，拖上棋盘才会触发。');
   redraw();
@@ -808,11 +808,11 @@ bindDragDrop(renderer, {
   enabled: arranging, hasRune: slot => !!runeAt(run, slot), select,
   move(from, to) {
     undoStack.push(run);
-    const movedRune = runeAt(run, from);
     if (swapRunes(run, from, to)) {
       click();
       select(to);
-      if (movedRune) renderer.flash(to, catalog[movedRune.configId]?.color ?? '#d4af37', false);
+      renderer.land(to);
+      if (runeAt(run, from)) renderer.land(from);
       redraw();
     }
     else { undoStack.pop(run); }

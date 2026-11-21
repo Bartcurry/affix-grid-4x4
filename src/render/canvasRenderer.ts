@@ -12,14 +12,21 @@ type Target = Slot | 'sell' | null;
 
 const WIDTH = 380;
 const HEIGHT = 432;
+const LANDING_MS = 235;
+const BOARD_GLYPH_Y = 33;
 const SELL: Rect = { x: 11, y: 407, width: 358, height: 21 };
 const BOARD: Rect = { x: 4, y: 4, width: 372, height: 344 };
 
 const cellRect = ({ zone, index }: Slot): Rect => zone === 'board'
   ? { x: 11 + (index % 4) * 90, y: 10 + Math.floor(index / 4) * 83, width: 86, height: 79 }
   : { x: 11 + index * 90, y: 366, width: 86, height: 36 };
+const slotKey = ({ zone, index }: Slot) => index + (zone === 'bench' ? 16 : 0);
 
 const center = ({ x, y, width, height }: Rect): Point => ({ x: x + width / 2, y: y + height / 2 });
+const boardGlyph = (index: number): Point => {
+  const bounds = cellRect({ zone: 'board', index });
+  return { x: bounds.x + bounds.width / 2, y: bounds.y + BOARD_GLYPH_Y };
+};
 const sameSlot = (left: Slot | null, right: Slot) => left?.zone === right.zone && left.index === right.index;
 const contains = (rect: Rect, point: Point) =>
   point.x >= rect.x && point.x <= rect.x + rect.width && point.y >= rect.y && point.y <= rect.y + rect.height;
@@ -30,10 +37,10 @@ const slotList: Slot[] = [
 ];
 
 const pigment = {
-  chain: { stone: '#23394b', edge: '#4b667a', ink: '#a0deff' },
-  poison: { stone: '#213e35', edge: '#437361', ink: '#a0ebc4' },
-  gold: { stone: '#443523', edge: '#876748', ink: '#ffce83' },
-  amplify: { stone: '#432d3b', edge: '#835769', ink: '#ffc3d6' },
+  chain: { stone: '#335468', edge: '#63899b', ink: '#ade5fd' },
+  poison: { stone: '#2d5346', edge: '#628f73', ink: '#b5eac6' },
+  gold: { stone: '#5e462b', edge: '#a38359', ink: '#ffda9c' },
+  amplify: { stone: '#583c50', edge: '#9c6e87', ink: '#ffd0e0' },
 } as const;
 export const tileStamp = {
   li_fire: { name: '离火位', color: '#f6a579' },
@@ -91,6 +98,7 @@ export class CanvasRenderer {
   private readonly reducedMotion = typeof matchMedia !== 'undefined' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
   private readonly states = new Map<number, RuneState>();
   private readonly popScales = new Map<number, { at: number; amp: number }>();
+  private readonly landings = new Map<number, number>();
   private animations: Animation[] = [];
   private particles: JuiceParticle[] = [];
   private lastFrameTime = performance.now();
@@ -126,6 +134,7 @@ export class CanvasRenderer {
   get currentRun(): Run { return this.run; }
 
   setRun(run: Run) {
+    this.landings.clear();
     this.run = run;
     this.invalidate();
   }
@@ -172,6 +181,7 @@ export class CanvasRenderer {
     this.particles = [];
     this.states.clear();
     this.popScales.clear();
+    this.landings.clear();
     this.shakeAt = -1000;
     this.pulseAt = -1000;
     this.comboCount = 0;
@@ -182,12 +192,12 @@ export class CanvasRenderer {
   flash(slot: Slot, tone: string, merge = false) {
     const at = performance.now();
     this.animations.push({ kind: 'flash', at, life: merge ? 750 : 360, slot, tone, merge });
-    this.popScales.set(slot.index + (slot.zone === 'bench' ? 100 : 0), { at, amp: merge ? 0.35 : 0.18 });
+    if (!this.reducedMotion.matches) this.popScales.set(slotKey(slot), { at, amp: merge ? 0.24 : 0.10 });
 
     if (merge) {
       const anchor = center(cellRect(slot));
       this.spawnCritSparks(anchor);
-      this.animations.push({ kind: 'merge_burst', at, life: 820, anchor, tone: '#fde047' });
+      if (!this.reducedMotion.matches) this.animations.push({ kind: 'merge_burst', at, life: 820, anchor, tone: '#fde047' });
       this.animations.push({
         kind: 'float',
         at,
@@ -203,6 +213,12 @@ export class CanvasRenderer {
     this.invalidate();
   }
 
+  land(slot: Slot) {
+    if (this.reducedMotion.matches) return;
+    this.landings.set(slotKey(slot), performance.now());
+    this.invalidate();
+  }
+
   pulseBorder() {
     this.pulseAt = performance.now();
     this.invalidate();
@@ -213,6 +229,11 @@ export class CanvasRenderer {
     const boardSlot = (index: number): Slot => ({ zone: 'board', index });
     const anchor = (index: number | null) =>
       index === null ? { x: WIDTH / 2, y: 55 } : center(cellRect(boardSlot(index)));
+    const caption = (index: number | null, offset: number) => {
+      if (index === null) return anchor(null);
+      const bounds = cellRect(boardSlot(index));
+      return { x: bounds.x + bounds.width / 2, y: bounds.y + offset };
+    };
     const color = (index: number) =>
       this.catalog[this.run.board[index]?.configId ?? '']?.color ?? '#38bdf8';
 
@@ -225,11 +246,11 @@ export class CanvasRenderer {
         break;
 
       case 'CHAIN_LINK': {
-        const to = anchor(event.to);
-        const from = anchor(event.from);
-        const sparks: Spark[] = Array.from({ length: 14 }, (_, i) => {
-          const angle = (i / 14) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
-          const velocity = 16 + (i % 4) * 9;
+        const to = boardGlyph(event.to);
+        const from = boardGlyph(event.from);
+        const sparks: Spark[] = Array.from({ length: this.reducedMotion.matches ? 0 : 8 }, (_, i) => {
+          const angle = (i / 8) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+          const velocity = 12 + (i % 4) * 5;
           return { ...to, vx: Math.cos(angle) * velocity, vy: Math.sin(angle) * velocity };
         });
         this.animations.push({
@@ -239,7 +260,7 @@ export class CanvasRenderer {
           from,
           to,
           sparks,
-          tone: event.tutorial ? '#fbbf24' : '#38bdf8',
+          tone: event.tutorial ? '#ffc878' : '#83dcff',
         });
         break;
       }
@@ -258,7 +279,7 @@ export class CanvasRenderer {
         const isCrit = event.crit;
         const isLarge = isCrit || isPoison || dmgRatio >= 0.08;
         const isHuge = isCrit || dmgRatio >= 0.18;
-        const tone = isCrit ? '#fde047' : isPoison ? '#34d399' : '#f1ece1';
+        const tone = isCrit ? '#fde047' : isPoison ? '#8ae0a2' : event.kind === 'tutorial' ? '#ffdc9b' : '#f1ece1';
         const prefix = isCrit ? '暴击！−' : isPoison ? '剧毒爆！−' : event.kind === 'tutorial' ? '共鸣 ' : '−';
         const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.8;
         const speed = 24 + Math.random() * 12;
@@ -266,13 +287,13 @@ export class CanvasRenderer {
           kind: 'float',
           at,
           life: isHuge ? 860 : isLarge ? 760 : 640,
-          anchor: anchor(event.source),
+          anchor: caption(event.source, 67),
           text: `${prefix}${formatNumber(event.amount)}`,
           tone,
           large: isLarge,
           prefix: isCrit ? 'crit' : isPoison ? 'poison' : undefined,
-          vx: Math.cos(angle) * speed * 0.5,
-          vy: Math.abs(Math.sin(angle) * speed),
+          vx: Math.cos(angle) * speed * .3,
+          vy: Math.abs(Math.sin(angle) * speed) * .66,
         });
         break;
       }
@@ -283,12 +304,12 @@ export class CanvasRenderer {
           kind: 'float',
           at,
           life: 680,
-          anchor: anchor(event.source),
+          anchor: caption(event.source, 13),
           text: `${event.delta >= 0 ? '+' : '−'}${formatNumber(Math.abs(event.delta))} 金`,
           tone: '#f59e0b',
           large: false,
           vx: Math.cos(angle) * 12,
-          vy: 20,
+          vy: 9,
         });
         break;
       }
@@ -319,6 +340,8 @@ export class CanvasRenderer {
     this.size = this.fit(rect);
     const { scale } = this.size;
     if (scale <= 0) return;
+    const reduced = this.reducedMotion.matches;
+    const sceneTime = reduced ? 0 : now;
 
     const parent = canvas.parentElement;
     if (parent) {
@@ -329,7 +352,7 @@ export class CanvasRenderer {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, pxWidth, pxHeight);
 
-    const shake = this.reducedMotion.matches
+    const shake = reduced
       ? 0
       : 8 * Math.max(0, 1 - (now - this.shakeAt) / 250);
     const shakeX = Math.sin(now / 13) * shake;
@@ -345,7 +368,7 @@ export class CanvasRenderer {
     );
 
     // 1. 底座与缓慢旋转星轨八角阵纹
-    this.drawFrame(now);
+    this.drawFrame(now, sceneTime);
 
     // 2. 备战区托盘标题与计数
     this.text('备战区', 14, 356, 11, '#94a3b8', 'left', true);
@@ -383,21 +406,34 @@ export class CanvasRenderer {
       const tileMod =
         slot.zone === 'board' ? this.run.tileModifiers?.[slot.index] : undefined;
 
-      // 弹簧缩放动效计算
-      const popKey = slot.index + (slot.zone === 'bench' ? 100 : 0);
-      const pop = this.popScales.get(popKey);
-      let scalePop = 1.0;
+      const key = slotKey(slot);
+      const pop = this.popScales.get(key);
+      let scalePop = 1;
       if (pop) {
         const dt = (now - pop.at) / 1000;
-        if (dt < 0.35) {
+        if (!reduced && dt < 0.35) {
           scalePop = 1 + pop.amp * Math.sin(dt * 20) * Math.exp(-dt * 8);
         } else {
-          this.popScales.delete(popKey);
+          this.popScales.delete(key);
         }
       }
 
-      // 底槽绘制（内凹石槽质感）
-      this.drawSlotBase(bounds, slot, tileMod, now);
+      this.drawSlotBase(bounds, slot, tileMod, sceneTime);
+
+      let lift = 0;
+      const landedAt = this.landings.get(key);
+      if (landedAt !== undefined) {
+        const progress = (now - landedAt) / LANDING_MS;
+        if (reduced || !rune || progress >= 1) {
+          this.landings.delete(key);
+        } else {
+          const travel = Math.max(0, progress) / (slot.zone === 'bench' ? 0.38 : 0.42);
+          lift = (slot.zone === 'bench' ? 4 : 8) * Math.max(0, 1 - travel * travel);
+          scalePop *= 1 - 0.045 * Math.max(0, 1 - Math.abs(progress - 0.48) / 0.12);
+          const contact = Math.max(0, 1 - Math.abs(progress - 0.44) / 0.44);
+          this.drawCornerBrackets(bounds, 9, `rgba(255, 222, 157, ${contact * 0.85})`, 1.7);
+        }
+      }
 
       // 阵牌绘制
       if (rune) {
@@ -405,7 +441,7 @@ export class CanvasRenderer {
         const alpha = isDraggingSource ? 0.28 : 1.0;
         const state =
           slot.zone === 'board' ? this.states.get(slot.index) : undefined;
-        this.drawEntityTile(bounds, rune, alpha, state, scalePop, selected, now);
+        this.drawEntityTile(bounds, rune, alpha, state, scalePop, selected, sceneTime, lift);
       }
       if (slot.zone === 'board') this.drawBoardMark(bounds, slot.index, tileMod, !!rune);
 
@@ -437,7 +473,7 @@ export class CanvasRenderer {
         } else if (hinted) {
           // 作用范围：流动蚂蚁线
           ctx.setLineDash([5, 4]);
-          ctx.lineDashOffset = -now * 0.025;
+          ctx.lineDashOffset = -sceneTime * 0.025;
           ctx.strokeStyle = '#f59e0b';
           ctx.lineWidth = 1.8;
           this.roundRect(bounds.x, bounds.y, bounds.width, bounds.height, 5);
@@ -466,10 +502,11 @@ export class CanvasRenderer {
     }
 
     // 5.1 原生高性能粒子池（金芒火星、翡翠毒雾、青铜碎屑、金币雨与彩带）
-    this.updateAndDrawParticles(now);
+    if (reduced) this.particles = [];
+    else this.updateAndDrawParticles(now);
 
     // 6. 战斗阶段动态 COMBO 计数器展示
-    this.drawComboDisplay(now);
+    this.drawComboDisplay(sceneTime);
 
     // 7. 拖拽实体玉牌（悬浮 1.08x 放大 + 投射深色阴影）
     if (this.drag) {
@@ -486,7 +523,7 @@ export class CanvasRenderer {
           width: 76,
           height: 72,
         };
-        this.drawEntityTile(dragRect, rune, 0.96, undefined, 1.08, true, now);
+        this.drawEntityTile(dragRect, rune, 0.96, undefined, 1.08, true, sceneTime);
         ctx.restore();
       }
     }
@@ -494,16 +531,15 @@ export class CanvasRenderer {
     const pulseActive = now - this.pulseAt < 320;
     const hasMarchingAnts = Boolean(this.selection && footprint?.effects.size);
     const hasActiveEffects =
-      this.animations.length > 0 ||
       this.particles.length > 0 ||
       shake > 0 ||
-      pulseActive ||
-      this.comboCount > 0 ||
+      this.comboCount >= 18 ||
       Boolean(this.drag) ||
       hasMarchingAnts ||
-      this.popScales.size > 0;
+      this.popScales.size > 0 ||
+      this.landings.size > 0;
 
-    if (!this.reducedMotion.matches && hasActiveEffects) {
+    if (this.animations.length || pulseActive || (!reduced && hasActiveEffects)) {
       this.invalidate();
     }
     this.lastFrameTime = now;
@@ -512,7 +548,7 @@ export class CanvasRenderer {
   /**
    * 绘制法阵底座：内凹漆石底板 + 缓慢旋转几何星轨罗盘与八角阵纹
    */
-  private drawFrame(now = 0) {
+  private drawFrame(now: number, sceneTime: number) {
     const ctx = this.ctx;
 
     // 4x4 外框漆石基座
@@ -535,7 +571,7 @@ export class CanvasRenderer {
     ctx.stroke();
 
     // 绘制极低透明度缓慢旋转的几何星轨罗盘与八角阵纹
-    this.drawCelestialCompass(now);
+    this.drawCelestialCompass(sceneTime);
 
     // 四角折角鎏金装饰角标
     const corners = [
@@ -574,7 +610,7 @@ export class CanvasRenderer {
 
     // 连击热度屏幕边缘热力光晕 (连击 >= 18 赤金色热力光晕)
     if (this.comboCount >= 18) {
-      const heatPulse = Math.sin(now * 0.008) * 0.5 + 0.5;
+      const heatPulse = Math.sin(sceneTime * 0.008) * 0.5 + 0.5;
       const heatAlpha = 0.09 + heatPulse * 0.08;
 
       ctx.save();
@@ -766,8 +802,8 @@ export class CanvasRenderer {
 
   private drawLinkPreview(from: number, to: number) {
     const ctx = this.ctx;
-    const source = center(cellRect({ zone: 'board', index: from }));
-    const target = center(cellRect({ zone: 'board', index: to }));
+    const source = boardGlyph(from);
+    const target = boardGlyph(to);
     const angle = Math.atan2(target.y - source.y, target.x - source.x);
     const distance = Math.hypot(target.x - source.x, target.y - source.y);
     ctx.save();
@@ -800,7 +836,8 @@ export class CanvasRenderer {
     state?: RuneState,
     scalePop = 1.0,
     selected = false,
-    now = 0
+    now = 0,
+    lift = 0
   ) {
     const ctx = this.ctx;
     const config = this.catalog[rune.configId];
@@ -812,65 +849,95 @@ export class CanvasRenderer {
     ctx.save();
     ctx.globalAlpha = alpha;
 
-    // 弹簧放大变换
+    const { x, y, width, height } = bounds;
+    const inset = compact ? 3 : 4;
+    const depth = compact ? 4 : 7;
+    const bevel = compact ? 3 : 4;
+    const cut = compact ? 5 : 8;
+    const slab = { x: x + inset, y: y + 3, width: width - inset * 2, height: height - depth - 6 };
+    const bottom = slab.y + slab.height;
+    const right = slab.x + slab.width;
+    ctx.fillStyle = lift ? '#02040780' : '#020407c0';
+    this.chamferedRect(slab.x - 1, slab.y + depth + 2, slab.width + 2, slab.height, cut);
+    ctx.fill();
+
+    ctx.translate(0, -lift);
     if (scalePop !== 1.0) {
-      const cx = bounds.x + bounds.width / 2;
-      const cy = bounds.y + bounds.height / 2;
+      const { x: cx, y: cy } = center(bounds);
       ctx.translate(cx, cy);
       ctx.scale(scalePop, scalePop);
       ctx.translate(-cx, -cy);
     }
 
-    const { x, y, width, height } = bounds;
-    const depth = compact ? 3 : 5;
-    const left = x + 2, top = y + 2, right = x + width - 2, bottom = y + height - depth - 1;
-    const faceWidth = right - left, faceHeight = bottom - top;
-    const edge = ctx.createLinearGradient(0, bottom - depth, 0, bottom + depth);
-    edge.addColorStop(0, p.edge);
-    edge.addColorStop(1, '#131318');
-    ctx.fillStyle = edge;
-    this.roundRect(left, top + depth, faceWidth, faceHeight, 6);
+    const side = ctx.createLinearGradient(0, bottom - depth, 0, bottom + depth);
+    side.addColorStop(0, p.edge);
+    side.addColorStop(.55, p.stone);
+    side.addColorStop(1, '#131219');
+    ctx.fillStyle = side;
+    this.chamferedRect(slab.x, slab.y + depth, slab.width, slab.height, cut);
     ctx.fill();
-
-    const tileGrad = ctx.createLinearGradient(left, top, right, bottom);
-    tileGrad.addColorStop(0, p.stone);
-    tileGrad.addColorStop(.53, '#20252b');
-    tileGrad.addColorStop(1, '#11161e');
-    ctx.fillStyle = tileGrad;
-    this.roundRect(left, top, faceWidth, faceHeight, 6);
-    ctx.fill();
-
-    // A lit bevel and a darker front edge give depth without moving the hit area.
-    ctx.fillStyle = `${p.ink}1e`;
-    ctx.beginPath();
-    ctx.moveTo(left + 6, top + 1);
-    ctx.lineTo(right - 6, top + 1);
-    ctx.lineTo(right - 10, top + depth);
-    ctx.lineTo(left + 10, top + depth);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = rarity === 'epic' ? '#d9af6d' : rarity === 'rare' ? '#84bca8' : p.edge;
-    ctx.lineWidth = rarity === 'epic' ? 1.5 : 1;
-    this.roundRect(left, top, faceWidth, faceHeight, 6);
+    ctx.strokeStyle = '#06070a';
+    ctx.lineWidth = 1.3;
     ctx.stroke();
-    if (rarity !== 'common') this.drawCornerBrackets(
-      { x: left + 3, y: top + 3, width: faceWidth - 6, height: faceHeight - 6 },
-      rarity === 'epic' ? 7 : 5,
-      rarity === 'epic' ? '#efd09a' : '#a2d6c2'
-    );
 
-    // 3. 绘制中心纯 Canvas 矢量图腾（三层高光）
-    const iconSize = compact ? 22 : 28;
-    const iconCy = bounds.y + (compact ? bounds.height / 2 - 2 : 33);
+    const rare = rarity === 'rare';
+    const epic = rarity === 'epic';
+    const trim = epic ? '#e0ba80' : rare ? '#a9c9b5' : p.edge;
+    const rim = ctx.createLinearGradient(slab.x, slab.y, right, bottom);
+    rim.addColorStop(0, trim);
+    rim.addColorStop(.44, p.stone);
+    rim.addColorStop(1, '#13161c');
+    ctx.fillStyle = rim;
+    this.chamferedRect(slab.x, slab.y, slab.width, slab.height, cut);
+    ctx.fill();
+
+    const face = ctx.createLinearGradient(slab.x, slab.y, right, bottom);
+    face.addColorStop(0, p.stone);
+    face.addColorStop(.56, '#25282f');
+    face.addColorStop(1, '#181a21');
+    ctx.fillStyle = face;
+    this.chamferedRect(slab.x + bevel, slab.y + bevel, slab.width - 2 * bevel, slab.height - 2 * bevel, cut - 2);
+    ctx.fill();
+    ctx.strokeStyle = `${p.ink}30`;
+    ctx.lineWidth = .8;
+    ctx.stroke();
+
+    // The narrow front seam and upper rim give the slab a consistent light direction.
+    ctx.strokeStyle = `${trim}${epic || rare ? 'b8' : '80'}`;
+    ctx.beginPath();
+    ctx.moveTo(slab.x + 1, slab.y + cut);
+    ctx.lineTo(slab.x + cut, slab.y + 1);
+    ctx.lineTo(right - cut, slab.y + 1);
+    ctx.lineTo(right - 1, slab.y + cut);
+    ctx.moveTo(slab.x + cut, bottom + depth * .65);
+    ctx.lineTo(right - cut, bottom + depth * .65);
+    ctx.stroke();
+
+    const iconSize = compact ? 20 : 28;
+    const iconCx = x + width / 2;
+    const iconCy = y + (compact ? height / 2 - 3 : BOARD_GLYPH_Y);
+    if (!compact) {
+      ctx.beginPath();
+      ctx.arc(iconCx, iconCy, 18, 0, Math.PI * 2);
+      ctx.fillStyle = '#080d1866';
+      ctx.fill();
+      ctx.strokeStyle = `${p.ink}${selected ? '8f' : '40'}`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(iconCx, iconCy + 1, 15.5, 0, Math.PI * 2);
+      ctx.strokeStyle = `${p.ink}24`;
+      ctx.stroke();
+    }
     drawRuneGlyph(
       ctx,
       rune.configId,
       archetype,
-      bounds.x + bounds.width / 2,
+      iconCx,
       iconCy,
       iconSize,
       p.ink,
-      selected ? .9 : .56
+      selected ? .65 : .24
     );
 
     // 4. 星级展示升级为底部居中镶嵌的发光星钻与皇冠
@@ -882,7 +949,7 @@ export class CanvasRenderer {
         name,
         bounds.x + bounds.width / 2,
         bounds.y + 55,
-        9.5,
+        9.8,
         '#f1ece1',
         'center'
       );
@@ -1139,12 +1206,12 @@ export class CanvasRenderer {
         : 'rgba(12, 21, 32, 0.94)';
 
     ctx.save();
-    const cx = BOARD.x + BOARD.width - 56;
-    const cy = 13;
+    const cx = WIDTH / 2;
+    const cy = 356;
     const text = `连击 × ${combo}`;
 
     // 赤金连击伴随轻微倾斜弹跳
-    if (isVermilion) {
+    if (isVermilion && !this.reducedMotion.matches) {
       const bounce = Math.sin(now * 0.02) * 1.5;
       const tilt = Math.sin(now * 0.025) * 0.06;
       ctx.translate(cx, cy + bounce);
@@ -1185,6 +1252,7 @@ export class CanvasRenderer {
   private drawAnimation(animation: Animation, now: number) {
     const ctx = this.ctx;
     const progress = Math.max(0, (now - animation.at) / animation.life);
+    const reduced = this.reducedMotion.matches;
     ctx.save();
 
     if (animation.kind === 'flash') {
@@ -1199,71 +1267,60 @@ export class CanvasRenderer {
       ctx.fill();
       ctx.stroke();
     } else if (animation.kind === 'scan') {
-      // 扫描光幕随激活格同步移动
       const rect = cellRect(animation.slot);
-      const alpha = Math.max(0, (1 - progress) * 0.25);
-      const scanGrad = ctx.createLinearGradient(rect.x, rect.y, rect.x + rect.width, rect.y);
-      scanGrad.addColorStop(0, 'rgba(253, 224, 71, 0)');
-      scanGrad.addColorStop(0.5, `rgba(253, 224, 71, ${alpha})`);
-      scanGrad.addColorStop(1, 'rgba(253, 224, 71, 0)');
-      ctx.fillStyle = scanGrad;
-      ctx.fillRect(BOARD.x + 4, rect.y, BOARD.width - 8, rect.height);
+      ctx.globalAlpha = .85 * (1 - progress);
+      this.drawCornerBrackets(rect, 12, '#ffe399', 2);
     } else if (animation.kind === 'link') {
-      // 贝塞尔曲线能量弧 + 头部高光脉冲点 + 落点扩散冲击环
       const { from, to, tone, sparks } = animation;
-      const alpha = Math.max(0, 1 - progress);
-      ctx.globalAlpha = alpha;
-
-      const midX = (from.x + to.x) / 2 + (from.y < to.y ? 15 : -15);
-      const midY = (from.y + to.y) / 2 - 20;
-
-      // 能量弧外发光
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const midX = (from.x + to.x) / 2 + Math.sign(dy) * 20;
+      const midY = (from.y + to.y) / 2 - (dx ? 22 : 0);
+      const t = reduced ? 1 : Math.min(1, progress / .46);
+      // Split the arc at its moving tip so its direction is visible from the first frame.
+      const controlX = from.x + (midX - from.x) * t;
+      const controlY = from.y + (midY - from.y) * t;
+      const tipX = controlX * (1 - t) + (midX + (to.x - midX) * t) * t;
+      const tipY = controlY * (1 - t) + (midY + (to.y - midY) * t) * t;
+      ctx.globalAlpha = 1 - progress;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.quadraticCurveTo(controlX, controlY, tipX, tipY);
+      ctx.strokeStyle = '#0a111c';
+      ctx.lineWidth = 6;
+      ctx.stroke();
       ctx.strokeStyle = tone;
-      ctx.lineWidth = 3.5;
+      ctx.lineWidth = 2.8;
       ctx.shadowColor = tone;
-      ctx.shadowBlur = 14;
-      ctx.beginPath();
-      ctx.moveTo(from.x, from.y);
-      ctx.quadraticCurveTo(midX, midY, to.x, to.y);
+      ctx.shadowBlur = 7;
       ctx.stroke();
 
-      // 中心白色高能核
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.2;
+      const angle = Math.atan2(tipY - controlY, tipX - controlX);
+      ctx.save();
+      ctx.translate(tipX, tipY);
+      ctx.rotate(angle);
+      ctx.fillStyle = '#fff4de';
       ctx.beginPath();
-      ctx.moveTo(from.x, from.y);
-      ctx.quadraticCurveTo(midX, midY, to.x, to.y);
-      ctx.stroke();
-
-      // 头部脉冲点
-      const t = Math.min(1, progress * 1.8);
-      const px = (1 - t) * (1 - t) * from.x + 2 * (1 - t) * t * midX + t * t * to.x;
-      const py = (1 - t) * (1 - t) * from.y + 2 * (1 - t) * t * midY + t * t * to.y;
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(px, py, 3.2, 0, Math.PI * 2);
+      ctx.moveTo(5, 0);
+      ctx.lineTo(-4, -3.7);
+      ctx.lineTo(-2, 0);
+      ctx.lineTo(-4, 3.7);
+      ctx.closePath();
       ctx.fill();
+      ctx.restore();
 
-      // 落点扩散冲击环
-      if (progress > 0.4) {
-        const ringT = (progress - 0.4) / 0.6;
-        ctx.strokeStyle = `${tone}${Math.floor((1 - ringT) * 255).toString(16).padStart(2, '0')}`;
-        ctx.lineWidth = 2 * (1 - ringT);
+      if (t === 1) {
+        const spread = reduced ? .25 : (progress - .46) / .54;
+        ctx.strokeStyle = tone;
+        ctx.lineWidth = 2 * (1 - spread);
         ctx.beginPath();
-        ctx.arc(to.x, to.y, ringT * 26, 0, Math.PI * 2);
+        ctx.arc(to.x, to.y, 7 + spread * 14, 0, Math.PI * 2);
         ctx.stroke();
-      }
 
-      // 飞溅火花
-      if (!this.reducedMotion.matches) {
         ctx.fillStyle = tone;
-        for (const spark of sparks) {
-          ctx.fillRect(
-            spark.x + spark.vx * progress,
-            spark.y + spark.vy * progress,
-            2.5,
-            2.5
-          );
+        if (!reduced) for (const spark of sparks) {
+          ctx.fillRect(spark.x + spark.vx * spread, spark.y + spark.vy * spread, 1.8, 1.8);
         }
       }
     } else if (animation.kind === 'merge_burst') {
@@ -1295,15 +1352,16 @@ export class CanvasRenderer {
       ctx.globalAlpha = alpha;
 
       const gravity = 45;
-      const posX = animation.anchor.x + animation.vx * progress;
+      const travel = reduced ? .15 : progress;
+      const posX = animation.anchor.x + animation.vx * travel;
       const posY =
         animation.anchor.y -
-        animation.vy * progress +
-        0.5 * gravity * progress * progress;
+        animation.vy * travel +
+        0.5 * gravity * travel * travel;
 
       // 暴击与剧毒引爆附带专属放大弹跳
       let bounceScale = 1.0;
-      if (animation.prefix || animation.large) {
+      if (!reduced && (animation.prefix || animation.large)) {
         bounceScale =
           1.0 + Math.sin(Math.min(Math.PI, progress * Math.PI * 2.2)) * 0.35;
       }
@@ -1321,12 +1379,12 @@ export class CanvasRenderer {
       // 黑色高对比外描边
       ctx.strokeStyle = '#090b10';
       ctx.lineWidth = animation.large ? 4.2 : 3.0;
-      ctx.strokeText(animation.text, 0, 0);
+      ctx.strokeText(animation.text, 0, 0, 80);
 
       ctx.fillStyle = animation.tone;
       ctx.shadowColor = animation.tone;
-      ctx.shadowBlur = animation.large ? 14 : 4;
-      ctx.fillText(animation.text, 0, 0);
+      ctx.shadowBlur = animation.large ? 7 : 3;
+      ctx.fillText(animation.text, 0, 0, 80);
 
       ctx.restore();
     }
@@ -1338,6 +1396,22 @@ export class CanvasRenderer {
     const ctx = this.ctx;
     ctx.beginPath();
     ctx.roundRect(x, y, w, h, r);
+  }
+
+  private chamferedRect(x: number, y: number, width: number, height: number, cut: number) {
+    const ctx = this.ctx;
+    const right = x + width;
+    const bottom = y + height;
+    ctx.beginPath();
+    ctx.moveTo(x + cut, y);
+    ctx.lineTo(right - cut, y);
+    ctx.lineTo(right, y + cut);
+    ctx.lineTo(right, bottom - cut);
+    ctx.lineTo(right - cut, bottom);
+    ctx.lineTo(x + cut, bottom);
+    ctx.lineTo(x, bottom - cut);
+    ctx.lineTo(x, y + cut);
+    ctx.closePath();
   }
 
   private text(
