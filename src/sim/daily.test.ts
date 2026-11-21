@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { betterDailyRecord, dailyHint, dailyInviteScore, dailyLink, dailyMastery, dailyPuzzle, dailyRouteParam, dailyStreak,
   encodeDailyRoute, fixedPuzzle, readDailyLink, readDailyRecord, recentDailyDates, replayDailyRoute, runDaily, shanghaiDay, simulateDaily } from '../core/daily';
 import { catalog } from '../data/catalog';
 import { drills } from '../data/drills';
+import { createPuzzleDraftStore } from '../platform/puzzleDrafts';
 
 function layer(positions: string[][]) {
   const results = new Map<string, string[]>();
@@ -36,6 +37,35 @@ describe('permanent drills', () => {
       expect(finishing.gateBlocked).toBeUndefined();
       expect(highest.pieces[formation.cells.indexOf(finishing.source!)]).toBe('combo_finisher');
       expect(finishing.hp).toBe(0);
+    }
+  });
+});
+
+describe('puzzle drafts', () => {
+  it('restores exact moves across fresh clients and rejects drafts for a different board', () => {
+    const values = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => { values.set(key, value); },
+      removeItem: (key: string) => { values.delete(key); },
+    });
+    try {
+      const day = '2026-11-21';
+      const puzzle = dailyPuzzle(day, catalog)!;
+      const draft = createPuzzleDraftStore('daily');
+      expect(draft.save(day, puzzle, [[0, 1], [1, 5]], 'peak')).toBe(true);
+      const fresh = createPuzzleDraftStore('daily');
+      const restored = fresh.load(day, puzzle)!;
+      expect(restored).toMatchObject({ moves: [[0, 1], [1, 5]], goal: 'peak', persistent: true });
+      expect(runDaily(puzzle.formation, puzzle.hp, restored.pieces, catalog).damage).toBe(360);
+      expect(fresh.load(day, { ...puzzle, hp: puzzle.hp + 1 })).toBeUndefined();
+      expect(createPuzzleDraftStore('drill').load(day, puzzle)).toBeUndefined();
+      expect(fresh.save(day, puzzle, [[0, 0]])).toBe(true);
+      expect(fresh.load(day, puzzle)).toBeUndefined();
+      fresh.save(day, puzzle, []);
+      expect(values.size).toBe(0);
+    } finally {
+      vi.unstubAllGlobals();
     }
   });
 });

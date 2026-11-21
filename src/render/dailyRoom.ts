@@ -3,6 +3,7 @@ import { betterDailyRecord, dailyHint, dailyInviteScore, dailyLink, dailyMastery
   type DailyGoal, type DailyInvite, type DailyMove, type DailyPuzzle, type DailyRecord } from '../core/daily';
 import { encounters, relics } from '../core/expedition';
 import type { Catalog } from '../core/types';
+import { createPuzzleDraftStore } from '../platform/puzzleDrafts';
 import { bindDailyFriendRoute } from './dailyFriendRoute';
 import { bindPuzzleReplay } from './puzzleReplay';
 import { drawPuzzleBoard } from './puzzleBoard';
@@ -29,7 +30,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
   const nextAction = get<HTMLButtonElement>('next-action');
   const goalButtons = [...get('goals').querySelectorAll<HTMLButtonElement>('button[data-goal]')];
   const records = new Map<string, DailyRecord>();
-  const drafts = new Map<string, { pieces: string[]; moves: DailyMove[]; goal: DailyGoal }>();
+  const drafts = createPuzzleDraftStore('daily');
   let puzzle: DailyPuzzle;
   let invite: DailyInvite | undefined;
   let friendRoute: ReturnType<typeof replayDailyRoute>;
@@ -38,6 +39,11 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
   let goal: DailyGoal = 'clear';
   let selected: number | undefined;
   let hinted: number | undefined;
+  let savedDraft = false;
+
+  function saveDraft() {
+    savedDraft = drafts.save(puzzle.day, puzzle, moves, goal);
+  }
 
   function loadRecords() {
     try {
@@ -57,6 +63,8 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
   function stats() {
     undo.disabled = !moves.length;
     get('moves').textContent = `已换 ${moves.length} 步 · 最少 ${puzzle.par} 步`;
+    get('draft').hidden = !moves.length;
+    get('draft').textContent = savedDraft ? '草稿已保存' : '草稿留在当前页面';
     const best = dailyInviteScore(puzzle, records.get(puzzle.day));
     get('goals').hidden = !best;
     get('card').hidden = !best;
@@ -91,19 +99,23 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     get('streak').textContent = streak ? `连续解开 ${streak} 期` : '';
     const recent = recentDailyDates(today).map(day => {
       const best = records.get(day);
-      const past = day === puzzle.day ? puzzle : best && dailyPuzzle(day, catalog);
+      const changedAt = drafts.changedAt(day);
+      const past = day === puzzle.day ? puzzle : (best || changedAt !== undefined) && dailyPuzzle(day, catalog);
       const mark = past ? dailyMastery(past, best) : undefined;
-      return { day, best, mark };
+      const draft = !mark?.cleared && changedAt !== undefined && (day === puzzle.day
+        ? moves.length > 0 : past && !!drafts.load(day, past)?.moves.length);
+      return { day, best, mark, draft };
     });
     const cleared = recent.filter(({ mark }) => mark?.cleared).length;
     const complete = recent.filter(({ mark }) => mark?.complete).length;
-    get('recent').textContent = `近七期 · 已解 ${cleared}/${recent.length}${complete ? ` · 双满 ${complete}` : ''}`;
-    dates.replaceChildren(...recent.map(({ day, best, mark }) => {
+    const resumable = recent.filter(({ draft }) => draft).length;
+    get('recent').textContent = `近七期 · 已解 ${cleared}/${recent.length}${complete ? ` · 双满 ${complete}` : ''}${resumable ? ` · ${resumable} 题可续摆` : ''}`;
+    dates.replaceChildren(...recent.map(({ day, best, mark, draft }) => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.dataset.day = day;
-      const badge = mark?.complete ? '双满' : mark?.fast ? '步数满' : mark?.peak ? '伤害满' : mark?.cleared ? '已解' : '待解';
-      btn.dataset.progress = mark?.complete ? 'complete' : mark?.cleared ? 'cleared' : 'open';
+      const badge = mark?.complete ? '双满' : mark?.fast ? '步数满' : mark?.peak ? '伤害满' : mark?.cleared ? '已解' : draft ? '续摆' : '待解';
+      btn.dataset.progress = mark?.complete ? 'complete' : mark?.cleared ? 'cleared' : draft ? 'draft' : 'open';
       btn.setAttribute('aria-pressed', String(day === puzzle.day));
       btn.setAttribute('aria-label', `${day}，${day === today ? '今天，' : ''}${badge}${mark?.cleared && best ? `，最少 ${best.moves} 步` : ''}`);
       const date = document.createElement('strong');
@@ -167,23 +179,27 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
           const move: DailyMove = [start, index];
           exchange(move);
           moves.push(move);
+          saveDraft();
           selected = hinted = undefined;
           message('阵型已变，可以试打。');
           stats();
+          renderArchive();
         }
         draw(index);
       },
     });
   }
 
-  function reset() {
+  function reset(store = true) {
     replay.clear();
     pieces = [...puzzle.pieces];
     moves = [];
+    if (store) saveDraft();
     selected = hinted = undefined;
     message('点两枚符文换位，再试打。');
     stats();
     draw();
+    if (store) renderArchive();
   }
 
   function open(day = shanghaiDay(), score?: DailyRecord, options?: { expired?: boolean; route?: string | null }) {
@@ -191,8 +207,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     const next = dailyPuzzle(day, catalog);
     if (!next) return false;
     loadRecords();
-    if (dialog.open) drafts.set(puzzle.day, { pieces, moves, goal });
-    else archive.open = false;
+    if (!dialog.open) archive.open = false;
     replay.clear();
     puzzle = next;
     if (score) {
@@ -221,16 +236,17 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     shareStatus.textContent = '每天北京时间零点换题';
     link.value = dailyLink(location.href, day);
     link.hidden = true;
-    const draft = drafts.get(day);
+    const draft = drafts.load(day, puzzle);
+    savedDraft = draft?.persistent ?? false;
     if (draft) {
       ({ pieces, moves, goal } = draft);
       selected = hinted = undefined;
-      message('继续上次的摆法。');
+      message(moves.length ? '继续上次的摆法。' : '点两枚符文换位，再试打。');
       stats();
       draw();
     } else {
       goal = 'clear';
-      reset();
+      reset(false);
     }
     if (options?.expired) message('这条挑战链接已失效，已打开今天的题。点两枚符文换位，再试打。');
     renderArchive();
@@ -255,10 +271,12 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     click();
     replay.clear();
     exchange(move);
+    saveDraft();
     selected = hinted = undefined;
     message('已撤销一步。');
     stats();
     draw();
+    renderArchive();
   };
   function selectGoal(next: DailyGoal, restart = false) {
     replay.clear();
@@ -266,6 +284,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     selected = hinted = undefined;
     if (restart) reset();
     else {
+      saveDraft();
       draw();
       stats();
     }
@@ -349,7 +368,6 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
   dialog.addEventListener('close', () => {
     if (dialog.open) return;
     replay.clear();
-    drafts.set(puzzle.day, { pieces, moves, goal });
     invite = undefined;
     friendRoute = undefined;
   });

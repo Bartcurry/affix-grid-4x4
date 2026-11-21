@@ -1,13 +1,13 @@
-import { dailyHint, fixedPuzzle, readDailyRecord, simulateDaily, type DailyRecord, type RunePuzzle } from '../core/daily';
+import { dailyHint, fixedPuzzle, readDailyRecord, simulateDaily, type DailyMove, type DailyRecord, type RunePuzzle } from '../core/daily';
 import { encounters } from '../core/expedition';
 import type { Catalog } from '../core/types';
 import { drills } from '../data/drills';
+import { createPuzzleDraftStore } from '../platform/puzzleDrafts';
 import { formatNumber as format } from './canvasRenderer';
 import { drawPuzzleBoard } from './puzzleBoard';
 import { bindPuzzleReplay } from './puzzleReplay';
 
 const storageKey = 'affix-grid-4x4.drills.v1';
-type Swap = [number, number];
 
 export function bindDrillRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: string) => void, click: () => void) {
   const dialog = document.querySelector<HTMLDialogElement>('#drill-dialog')!;
@@ -19,13 +19,18 @@ export function bindDrillRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
   const reset = get<HTMLButtonElement>('reset');
   const replay = bindPuzzleReplay(dialog, board, catalog, click, 'drill');
   const records = new Map<number, DailyRecord>();
-  const drafts = new Map<number, Swap[]>();
+  const drafts = createPuzzleDraftStore('drill');
   let active = 0;
   let puzzle: RunePuzzle;
   let pieces: string[];
-  let moves: Swap[];
+  let moves: DailyMove[];
   let selected: number | undefined;
   let hinted: number | undefined;
+  let savedDraft = false;
+
+  function saveDraft() {
+    savedDraft = drafts.save(drills[active].id, puzzle, moves);
+  }
 
   function keep(index: number, score: DailyRecord) {
     const current = records.get(index);
@@ -83,12 +88,14 @@ export function bindDrillRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     };
   }
 
-  function exchange([a, b]: Swap) {
+  function exchange([a, b]: DailyMove) {
     [pieces[a], pieces[b]] = [pieces[b], pieces[a]];
   }
 
   function draw(focus?: number) {
     get('moves').textContent = `已换 ${moves.length} 步 · 最少 ${puzzle.par} 步`;
+    get('draft').hidden = !moves.length;
+    get('draft').textContent = savedDraft ? '草稿已保存' : '草稿留在当前页面';
     undo.disabled = reset.disabled = !moves.length;
     drawPuzzleBoard(board, puzzle.formation, pieces, catalog, glyph, {
       selected, hinted, focus,
@@ -98,14 +105,15 @@ export function bindDrillRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
         if (selected === index) {
           selected = undefined;
           message('点两枚符文换位，再试打。');
-        } else if (selected === undefined) {
+        } else if (selected === undefined || pieces[selected] === pieces[index]) {
           selected = index;
           const rune = catalog[pieces[index]];
           message(`${rune.name} · ${rune.desc}`);
         } else {
-          const move: Swap = [selected, index];
+          const move: DailyMove = [selected, index];
           moves.push(move);
           exchange(move);
+          saveDraft();
           selected = hinted = undefined;
           message('换好了，可以试打。');
         }
@@ -119,12 +127,12 @@ export function bindDrillRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     const setup = fixedPuzzle(drill.formation, catalog);
     if (!setup) throw new Error(`Invalid drill: ${drill.id}`);
     replay.clear();
-    if (puzzle) drafts.set(active, moves);
     active = index;
     puzzle = setup;
-    moves = drafts.get(index) ?? [];
-    pieces = [...puzzle.pieces];
-    moves.forEach(exchange);
+    const draft = drafts.load(drill.id, puzzle);
+    moves = draft?.moves ?? [];
+    pieces = draft?.pieces ?? [...puzzle.pieces];
+    savedDraft = draft?.persistent ?? false;
     selected = hinted = undefined;
     const { formation, hp } = puzzle;
     const enemy = encounters[formation.enemy];
@@ -156,6 +164,7 @@ export function bindDrillRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     click();
     replay.clear();
     exchange(previous);
+    saveDraft();
     selected = hinted = undefined;
     message('已撤销一步。');
     draw();
@@ -165,6 +174,7 @@ export function bindDrillRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     replay.clear();
     moves = [];
     pieces = [...puzzle.pieces];
+    saveDraft();
     selected = hinted = undefined;
     message('点两枚符文换位，再试打。');
     draw();
@@ -191,8 +201,13 @@ export function bindDrillRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     if (dialog.open) return;
     click();
     load();
-    const available = drills.findIndex((_, index) => !records.has(index));
-    show(available >= 0 ? available : active);
+    const remaining = drills.flatMap((drill, index) => records.has(index) ? [] : [{ drill, index, edited: drafts.changedAt(drill.id) }]);
+    const resumable = remaining.filter(item => item.edited !== undefined)
+      .sort((a, b) => b.edited! - a.edited!).find(({ drill }) => {
+        const setup = fixedPuzzle(drill.formation, catalog);
+        return setup && drafts.load(drill.id, setup)?.moves.length;
+      });
+    show(resumable?.index ?? remaining[0]?.index ?? active);
     dialog.showModal();
     get('title').focus({ preventScroll: true });
     dialog.scrollTop = 0;

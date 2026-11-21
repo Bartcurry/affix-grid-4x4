@@ -1349,6 +1349,7 @@ button:focus-visible, canvas:focus-visible {
 .daily-brief { display: grid; gap: .3rem; overflow-wrap: anywhere; }
 .daily-brief strong { color: #f3d9a9; font-size: .87rem; }
 .daily-brief p { color: #c4c9c0; font-size: .72rem; line-height: 1.4; }
+.daily-brief .puzzle-draft-status { color: #a2c9b6; font-size: .65rem; }
 #daily-trait { color: #e8c597; }
 .daily-twist { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: .5rem; padding: .38rem .5rem; border-left: 2px solid #779a8d; background: #1d2a2c; color: #c7ddd6; font-size: .73rem; line-height: 1.38; }
 .daily-twist strong { color: #daf0dc; white-space: nowrap; }
@@ -1425,6 +1426,7 @@ button:focus-visible, canvas:focus-visible {
 .daily-dates button[data-progress=cleared] small { color: #b4d7af; }
 .daily-dates button[data-progress=complete] { border-color: #a68a60; }
 .daily-dates button[data-progress=complete] small { color: #f4cf8c; }
+.daily-dates button[data-progress=draft] small { color: #a7d5ed; }
 .daily-dates small { font-size: clamp(.56rem, 2.5vw, .65rem); white-space: nowrap; }
 .daily-footer span { color: #c0c9b6; font-size: .7rem; }
 #daily-copy { flex: none; padding-inline: .5rem; color: #dceac9; border-color: #657a5a; }
