@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { simulateBattle } from '../core/battleEngine';
-import { affixAt, armorHitsFor, damageModifiers, encounterAt, relicChoices, relics } from '../core/expedition';
+import { affixAt, armorHitsFor, damageModifiers, encounterAt, endlessRoute, relicChoices, relics } from '../core/expedition';
 import { canArrange, chooseRelic, newRun, settleTurn, victoryPayout } from '../core/shopEngine';
 import { previewRelics } from '../core/relicPreview';
 import { planTurn, runeFootprint } from '../core/tactics';
@@ -14,6 +14,15 @@ const damage = (events: BattleEvent[]) => events.flatMap(event => event.type ===
 const clear: TurnResult = { type: 'TURN_RESULT', gold: 10, combo: 4, damage: 1000, hp: 0, poison: 0, win: true };
 
 describe('expedition', () => {
+  it('lists one full rotation of real endless segments and caps the last segment safely', () => {
+    expect(endlessRoute(21).map(section => section.from)).toEqual([25, 30, 35, 40, 45, 50]);
+    const route = endlessRoute(49);
+    expect(route.map(section => section.from)).toEqual([45, 50, 55, 60, 65, 70]);
+    expect(new Set(route.map(section => section.affix.id)).size).toBe(6);
+    expect(route.every(section => section.affix === affixAt(section.through))).toBe(true);
+    expect(endlessRoute(Number.MAX_SAFE_INTEGER).map(section => section.through)).toEqual([Number.MAX_SAFE_INTEGER]);
+  });
+
   it('breaks iron armor in hit order, not on activations that do no damage', () => {
     const board = ['copper_mine', 'prism_right', 'spark_orb', 'spark_orb'].map(rune);
     const events = simulateBattle({ board, gold: 10, hp: 100, encounter: 'armor' }, catalog, noCrit);

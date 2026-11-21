@@ -1865,6 +1865,20 @@ dialog::backdrop {
 #encounter-wave-list span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #encounter-wave-list input { position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; }
 .encounter-room[data-endless] #encounter-wave-list { grid-template-columns: repeat(auto-fit, minmax(2.25rem, 1fr)); }
+#encounter-wave-list label[data-forecast=true] { color: #d0e6bc; }
+#encounter-wave-list label[data-forecast=false] { color: #f0c09e; }
+#encounter-wave-list label[data-forecast=true]::after { background: #acd095; }
+#encounter-wave-list label[data-forecast=false]::after { background: #e9a37d; }
+.encounter-route { min-width: 0; border: 1px solid #71664f; background: #1f2528; }
+.encounter-route summary { padding: .58rem .56rem; color: #edcf9b; font-size: .82rem; cursor: pointer; }
+#encounter-record { float: right; color: #cbd8c5; font-size: .73rem; font-variant-numeric: tabular-nums; }
+#encounter-segments { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 0 .42rem .42rem; gap: .32rem; }
+#encounter-segments button { display: grid; align-content: center; min-height: 2.75rem; padding: .24rem .35rem; gap: .1rem; white-space: normal; }
+#encounter-segments button strong { color: #edc98f; font-size: .8rem; }
+#encounter-segments button small { color: #b6c8c4; font: .69rem var(--mono-font); overflow-wrap: anywhere; }
+#encounter-segments button[aria-pressed=true] { border-color: #b8d1ac; background: #304038; }
+.encounter-route-status { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: .4rem; color: #c6ddbf; font-size: .75rem; }
+#encounter-route-back { flex: none; min-height: 2.75rem; padding: .2rem .45rem; font-size: .74rem; }
 
 .dialog-actions {
   display: flex;

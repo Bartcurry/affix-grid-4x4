@@ -557,6 +557,14 @@
             <legend id="encounter-wave-range">选择波次</legend>
             <div id="encounter-wave-list"></div>
           </fieldset>
+          <div id="encounter-route-status" class="encounter-route-status" hidden>
+            <p id="encounter-scout" role="status"></p>
+            <button id="encounter-route-back" type="button">回到当前波次</button>
+          </div>
+          <details id="encounter-route" class="encounter-route" hidden>
+            <summary>六劫路线 <span id="encounter-record"></span></summary>
+            <div id="encounter-segments" role="group" aria-label="选择天劫区段"></div>
+          </details>
         </div>
       </dialog>
 

@@ -25,15 +25,16 @@ export interface EndlessAffix {
   id: string;
   name: string;
   desc: string;
+  tip: string;
 }
 
 export const endlessAffixes: readonly EndlessAffix[] = [
-  { id: 'limit_triggers', name: '天劫·凝滞', desc: '单格触发上限降为 6 次。' },
-  { id: 'odd_row_frenzy', name: '天劫·离火', desc: '第 2、4 行的符文直伤 +60%，这些符文无法主动触发连锁。' },
-  { id: 'shield_tax', name: '天劫·劫金', desc: '每次造成伤害时，手中金币不足 10 则该次伤害减少 20%。' },
-  { id: 'decay_surge', name: '天劫·蚀骨', desc: '剧毒伤害提高 40%，回合末剩余毒层更少。' },
-  { id: 'mirror_mist', name: '天劫·幻镜', desc: '符文暴击伤害 −25%，未暴击的符文直伤 +20%。' },
-  { id: 'spirit_drain', name: '天劫·噬灵', desc: '第 2、4 列的符文直伤 +25%，第 1、3 列 −15%。' },
+  { id: 'limit_triggers', name: '天劫·凝滞', desc: '单格触发上限降为 6 次。', tip: '把连锁分给两枚输出符文，试试能否少碰到单格上限。' },
+  { id: 'odd_row_frenzy', name: '天劫·离火', desc: '第 2、4 行的符文直伤 +60%，这些符文无法主动触发连锁。', tip: '让镜子和中继留在第 1、3 行，把主力放到能吃加成的行。' },
+  { id: 'shield_tax', name: '天劫·劫金', desc: '每次造成伤害时，手中金币不足 10 则该次伤害减少 20%。', tip: '开战前留 10 金，或让矿脉先出手。' },
+  { id: 'decay_surge', name: '天劫·蚀骨', desc: '剧毒伤害提高 40%，回合末剩余毒层更少。', tip: '先把当波的毒层叠起来，再试算引爆和回合末毒伤。' },
+  { id: 'mirror_mist', name: '天劫·幻镜', desc: '符文暴击伤害 −25%，未暴击的符文直伤 +20%。', tip: '试着把输出移出玄冰位，比较前后实际伤害。' },
+  { id: 'spirit_drain', name: '天劫·噬灵', desc: '第 2、4 列的符文直伤 +25%，第 1、3 列 −15%。', tip: '把主力挪到第 2、4 列后，检查连锁是否还指着它。' },
 ];
 
 export function affixAt(wave: number): EndlessAffix | null {
@@ -48,6 +49,15 @@ export function endlessSegment(wave: number) {
   const from = Math.max(21, Math.floor(wave / 5) * 5);
   const next = (Math.floor(wave / 5) + 1) * 5;
   return { from, through: Math.min(Number.MAX_SAFE_INTEGER, next - 1), next: Number.isSafeInteger(next) ? next : undefined };
+}
+
+export function endlessRoute(wave: number) {
+  const start = Math.max(25, endlessSegment(wave).from);
+  return endlessAffixes.flatMap((_, i) => {
+    const from = start + i * 5;
+    if (!Number.isSafeInteger(from)) return [];
+    return [{ ...endlessSegment(from), affix: affixAt(from)! }];
+  });
 }
 
 export const relics = {

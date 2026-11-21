@@ -1,6 +1,7 @@
 import { battleTarget, bountyWaves } from '../core/bounties';
-import { affixAt, encounters, endlessCampAt, endlessSegment } from '../core/expedition';
-import { planTurn } from '../core/tactics';
+import { affixAt, encounters, endlessCampAt, endlessRoute, endlessSegment } from '../core/expedition';
+import { runScore } from '../core/openings';
+import { planTurn, simulateFormation } from '../core/tactics';
 import { reforgeWave } from '../core/reforge';
 import type { Catalog, Run } from '../core/types';
 import { formatNumber as format } from './canvasRenderer';
@@ -12,6 +13,11 @@ export function bindEncounterRoom(catalog: Catalog, click: () => void, trial: (w
   const trialButton = get<HTMLButtonElement>('trial');
   const room = dialog.querySelector('.encounter-room')!;
   const list = get('wave-list');
+  const route = get<HTMLDetailsElement>('route');
+  const segments = get('segments');
+  const routeStatus = get('route-status');
+  const back = get<HTMLButtonElement>('route-back');
+  const scout = get('scout');
   let run: Run;
   let selected: number;
   let canTry: boolean;
@@ -31,7 +37,7 @@ export function bindEncounterRoom(catalog: Catalog, click: () => void, trial: (w
     get('name').textContent = name;
     get('hp').textContent = `${format(hp)} 生命`;
     get('trait').textContent = bounty ? `${bounty.name} · ${trait}` : trait;
-    get('tip').textContent = tip;
+    get('tip').textContent = affix ? `${tip} ${affix.tip}` : tip;
     get('affix').hidden = !affix;
     get('affix').textContent = affix ? `${affix.name} · ${affix.desc}` : '';
     const upcoming = get('next');
@@ -54,17 +60,18 @@ export function bindEncounterRoom(catalog: Catalog, click: () => void, trial: (w
     trialButton.disabled = !run.board.some(Boolean) && !run.bench.some(Boolean);
   }
 
-  function waveOption(wave: number) {
+  function waveOption(wave: number, predicted?: boolean) {
     const label = document.createElement('label');
     const { encounter } = battleTarget(wave, wave === run.wave ? run.bountyRoute : undefined, run.finaleRule);
     label.dataset.enemy = encounter;
     label.dataset.state = wave === run.wave ? 'current' : wave < run.wave ? 'cleared' : 'ahead';
+    if (predicted !== undefined) label.dataset.forecast = String(predicted);
     const radio = document.createElement('input');
     radio.type = 'radio';
     radio.name = 'encounter-wave';
     radio.value = String(wave);
     radio.checked = wave === selected;
-    radio.setAttribute('aria-label', `第 ${format(wave)} 波 ${encounters[encounter].name}${wave === run.wave ? ' 当前波次' : ''}`);
+    radio.setAttribute('aria-label', `第 ${format(wave)} 波 ${encounters[encounter].name}${wave === run.wave ? ' 当前波次' : ''}${predicted === undefined ? '' : predicted ? ' 试算可过' : ' 试算伤害不足'}`);
     radio.onchange = () => {
       click();
       selected = wave;
@@ -79,11 +86,12 @@ export function bindEncounterRoom(catalog: Catalog, click: () => void, trial: (w
   get('close').onclick = () => { click(); dialog.close(); };
   trialButton.onclick = () => {
     click();
-    dialog.close();
+    if (selected === run.wave || routeStatus.hidden) dialog.close();
     trial(selected);
   };
 
-  return (snapshot: Run, mayRehearse: boolean) => {
+  return (snapshot: Run, mayRehearse: boolean, clearedRecord?: number) => {
+    if (dialog.open) return;
     run = snapshot;
     selected = run.wave;
     canTry = mayRehearse;
@@ -91,9 +99,58 @@ export function bindEncounterRoom(catalog: Catalog, click: () => void, trial: (w
     const start = endless ? Math.max(21, run.wave - 2) : 1;
     const end = endless ? Math.min(Number.MAX_SAFE_INTEGER, Math.max(25, run.wave + 3)) : 20;
     room.toggleAttribute('data-endless', endless);
-    get('wave-range').textContent = endless ? '附近波次' : '二十波战役';
-    list.replaceChildren(...Array.from({ length: end - start + 1 }, (_, index) => waveOption(start + index)));
-    draw();
+    route.hidden = !endless;
+    route.open = false;
+    const best = Math.max(runScore(run).cleared, clearedRecord ?? 0);
+    get('record').textContent = `最远已过 ${format(best)} 波`;
+    const cards: HTMLButtonElement[] = [];
+    function showWaves(first: number, last: number, name: string, predictions?: boolean[]) {
+      get('wave-range').textContent = name;
+      list.replaceChildren(...Array.from({ length: last - first + 1 }, (_, index) => waveOption(first + index, predictions?.[index])));
+      draw();
+    }
+    back.onclick = () => {
+      click();
+      selected = run.wave;
+      cards.forEach(card => card.setAttribute('aria-pressed', 'false'));
+      routeStatus.hidden = true;
+      showWaves(start, end, '附近波次');
+      list.querySelector<HTMLInputElement>('input:checked')?.focus();
+    };
+    if (endless) {
+      for (const { from, through, affix } of endlessRoute(run.wave)) {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.dataset.segment = String(from);
+        card.setAttribute('aria-pressed', 'false');
+        const title = document.createElement('strong');
+        title.textContent = affix.name.split('·')[1];
+        const waves = document.createElement('small');
+        waves.textContent = `${format(from)}–${format(through)} 波`;
+        card.append(title, waves);
+        card.onclick = () => {
+          click();
+          cards.forEach(item => item.setAttribute('aria-pressed', String(item === card)));
+          selected = selected >= from && selected <= through ? selected : from;
+          const length = through - from + 1;
+          const predictions = canTry ? Array.from({ length }, (_, index) => {
+            const wave = from + index;
+            const result = simulateFormation({ ...run, wave, bountyRoute: undefined }, catalog).events.at(-1);
+            return result?.type === 'TURN_RESULT' && result.win;
+          }) : undefined;
+          scout.textContent = predictions
+            ? `当前阵容可过 ${predictions.filter(Boolean).length}/${length} 波 · 各波独立试算`
+            : `第 ${format(from)}–${format(through)} 波`;
+          routeStatus.hidden = false;
+          showWaves(from, through, `${affix.name} · 选择波次`, predictions);
+          list.querySelector<HTMLInputElement>('input:checked')?.focus();
+        };
+        cards.push(card);
+      }
+    }
+    segments.replaceChildren(...cards);
+    routeStatus.hidden = true;
+    showWaves(start, end, endless ? '附近波次' : '二十波战役');
     dialog.showModal();
     dialog.scrollTop = 0;
   };

@@ -245,7 +245,7 @@ const showEncounters = bindEncounterRoom(catalog, click, wave => {
 button('boss-intel').onclick = () => {
   if (phase !== 'ARRANGE') return;
   click();
-  showEncounters(run, arranging());
+  showEncounters(run, arranging(), (run.difficulty === 'beginner' ? beginnerRecords : records)[run.opening]?.cleared);
 };
 const showJournal = bindBattleJournal(catalog, formatNumber, runeGlyph, board => { click(); boardTrial.open(board, undefined, true); });
 const reviewLast = () => showJournal(run.lastJournal);
