@@ -1,13 +1,14 @@
-import { betterDailyRecord, dailyHint, dailyInviteScore, dailyLink, dailyMastery, dailyPuzzle, dailyStreak, readDailyRecord, recentDailyDates, simulateDaily,
-  shanghaiDay, validDailyDate, type DailyGoal, type DailyInvite, type DailyPuzzle, type DailyRecord } from '../core/daily';
+import { betterDailyRecord, dailyHint, dailyInviteScore, dailyLink, dailyMastery, dailyPuzzle, dailyRouteParam, dailyStreak, encodeDailyRoute,
+  readDailyRecord, recentDailyDates, replayDailyRoute, simulateDaily, shanghaiDay, validDailyDate,
+  type DailyGoal, type DailyInvite, type DailyMove, type DailyPuzzle, type DailyRecord } from '../core/daily';
 import { encounters, relics } from '../core/expedition';
 import type { Catalog } from '../core/types';
+import { bindDailyFriendRoute } from './dailyFriendRoute';
 import { bindPuzzleReplay } from './puzzleReplay';
 import { drawPuzzleBoard } from './puzzleBoard';
 import type { PuzzleShareCard } from './puzzleShareCard';
 
 const storageKey = 'affix-grid-4x4.daily.v2';
-type Move = [number, number];
 
 export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: string) => void, click: () => void,
   shareCard: (card: PuzzleShareCard) => void) {
@@ -15,6 +16,8 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
   const get = <T extends HTMLElement = HTMLElement>(id: string) => dialog.querySelector<T>(`#daily-${id}`)!;
   const board = get('board');
   const replay = bindPuzzleReplay(dialog, board, catalog, click, 'daily');
+  const showFriendRoute = bindDailyFriendRoute(catalog, glyph, click);
+  const friendButton = get<HTMLButtonElement>('friend-route');
   const outcome = get('result');
   const archive = get<HTMLDetailsElement>('archive');
   const dates = get('dates');
@@ -26,11 +29,12 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
   const nextAction = get<HTMLButtonElement>('next-action');
   const goalButtons = [...get('goals').querySelectorAll<HTMLButtonElement>('button[data-goal]')];
   const records = new Map<string, DailyRecord>();
-  const drafts = new Map<string, { pieces: string[]; moves: Move[]; goal: DailyGoal }>();
+  const drafts = new Map<string, { pieces: string[]; moves: DailyMove[]; goal: DailyGoal }>();
   let puzzle: DailyPuzzle;
   let invite: DailyInvite | undefined;
+  let friendRoute: ReturnType<typeof replayDailyRoute>;
   let pieces: string[];
-  let moves: Move[];
+  let moves: DailyMove[];
   let goal: DailyGoal = 'clear';
   let selected: number | undefined;
   let hinted: number | undefined;
@@ -59,6 +63,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     goalButtons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.goal === goal)));
     get('hint').textContent = goal === 'peak' ? '伤害提示' : '提示';
     const friend = invite?.day === puzzle.day ? invite.score : undefined;
+    friendButton.hidden = !best || !friend || !friendRoute;
     get('copy').textContent = best ? friend ? '回传链接' : '复制成绩' : '复制挑战';
     get('card').textContent = friend ? '回传战绩' : '战绩卡';
     const duel = get('duel');
@@ -141,7 +146,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     }
   }
 
-  function exchange([left, right]: Move) {
+  function exchange([left, right]: DailyMove) {
     [pieces[left], pieces[right]] = [pieces[right], pieces[left]];
   }
 
@@ -159,7 +164,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
           message(`已选中${rune.name}。再点另一枚换位。 ${rune.desc}`);
         } else {
           replay.clear();
-          const move: Move = [start, index];
+          const move: DailyMove = [start, index];
           exchange(move);
           moves.push(move);
           selected = hinted = undefined;
@@ -181,7 +186,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     draw();
   }
 
-  function open(day = shanghaiDay(), score?: DailyRecord, expired = false) {
+  function open(day = shanghaiDay(), score?: DailyRecord, options?: { expired?: boolean; route?: string | null }) {
     if (dialog.open && puzzle.day === day) return true;
     const next = dailyPuzzle(day, catalog);
     if (!next) return false;
@@ -190,7 +195,11 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     else archive.open = false;
     replay.clear();
     puzzle = next;
-    if (score) invite = { day, score: dailyInviteScore(puzzle, score) };
+    if (score) {
+      const valid = dailyInviteScore(puzzle, score);
+      invite = { day, score: valid };
+      friendRoute = valid ? replayDailyRoute(puzzle, valid, options?.route, catalog) : undefined;
+    }
     const { formation, hp } = puzzle;
     get('date').textContent = `${day} · 每日残局`;
     get('title').textContent = formation.title;
@@ -223,7 +232,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
       goal = 'clear';
       reset();
     }
-    if (expired) message('这条挑战链接已失效，已打开今天的题。点两枚符文换位，再试打。');
+    if (options?.expired) message('这条挑战链接已失效，已打开今天的题。点两枚符文换位，再试打。');
     renderArchive();
     if (!dialog.open) {
       dialog.showModal();
@@ -234,6 +243,11 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
   }
 
   get('close').onclick = () => dialog.close();
+  friendButton.onclick = () => {
+    if (friendButton.hidden || !friendRoute) return;
+    click();
+    showFriendRoute(puzzle, friendRoute);
+  };
   get('reset').onclick = () => { click(); reset(); };
   undo.onclick = () => {
     const move = moves.pop();
@@ -291,7 +305,8 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     replay.remember(puzzle, pieces, events);
     if (!result.win) { message(`打了 ${result.damage} 点，还差 ${result.hp} 点。`, false); return; }
     loadRecords();
-    const attempt = { moves: moves.length, damage: result.damage };
+    const route = encodeDailyRoute(moves);
+    const attempt = { moves: moves.length, damage: result.damage, ...(route ? { route } : {}) };
     records.set(puzzle.day, betterDailyRecord(attempt, dailyInviteScore(puzzle, records.get(puzzle.day))));
     try { localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(records))); } catch {}
     stats();
@@ -308,13 +323,17 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     click();
     const day = puzzle.day;
     const best = dailyInviteScore(puzzle, records.get(day));
-    link.value = dailyLink(location.href, day, best);
+    const address = dailyLink(location.href, day, best);
+    link.value = address;
     link.hidden = true;
     const score = best ? `我用 ${best.moves} 步打出 ${best.damage} 点。${best.peakDamage ? `最高 ${best.peakDamage} 点。` : ''}`
       : '比比谁用的换位更少，或谁打得更重。';
     try {
-      await navigator.clipboard.writeText(`4×4 词条法阵 · ${puzzle.formation.title}\n${score}\n${link.value}`);
-      if (dialog.open && puzzle.day === day) shareStatus.textContent = best ? '成绩和原题链接已复制。' : '挑战链接已复制。';
+      await navigator.clipboard.writeText(`4×4 词条法阵 · ${puzzle.formation.title}\n${score}\n${address}`);
+      if (dialog.open && puzzle.day === day) {
+        shareStatus.textContent = new URL(address).searchParams.has(dailyRouteParam) ? '已复制。朋友解开原题后可看你的最少步摆法。'
+          : best ? '成绩和原题链接已复制。' : '挑战链接已复制。';
+      }
     } catch {
       if (!dialog.open || puzzle.day !== day) return;
       shareStatus.textContent = '长按链接可手动复制。';
@@ -332,6 +351,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     replay.clear();
     drafts.set(puzzle.day, { pieces, moves, goal });
     invite = undefined;
+    friendRoute = undefined;
   });
   window.addEventListener('storage', event => {
     if (!dialog.open || event.key !== storageKey || !event.newValue) return;

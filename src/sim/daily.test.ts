@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { betterDailyRecord, dailyHint, dailyInviteScore, dailyLink, dailyMastery, dailyPuzzle, dailyStreak, fixedPuzzle, readDailyLink, readDailyRecord, recentDailyDates, runDaily, shanghaiDay, simulateDaily } from '../core/daily';
+import { betterDailyRecord, dailyHint, dailyInviteScore, dailyLink, dailyMastery, dailyPuzzle, dailyRouteParam, dailyStreak,
+  encodeDailyRoute, fixedPuzzle, readDailyLink, readDailyRecord, recentDailyDates, replayDailyRoute, runDaily, shanghaiDay, simulateDaily } from '../core/daily';
 import { catalog } from '../data/catalog';
 import { drills } from '../data/drills';
 
@@ -146,6 +147,29 @@ describe('daily formations', () => {
     expect(readDailyRecord(best)).toEqual(best);
     expect(readDailyRecord({ ...best, peakDamage: 109 })).toEqual(best);
     expect(betterDailyRecord({ moves: 2, damage: 115 }, best).damage).toBe(115);
+  });
+
+  it('shares the fastest recorded route, verifies the original puzzle and handles score-only links', () => {
+    const day = '2026-11-21';
+    const puzzle = dailyPuzzle(day, catalog)!;
+    const score = { moves: 2, damage: 360 };
+    const route = encodeDailyRoute([[0, 1], [1, 5]])!;
+    const best = betterDailyRecord({ ...score, route }, { ...score, peakDamage: 621 });
+    const url = new URL(dailyLink('https://example.com/play/', day, best));
+    const invite = readDailyLink(url.searchParams.get('daily'), day)!;
+    expect(invite.score).toEqual({ ...score, peakDamage: 621 });
+    expect(url.searchParams.get(dailyRouteParam)).toBe('0115');
+    expect(readDailyRecord(best)).toEqual({ ...score, peakDamage: 621, route });
+    const replay = replayDailyRoute(puzzle, invite.score!, url.searchParams.get(dailyRouteParam), catalog);
+    expect(replay?.moves).toEqual([[0, 1], [1, 5]]);
+    expect(replay?.boards[0]).toEqual(puzzle.pieces);
+    expect(replay?.damage).toBe(360);
+    expect(betterDailyRecord({ moves: 3, damage: 621, route: '030512' }, best)).toEqual(best);
+    for (const invalid of [null, '0015', '0f15', '0305', '0115x0', '01150115']) {
+      expect(replayDailyRoute(puzzle, invite.score!, invalid, catalog)).toBeUndefined();
+    }
+    expect(replayDailyRoute(puzzle, { ...score, damage: 361 }, route, catalog)).toBeUndefined();
+    expect(encodeDailyRoute(Array.from({ length: 13 }, () => [0, 1]))).toBeUndefined();
   });
 
   it('shares both scores with the exact puzzle date and hides claims outside the puzzle limits', () => {

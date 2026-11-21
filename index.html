@@ -287,7 +287,10 @@
             <button id="daily-replay-hit" type="button">最大一击</button>
           </div>
           <div id="daily-twist" class="daily-twist" hidden><strong id="daily-twist-name"></strong><p id="daily-twist-rule"></p></div>
-          <p id="daily-duel" class="daily-duel" hidden></p>
+          <div class="daily-comparison">
+            <p id="daily-duel" class="daily-duel" hidden></p>
+            <button id="daily-friend-route" type="button" aria-haspopup="dialog" hidden>看好友摆法</button>
+          </div>
           <div id="daily-goals" class="daily-goals" role="group" aria-label="选择每日挑战目标" hidden>
             <button type="button" data-goal="clear" aria-pressed="true"><span>最少步数 <small id="daily-fast-seal" hidden>满</small></span><strong id="daily-best"></strong></button>
             <button type="button" data-goal="peak" aria-pressed="false"><span>最高伤害 <small id="daily-peak-seal" hidden>满</small></span><strong id="daily-peak"></strong></button>
@@ -318,6 +321,27 @@
             <summary><span id="daily-recent"></span><strong id="daily-streak"></strong></summary>
             <div id="daily-dates" class="daily-dates" role="group" aria-label="选择谜题日期"></div>
           </details>
+        </div>
+      </dialog>
+
+      <dialog id="daily-friend-route-dialog" class="daily-dialog friend-route-dialog" aria-labelledby="friend-route-title">
+        <div class="dialog-content">
+          <header class="daily-heading">
+            <h2 id="friend-route-title">好友摆法</h2>
+            <button id="friend-route-close" type="button" aria-label="关闭好友摆法">×</button>
+          </header>
+          <p id="friend-route-score"></p>
+          <div class="daily-stage">
+            <div class="daily-board-wrap"><div id="friend-route-board" class="daily-board" inert></div></div>
+            <div class="daily-brief">
+              <strong id="friend-route-count"></strong>
+              <p id="friend-route-detail" role="status"></p>
+            </div>
+          </div>
+          <div class="friend-route-actions" role="group" aria-label="逐步查看好友换位">
+            <button id="friend-route-prev" type="button">上一步</button>
+            <button id="friend-route-next" type="button" class="primary">下一步</button>
+          </div>
         </div>
       </dialog>
 

@@ -82,9 +82,13 @@ const tacticalFormations: readonly Formation[] = [
 
 export type RunePuzzle = { formation: Formation; hp: number; pieces: string[]; par: number; targetDamage: number; peakDamage: number };
 export type DailyPuzzle = RunePuzzle & { day: string };
-export interface DailyRecord { moves: number; damage: number; peakDamage?: number }
+export interface DailyRecord { moves: number; damage: number; peakDamage?: number; route?: string }
 export interface DailyInvite { day: string; score?: DailyRecord }
 export type DailyGoal = 'clear' | 'peak';
+export type DailyMove = [number, number];
+export const dailyRouteParam = 'steps';
+const maxRouteMoves = 12;
+const routeSlots = '0123456789abcdef';
 const dayMs = 86_400_000;
 const epoch = '2026-11-14';
 const editions = [
@@ -112,15 +116,30 @@ export function dailyLink(page: string, day: string, score?: DailyRecord) {
   const payload: (string | number)[] = [version, day];
   if (version !== 'v2' && score) payload.push(score.moves, score.damage, score.peakDamage ?? score.damage);
   url.searchParams.set('daily', payload.join('.'));
+  if (version !== 'v2' && score && routeKey(score.route, score.moves)) url.searchParams.set(dailyRouteParam, score.route);
   return url.href;
+}
+
+function routeKey(value: unknown, moves: number): value is string {
+  return moves > 0 && moves <= maxRouteMoves && typeof value === 'string' && value.length === moves * 2 && /^[0-9a-f]+$/.test(value);
+}
+
+export function encodeDailyRoute(moves: readonly DailyMove[]) {
+  if (!moves.length || moves.length > maxRouteMoves) return;
+  let route = '';
+  for (const [from, to] of moves) {
+    if (from === to || !routeSlots[from] || !routeSlots[to]) return;
+    route += routeSlots[from] + routeSlots[to];
+  }
+  return route;
 }
 
 export function readDailyRecord(value: unknown): DailyRecord | undefined {
   if (!value || typeof value !== 'object') return;
-  const { moves, damage, peakDamage } = value as DailyRecord;
+  const { moves, damage, peakDamage, route } = value as DailyRecord;
   if (!(Number.isSafeInteger(moves) && moves > 0 && Number.isSafeInteger(damage) && damage > 0)) return;
   return { moves, damage, ...(typeof peakDamage === 'number' && Number.isSafeInteger(peakDamage) &&
-    peakDamage > damage ? { peakDamage } : {}) };
+    peakDamage > damage ? { peakDamage } : {}), ...(routeKey(route, moves) ? { route } : {}) };
 }
 
 export function readDailyLink(raw: string | null, today = shanghaiDay()): DailyInvite | undefined {
@@ -147,6 +166,24 @@ export function simulateDaily(formation: Formation, hp: number, pieces: readonly
 
 export function runDaily(formation: Formation, hp: number, pieces: readonly string[], catalog: Catalog) {
   return simulateDaily(formation, hp, pieces, catalog).result;
+}
+
+export function replayDailyRoute(puzzle: DailyPuzzle, score: DailyRecord, route: unknown, catalog: Catalog) {
+  if (!routeKey(route, score.moves)) return;
+  const moves: DailyMove[] = [];
+  const boards = [[...puzzle.pieces]];
+  for (let offset = 0; offset < route.length; offset += 2) {
+    const from = routeSlots.indexOf(route[offset]);
+    const to = routeSlots.indexOf(route[offset + 1]);
+    const previous = boards.at(-1)!;
+    if (from >= previous.length || to >= previous.length || previous[from] === previous[to]) return;
+    const next = [...previous];
+    [next[from], next[to]] = [next[to], next[from]];
+    boards.push(next);
+    moves.push([from, to]);
+  }
+  const result = runDaily(puzzle.formation, puzzle.hp, boards.at(-1)!, catalog);
+  if (result.win && result.damage === score.damage) return { moves, boards, damage: result.damage };
 }
 
 function swaps(pieces: readonly string[]) {
@@ -278,7 +315,8 @@ export function dailyHint(puzzle: RunePuzzle, pieces: readonly string[], catalog
 
 export function betterDailyRecord(next: DailyRecord, prior?: DailyRecord) {
   if (!prior) return next;
-  const best = next.moves < prior.moves || (next.moves === prior.moves && next.damage > prior.damage) ? next : prior;
+  const best = next.moves < prior.moves || (next.moves === prior.moves &&
+    (next.damage > prior.damage || (next.damage === prior.damage && next.route && !prior.route))) ? next : prior;
   const peak = Math.max(next.peakDamage ?? next.damage, prior.peakDamage ?? prior.damage);
   return peak > (best.peakDamage ?? best.damage) ? { ...best, peakDamage: peak } : best;
 }

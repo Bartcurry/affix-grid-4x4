@@ -1,4 +1,5 @@
 import { challengeFromRun, challengeUrl } from '../core/challenge';
+import { dailyRouteParam } from '../core/daily';
 import type { Catalog, Run } from '../core/types';
 import { formatNumber as format } from './canvasRenderer';
 import type { PuzzleShareCard } from './puzzleShareCard';
@@ -108,7 +109,8 @@ export function bindScoreShareRoom(catalog: Catalog, click: () => void) {
         : `${card.score.moves} 步 · ${format(card.score.damage)} 总伤害`;
       return show({ label: daily ? '每日战绩卡' : '接力战绩卡', title: daily ? card.puzzle.formation.title : '三阵接力', caption,
         filename: `affix-grid-${card.kind}-${daily ? card.puzzle.day : card.relay.day}.png`, url: card.url,
-        scanText: '图片里的二维码可打开原题。',
+        scanText: daily && new URL(card.url).searchParams.has(dailyRouteParam)
+          ? '图片里的二维码可打开原题。解开后可以查看好友摆法。' : '图片里的二维码可打开原题。',
         loadRenderer: async () => {
           const { renderPuzzleShareCard } = await import('./puzzleShareCard');
           return () => renderPuzzleShareCard(canvas, card, catalog);

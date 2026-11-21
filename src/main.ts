@@ -12,7 +12,7 @@ import { difficultyLabel, isOpening, openingIds, openings, runScore, updateRecor
 import { challengeParam, challengeSaveKey, matchesChallenge, readChallenge } from './core/challenge';
 import { boardShareParam, boardShareUrl, encodeBoardToken, readSharedBoard, sameBattleSetup, sameFormation, type SharedBoard } from './core/boardShare';
 import { formationDuelParam, readFormationDuel } from './core/formationDuel';
-import { readDailyLink } from './core/daily';
+import { dailyRouteParam, readDailyLink } from './core/daily';
 import { campaignUrl, isDailyPage } from './core/sitePaths';
 import { readRelayLink, relayParam } from './core/weeklyRelay';
 import { createMulberry32, decodeSeed, generateSeedCode } from './core/rng';
@@ -1898,10 +1898,11 @@ redraw(!!saved && !challenge && !sideLanding);
 if (sharedBoard) {
   boardTrial.open(sharedBoard, formationDuel ? undefined : { matches: board => !!saved && canReplaceFormation(board), apply: applySharedBoard }, false, formationDuel);
   resumeAfterSideRoom(boardTrial.dialog, boardShareParam, formationDuelParam);
-} else if ((sharedDaily || dailyPageLanding) && daily.open(sharedDaily?.day, sharedDaily?.score,
-  dailyRequest !== null && !sharedDaily)) {
+} else if ((sharedDaily || dailyPageLanding) && daily.open(sharedDaily?.day, sharedDaily?.score, {
+  expired: dailyRequest !== null && !sharedDaily, route: params.get(dailyRouteParam),
+})) {
   if (dailyPageLanding) document.title = '每日残局 · 4×4 词条法阵';
-  resumeAfterSideRoom(daily.dialog, 'daily');
+  resumeAfterSideRoom(daily.dialog, 'daily', dailyRouteParam);
 } else if (sharedRelay && relay.open(sharedRelay.day, sharedRelay.score)) {
   resumeAfterSideRoom(relay.dialog, relayParam);
 } else {
