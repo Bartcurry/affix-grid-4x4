@@ -2,7 +2,7 @@ import { betterDailyRecord, dailyHint, dailyInviteScore, dailyLink, dailyMastery
   shanghaiDay, validDailyDate, type DailyGoal, type DailyInvite, type DailyPuzzle, type DailyRecord } from '../core/daily';
 import { encounters, relics } from '../core/expedition';
 import type { Catalog } from '../core/types';
-import { bindDailyReplay } from './dailyReplay';
+import { bindPuzzleReplay } from './puzzleReplay';
 import { drawPuzzleBoard } from './puzzleBoard';
 import type { PuzzleShareCard } from './puzzleShareCard';
 
@@ -14,7 +14,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
   const dialog = document.querySelector<HTMLDialogElement>('#daily-dialog')!;
   const get = <T extends HTMLElement = HTMLElement>(id: string) => dialog.querySelector<T>(`#daily-${id}`)!;
   const board = get('board');
-  const replay = bindDailyReplay(dialog, board, catalog, click);
+  const replay = bindPuzzleReplay(dialog, board, catalog, click, 'daily');
   const outcome = get('result');
   const archive = get<HTMLDetailsElement>('archive');
   const dates = get('dates');

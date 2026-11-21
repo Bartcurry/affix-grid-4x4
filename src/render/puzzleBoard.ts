@@ -1,10 +1,10 @@
 import { CELL_COUNT, toCoords } from '../core/grid';
-import type { DailyPuzzle } from '../core/daily';
+import type { Formation } from '../core/daily';
 import type { Catalog } from '../core/types';
 
 const tileNames = { li_fire: '离火', xuan_ice: '玄冰', spirit_gathering: '聚灵' } as const;
 
-export function drawPuzzleBoard(board: HTMLElement, formation: DailyPuzzle['formation'], pieces: readonly string[],
+export function drawPuzzleBoard(board: HTMLElement, formation: Formation, pieces: readonly string[],
   catalog: Catalog, glyph: (cell: HTMLElement, id: string) => void, options: {
     selected?: number;
     hinted?: number;

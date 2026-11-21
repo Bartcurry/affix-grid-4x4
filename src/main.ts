@@ -28,6 +28,7 @@ import { bindDragDrop } from './render/dragDrop';
 import { bindUpgradeBook } from './render/upgradeBook';
 import { bindChallengeRoom, bindShareRoom } from './render/challengeRoom';
 import { bindDailyRoom } from './render/dailyRoom';
+import { bindDrillRoom } from './render/drillRoom';
 import { bindWeeklyRelay } from './render/weeklyRelayRoom';
 import { bindScoreShareRoom } from './render/scoreShareRoom';
 import { bindBoardTrial } from './render/boardTrialRoom';
@@ -197,6 +198,7 @@ const emptyIcon = 'M16 3l13 13-13 13L3 16 16 3Zm0 6v14m-7-7h14';
 const runeGlyph = (node: HTMLElement, id: string) => iconPath(node, runeVectors[id] ?? emptyIcon);
 const scoreShare = bindScoreShareRoom(catalog, click);
 const daily = bindDailyRoom(catalog, runeGlyph, click, scoreShare.puzzle);
+const openDrills = bindDrillRoom(catalog, runeGlyph, click);
 const relay = bindWeeklyRelay(catalog, runeGlyph, click, scoreShare.puzzle);
 const boardTrial = bindBoardTrial(catalog, runeGlyph, formatNumber, click);
 const showPurchase = bindPurchaseRoom(catalog, runeGlyph, click);
@@ -297,6 +299,7 @@ const reviewLast = () => showJournal(run.lastJournal);
 button('journal-open').onclick = () => { if (phase === 'ARRANGE') { click(); reviewLast(); } };
 const openDaily = () => { if (phase === 'ARRANGE') { click(); daily.open(); } };
 button('daily-open').onclick = button('opening-daily').onclick = openDaily;
+button('drill-open').onclick = button('opening-drills').onclick = () => { if (phase === 'ARRANGE') openDrills(); };
 button('relay-open').onclick = button('opening-relay').onclick = () => { click(); relay.open(); };
 const updateUpgrades = bindUpgradeBook(catalog, runeGlyph, formatNumber,
   id => { trackedUpgrade = id; click(); redraw(); },

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { betterDailyRecord, dailyHint, dailyInviteScore, dailyLink, dailyMastery, dailyPuzzle, dailyStreak, readDailyLink, readDailyRecord, recentDailyDates, runDaily, shanghaiDay } from '../core/daily';
+import { betterDailyRecord, dailyHint, dailyInviteScore, dailyLink, dailyMastery, dailyPuzzle, dailyStreak, fixedPuzzle, readDailyLink, readDailyRecord, recentDailyDates, runDaily, shanghaiDay, simulateDaily } from '../core/daily';
 import { catalog } from '../data/catalog';
+import { drills } from '../data/drills';
 
 function layer(positions: string[][]) {
   const results = new Map<string, string[]>();
@@ -12,6 +13,31 @@ function layer(positions: string[][]) {
   }
   return [...results.values()];
 }
+
+describe('permanent drills', () => {
+  it.each(drills)('has the stated minimum number of swaps in $id and a working opening hint', ({ formation, par, id }) => {
+    const puzzle = fixedPuzzle(formation, catalog)!;
+    expect(puzzle.par).toBe(par);
+    let positions = [puzzle.pieces];
+    for (let move = 0; move < par; move++) {
+      expect(positions.some(pieces => runDaily(formation, puzzle.hp, pieces, catalog).win)).toBe(false);
+      positions = layer(positions);
+    }
+    const highest = positions.map(pieces => ({ pieces, ...simulateDaily(formation, puzzle.hp, pieces, catalog) }))
+      .sort((a, b) => b.result.damage - a.result.damage)[0];
+    expect(highest.result.win).toBe(true);
+    expect(highest.result.damage).toBe(puzzle.targetDamage);
+    expect(dailyHint(puzzle, puzzle.pieces, catalog)?.remaining).toBe(par);
+    if (id === 'gate') {
+      const hits = highest.events.filter(event => event.type === 'DAMAGE');
+      expect(hits.some(event => event.gateBlocked)).toBe(true);
+      const finishing = hits.at(-1)!;
+      expect(finishing.gateBlocked).toBeUndefined();
+      expect(highest.pieces[formation.cells.indexOf(finishing.source!)]).toBe('combo_finisher');
+      expect(finishing.hp).toBe(0);
+    }
+  });
+});
 
 describe('daily formations', () => {
   it('uses Beijing midnight and keeps old or future links away from the current rules', () => {

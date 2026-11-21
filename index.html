@@ -311,12 +311,60 @@
             <button id="daily-copy" type="button">复制挑战</button>
             <button id="daily-card" type="button" class="puzzle-card-open" aria-haspopup="dialog" hidden>战绩卡</button>
             <button id="relay-open" type="button" aria-haspopup="dialog">三阵接力</button>
+            <button id="drill-open" type="button" aria-haspopup="dialog">阵师试炼</button>
           </div>
           <input id="daily-link" type="url" readonly aria-label="每日残局链接" hidden />
           <details id="daily-archive" class="daily-archive">
             <summary><span id="daily-recent"></span><strong id="daily-streak"></strong></summary>
             <div id="daily-dates" class="daily-dates" role="group" aria-label="选择谜题日期"></div>
           </details>
+        </div>
+      </dialog>
+
+      <dialog id="drill-dialog" class="daily-dialog drill-dialog" aria-labelledby="drill-title">
+        <div class="dialog-content">
+          <header class="daily-heading">
+            <div><h2 id="drill-title" tabindex="-1">阵师试炼</h2><p id="drill-progress"></p></div>
+            <button id="drill-close" type="button" aria-label="关闭阵师试炼">×</button>
+          </header>
+          <nav id="drill-levels" class="drill-levels" aria-label="选择试炼关卡"></nav>
+          <h3 id="drill-name" tabindex="-1"></h3>
+          <div class="daily-stage">
+            <div class="daily-board-wrap">
+              <div id="drill-board" class="daily-board" role="group" aria-label="点两枚符文换位"></div>
+              <span id="drill-replay-link" class="battle-frame-link" aria-hidden="true" hidden></span>
+            </div>
+            <div id="drill-brief" class="daily-brief">
+              <strong id="drill-enemy"></strong>
+              <p id="drill-rule"></p>
+              <p id="drill-gold" hidden></p>
+              <p id="drill-moves"></p>
+              <p id="drill-best"></p>
+            </div>
+            <section id="drill-replay" class="daily-replay" aria-label="本次试打战况" hidden>
+              <div class="daily-replay-head"><strong>敌人生命</strong><span id="drill-replay-hp"></span></div>
+              <progress id="drill-replay-health" aria-label="剩余敌人生命"></progress>
+              <p id="drill-replay-resources"></p>
+              <p id="drill-replay-event" role="status"></p>
+            </section>
+          </div>
+          <div id="drill-replay-nav" class="daily-replay-nav" role="group" aria-label="逐步查看战况" hidden>
+            <span id="drill-replay-count"></span>
+            <button id="drill-replay-prev" type="button">上一步</button>
+            <button id="drill-replay-next" type="button">下一步</button>
+            <button id="drill-replay-hit" type="button">最大一击</button>
+          </div>
+          <div class="daily-result-line">
+            <p id="drill-result" role="status"></p>
+            <button id="drill-replay-toggle" type="button" aria-expanded="false" aria-controls="drill-replay drill-replay-nav" hidden>看出手</button>
+          </div>
+          <div class="daily-tools">
+            <button id="drill-undo" type="button">撤销</button>
+            <button id="drill-reset" type="button">重摆</button>
+            <button id="drill-hint" type="button">提示</button>
+            <button id="drill-check" class="primary" type="button">试打</button>
+          </div>
+          <button id="drill-next" type="button" hidden>下一关</button>
         </div>
       </dialog>
 
@@ -827,6 +875,9 @@
             </button>
             <button id="opening-relay" type="button" aria-haspopup="dialog">
               <strong>三阵接力</strong><span>三阵共用步数</span>
+            </button>
+            <button id="opening-drills" type="button" aria-haspopup="dialog">
+              <strong>阵师试炼</strong><span>五关练换位</span>
             </button>
           </nav>
           <section id="opening-preview" class="opening-preview" aria-label="首波推演">

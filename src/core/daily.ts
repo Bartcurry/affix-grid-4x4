@@ -3,12 +3,13 @@ import { endlessAffixes, type EncounterId, type EndlessAffix } from './expeditio
 import { dailyPage } from './sitePaths';
 import type { Catalog, RelicId, Slots, TileModifierMap } from './types';
 
-interface Formation {
+export interface Formation {
   title: string;
   enemy: EncounterId;
   cells: readonly number[];
   pieces: readonly string[];
   clue: string;
+  hp?: number;
   gold?: number;
   tiles?: TileModifierMap;
   relic?: RelicId;
@@ -79,7 +80,8 @@ const tacticalFormations: readonly Formation[] = [
     clue: '先用小伤害破掉铁甲。阵尾的角格也吃八卦镜，试试把留到最后的主力放在那里。' },
 ];
 
-export type DailyPuzzle = { day: string; formation: Formation; hp: number; pieces: string[]; par: number; targetDamage: number; peakDamage: number };
+export type RunePuzzle = { formation: Formation; hp: number; pieces: string[]; par: number; targetDamage: number; peakDamage: number };
+export type DailyPuzzle = RunePuzzle & { day: string };
 export interface DailyRecord { moves: number; damage: number; peakDamage?: number }
 export interface DailyInvite { day: string; score?: DailyRecord }
 export type DailyGoal = 'clear' | 'peak';
@@ -199,12 +201,12 @@ function analyze(formation: Formation, catalog: Catalog) {
   // With no HP-dependent relics, these encounters keep resolving hits after reaching zero.
   const positions = all.map(pieces => ({ pieces, damage: runDaily(formation, Number.MAX_SAFE_INTEGER, pieces, catalog).damage }))
     .sort((left, right) => left.damage - right.damage);
-  const hp = positions[Math.floor((positions.length - 1) * .82)].damage;
+  const hp = formation.hp ?? positions[Math.floor((positions.length - 1) * .82)].damage;
   const peakDamage = positions.at(-1)!.damage;
   const routes = findRoutes(positions, hp);
   const eligible = all.flatMap(pieces => {
-    const route = routes.get(signature(pieces))!;
-    return route.moves ? [{ pieces, par: route.moves, targetDamage: route.damage }] : [];
+    const route = routes.get(signature(pieces));
+    return route?.moves ? [{ pieces, par: route.moves, targetDamage: route.damage }] : [];
   });
   const multiStep = eligible.filter(position => position.par >= 2);
   const analysis = { hp, peakDamage, pool: multiStep.length ? multiStep : eligible, routes,
@@ -228,6 +230,13 @@ export function dailyPuzzle(day: string, catalog: Catalog): DailyPuzzle | undefi
   const index = (Date.parse(day) - Date.parse(from)) / dayMs;
   const formationIndex = index % formations.length;
   return choosePuzzle(day, formations[formationIndex], Math.floor(index / formations.length) + formationIndex * 17, version !== 'v2', catalog);
+}
+
+export function fixedPuzzle(formation: Formation, catalog: Catalog): RunePuzzle | undefined {
+  const { hp, peakDamage, routes } = analyze(formation, catalog);
+  const route = routes.get(signature(formation.pieces));
+  if (!route?.moves) return;
+  return { formation, hp, peakDamage, pieces: [...formation.pieces], par: route.moves, targetDamage: route.damage };
 }
 
 export function relayStage(day: string, weekIndex: number, stage: number, catalog: Catalog) {
@@ -255,7 +264,7 @@ export function dailyDamageByBudget(puzzle: DailyPuzzle, extra: number, catalog:
   return scores;
 }
 
-export function dailyHint(puzzle: DailyPuzzle, pieces: readonly string[], catalog: Catalog, goal: DailyGoal = 'clear') {
+export function dailyHint(puzzle: RunePuzzle, pieces: readonly string[], catalog: Catalog, goal: DailyGoal = 'clear') {
   const analysis = analyze(puzzle.formation, catalog);
   const routes = goal === 'peak' ? analysis.peakRoutes : analysis.routes;
   const route = routes.get(signature(pieces));

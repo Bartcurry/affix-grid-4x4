@@ -1,13 +1,13 @@
-import type { DailyPuzzle } from '../core/daily';
+import type { RunePuzzle } from '../core/daily';
 import { journalPlayback } from '../core/journal';
 import type { BattleEvent, Catalog } from '../core/types';
 import { describeBattleEvent, placeBattleLink } from './battleFrame';
 import { formatNumber as format } from './canvasRenderer';
 
-export function bindDailyReplay(dialog: HTMLDialogElement, board: HTMLElement, catalog: Catalog, click: () => void) {
-  const get = <T extends HTMLElement = HTMLElement>(id: string) => dialog.querySelector<T>(`#daily-replay-${id}`)!;
-  const panel = dialog.querySelector<HTMLElement>('#daily-replay')!;
-  const brief = dialog.querySelector<HTMLElement>('#daily-brief')!;
+export function bindPuzzleReplay(dialog: HTMLDialogElement, board: HTMLElement, catalog: Catalog, click: () => void, prefix: string) {
+  const get = <T extends HTMLElement = HTMLElement>(id: string) => dialog.querySelector<T>(`#${prefix}-replay-${id}`)!;
+  const panel = dialog.querySelector<HTMLElement>(`#${prefix}-replay`)!;
+  const brief = dialog.querySelector<HTMLElement>(`#${prefix}-brief`)!;
   const toggle = get<HTMLButtonElement>('toggle');
   const nav = get('nav');
   const link = get('link');
@@ -82,7 +82,7 @@ export function bindDailyReplay(dialog: HTMLDialogElement, board: HTMLElement, c
       toggle.hidden = true;
       playback = undefined;
     },
-    remember(puzzle: DailyPuzzle, pieces: readonly string[], events: BattleEvent[]) {
+    remember(puzzle: RunePuzzle, pieces: readonly string[], events: BattleEvent[]) {
       const { hp, formation } = puzzle;
       names = new Map(formation.cells.map((cell, index) => [cell, `${cell + 1} 格 ${catalog[pieces[index]].name}`]));
       playback = journalPlayback({ events, maxHp: hp }, formation.gold ?? 0);
