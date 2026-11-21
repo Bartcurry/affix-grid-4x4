@@ -1313,11 +1313,16 @@ button:focus-visible, canvas:focus-visible {
 .daily-board button small { color: #c3c7b6; }
 .daily-board .rune-icon-svg { width: 61%; height: 61%; }
 .daily-board [data-hint] { border-style: dashed; border-color: #e4c483; box-shadow: inset 0 0 0 1px #d4ac68; }
+.daily-board [data-boost]::after { content: ''; position: absolute; inset: auto .15rem .15rem auto; width: .27rem; height: .27rem; border-radius: 1px; background: #ddb97c; }
+.daily-board span[data-boost]::after { opacity: .45; }
 .daily-board [aria-pressed=true] { background: #3e3425; border-color: #f8cf7d; box-shadow: inset 0 0 0 1px #e9be78; }
 .daily-board i { position: absolute; bottom: .07rem; right: .07rem; color: #ffd0a2; font: normal clamp(.45rem, 1.35vw, .59rem) var(--mono-font); }
 .daily-brief { display: grid; gap: .3rem; overflow-wrap: anywhere; }
 .daily-brief strong { color: #f3d9a9; font-size: .87rem; }
 .daily-brief p { color: #c4c9c0; font-size: .72rem; line-height: 1.4; }
+#daily-trait { color: #e8c597; }
+.daily-twist { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: .5rem; padding: .38rem .5rem; border-left: 2px solid #779a8d; background: #1d2a2c; color: #c7ddd6; font-size: .73rem; line-height: 1.38; }
+.daily-twist strong { color: #daf0dc; white-space: nowrap; }
 #daily-moves, #daily-best { color: #d7e9bd; }
 #daily-result { min-height: 2.6em; margin: 0; font-size: .79rem; line-height: 1.45; }
 #daily-result[data-win=true] { color: #cce8ac; }
@@ -1349,7 +1354,7 @@ button:focus-visible, canvas:focus-visible {
 .daily-tools { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.25fr); gap: .3rem; }
 .daily-tools button, #daily-copy, #relay-open, #opening-daily, .puzzle-card-open { min-height: 2.55rem; padding: .2rem .3rem; font-size: .78rem; }
 .daily-tools .primary { color: #221a12; background: #efc682; border-color: #f8d498; }
-.daily-tools .primary:hover { background: #f7d79e; }
+.daily-tools .primary:not(:disabled):hover { color: #221a12; background: #f7d79e; }
 .daily-next { display: flex; align-items: center; justify-content: space-between; gap: .42rem; padding: .3rem .42rem .3rem .55rem; border: 1px solid #66766b; background: #1d2b26; }
 .daily-next span { color: #d3e4c9; font-size: .76rem; }
 .daily-next[data-complete=true] { border-color: #a28a5f; background: #2c261e; }

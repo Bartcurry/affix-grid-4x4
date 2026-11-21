@@ -1,6 +1,6 @@
 import { betterDailyRecord, dailyHint, dailyInviteScore, dailyLink, dailyMastery, dailyPuzzle, dailyStreak, readDailyRecord, recentDailyDates, runDaily,
   shanghaiDay, validDailyDate, type DailyGoal, type DailyInvite, type DailyPuzzle, type DailyRecord } from '../core/daily';
-import { encounters } from '../core/expedition';
+import { encounters, relics } from '../core/expedition';
 import type { Catalog } from '../core/types';
 import { drawPuzzleBoard } from './puzzleBoard';
 import type { PuzzleShareCard } from './puzzleShareCard';
@@ -188,7 +188,16 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     const { formation, hp } = puzzle;
     get('date').textContent = `${day} · 每日残局`;
     get('title').textContent = formation.title;
-    get('enemy').textContent = `${encounters[formation.enemy].name} · ${hp} 血`;
+    const enemy = encounters[formation.enemy];
+    get('enemy').textContent = `${enemy.name} · ${hp} 血`;
+    get('trait').textContent = enemy.trait;
+    get('trait').hidden = formation.enemy === 'sentry';
+    const twist = formation.affix ? { name: formation.affix.name, text: formation.affix.desc } : formation.relic ? relics[formation.relic]
+      : Object.values(formation.tiles ?? {}).includes('spirit_gathering') ? { name: '聚灵位', text: '上下左右每有一枚符文触发，聚灵位上的符文威力 +2。' }
+      : undefined;
+    get('twist').hidden = !twist;
+    get('twist-name').textContent = twist?.name ?? '';
+    get('twist-rule').textContent = twist?.text ?? '';
     get('rules').textContent = `${formation.gold ? `起始 ${formation.gold} 金 · ` : ''}保留羁绊，关闭暴击`;
     const friend = invite?.day === day ? invite.score : undefined;
     get('friend').hidden = !friend;

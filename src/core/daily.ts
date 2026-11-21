@@ -1,6 +1,6 @@
 import { simulateBattle } from './battleEngine';
-import type { EncounterId } from './expedition';
-import type { Catalog, Slots, TileModifierMap } from './types';
+import { endlessAffixes, type EncounterId, type EndlessAffix } from './expedition';
+import type { Catalog, RelicId, Slots, TileModifierMap } from './types';
 
 interface Formation {
   title: string;
@@ -10,6 +10,8 @@ interface Formation {
   clue: string;
   gold?: number;
   tiles?: TileModifierMap;
+  relic?: RelicId;
+  affix?: EndlessAffix;
 }
 
 const originalFormations: readonly Formation[] = [
@@ -60,6 +62,21 @@ const newFormations: readonly Formation[] = [
     clue: '苔砖靠邻居叠毒。毒火引信需要先攒毒，再让正上方的落铃把它点着。' },
 ];
 const expandedFormations = [...newFormations, ...originalFormations];
+const tacticalFormations: readonly Formation[] = [
+  { title: '破甲换列', enemy: 'regent_seal', cells: [0, 1, 4, 5, 6, 10],
+    pieces: ['falling_bell', 'prism_right', 'spark_orb', 'echo_stone', 'combo_finisher', 'ember_amp'],
+    clue: '先用落铃和镜子磨掉护甲。破甲后，把主力分在不同列，看看连锁会先叫醒哪一枚。' },
+  { title: '借邻蓄力', enemy: 'sentry', cells: [1, 2, 5, 6, 7, 10], tiles: { 6: 'spirit_gathering' },
+    pieces: ['relay_cross', 'falling_bell', 'prism_right', 'spark_orb', 'overclock_core', 'echo_stone'],
+    clue: '先让聚灵位的上下左右多动几次，再轮到聚灵位上的输出符文。' },
+  { title: '隔行送火', enemy: 'bell', cells: [0, 1, 4, 5, 8, 9],
+    affix: endlessAffixes.find(affix => affix.id === 'odd_row_frenzy'),
+    pieces: ['falling_bell', 'prism_right', 'relay_cross', 'spark_orb', 'combo_finisher', 'ember_amp'],
+    clue: '把落铃留在第 1、3 行，让它敲响正下方吃加成的主力。第 2 行的符文不能再往下接。' },
+  { title: '四角磨阵', enemy: 'armor', cells: [0, 1, 3, 4, 8, 12], relic: 'bagua_mirror',
+    pieces: ['falling_bell', 'prism_right', 'spark_orb', 'blood_prism', 'overclock_core', 'combo_finisher'],
+    clue: '先用小伤害破掉铁甲。阵尾的角格也吃八卦镜，试试把留到最后的主力放在那里。' },
+];
 
 export type DailyPuzzle = { day: string; formation: Formation; hp: number; pieces: string[]; par: number; targetDamage: number; peakDamage: number };
 export interface DailyRecord { moves: number; damage: number; peakDamage?: number }
@@ -67,8 +84,12 @@ export interface DailyInvite { day: string; score?: DailyRecord }
 export type DailyGoal = 'clear' | 'peak';
 const dayMs = 86_400_000;
 const epoch = '2026-11-14';
-const expandedEpoch = '2026-11-21';
-const versionFor = (day: string) => day < expandedEpoch ? 'v2' : 'v3';
+const editions = [
+  { from: '2026-11-22', version: 'v4', formations: [...tacticalFormations, ...expandedFormations] },
+  { from: '2026-11-21', version: 'v3', formations: expandedFormations },
+  { from: epoch, version: 'v2', formations: originalFormations },
+];
+const editionFor = (day: string) => editions.find(edition => day >= edition.from) ?? editions[editions.length - 1];
 const signature = (pieces: readonly string[]) => pieces.join('|');
 const dayOffset = (day: string, offset: number) => new Date(Date.parse(day) + offset * dayMs).toISOString().slice(0, 10);
 
@@ -86,9 +107,9 @@ export function dailyLink(page: string, day: string, score?: DailyRecord) {
   const url = new URL(page);
   url.search = '';
   url.hash = '';
-  const version = versionFor(day);
+  const { version } = editionFor(day);
   const payload: (string | number)[] = [version, day];
-  if (version === 'v3' && score) payload.push(score.moves, score.damage, score.peakDamage ?? score.damage);
+  if (version !== 'v2' && score) payload.push(score.moves, score.damage, score.peakDamage ?? score.damage);
   url.searchParams.set('daily', payload.join('.'));
   return url.href;
 }
@@ -104,7 +125,7 @@ export function readDailyRecord(value: unknown): DailyRecord | undefined {
 export function readDailyLink(raw: string | null, today = shanghaiDay()): DailyInvite | undefined {
   if (!raw || raw.length > 80) return;
   const [version, day, ...claim] = raw.split('.');
-  if (!validDailyDate(day) || day > today || version !== versionFor(day)) return;
+  if (!validDailyDate(day) || day > today || version !== editionFor(day).version) return;
   if (version === 'v2') return claim.length ? undefined : { day };
   if (claim.length !== 3 || claim.some(value => !/^\d+$/.test(value))) return { day };
   const [moves, damage, peakDamage] = claim.map(Number);
@@ -116,7 +137,8 @@ export function runDaily(formation: Formation, hp: number, pieces: readonly stri
   const board: Slots = Array(16).fill(null);
   formation.cells.forEach((cell, index) => { board[cell] = { configId: pieces[index], star: 1 }; });
   const events = simulateBattle({ board, hp, gold: formation.gold ?? 0, encounter: formation.enemy,
-    tileModifiers: formation.tiles, enableSynergies: true }, catalog, () => 1);
+    tileModifiers: formation.tiles, relics: formation.relic ? [formation.relic] : undefined,
+    affix: formation.affix?.id, enableSynergies: true }, catalog, () => 1);
   const result = events.at(-1);
   if (result?.type !== 'TURN_RESULT') throw new Error('Missing daily result');
   return result;
@@ -199,11 +221,10 @@ function choosePuzzle(day: string, formation: Formation, offset: number, separat
 
 export function dailyPuzzle(day: string, catalog: Catalog): DailyPuzzle | undefined {
   if (!validDailyDate(day)) return;
-  const expanded = day >= expandedEpoch;
-  const index = (Date.parse(day) - Date.parse(expanded ? expandedEpoch : epoch)) / dayMs;
-  const formations = expanded ? expandedFormations : originalFormations;
+  const { from, version, formations } = editionFor(day);
+  const index = (Date.parse(day) - Date.parse(from)) / dayMs;
   const formationIndex = index % formations.length;
-  return choosePuzzle(day, formations[formationIndex], Math.floor(index / formations.length) + formationIndex * 17, expanded, catalog);
+  return choosePuzzle(day, formations[formationIndex], Math.floor(index / formations.length) + formationIndex * 17, version !== 'v2', catalog);
 }
 
 export function relayStage(day: string, weekIndex: number, stage: number, catalog: Catalog) {

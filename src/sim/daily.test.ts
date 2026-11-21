@@ -48,12 +48,12 @@ describe('daily formations', () => {
     }
   });
 
-  it('checks both targets across the 14-format schedule and rotates each starting board', () => {
-    const dayAt = (offset: number) => new Date(Date.UTC(2026, 10, 21 + offset)).toISOString().slice(0, 10);
-    const puzzles = Array.from({ length: 14 }, (_, offset) => dailyPuzzle(dayAt(offset), catalog)!);
-    expect(new Set(puzzles.map(puzzle => puzzle.formation.title)).size).toBe(14);
+  it('checks both targets across the 18-format schedule and rotates each starting board', () => {
+    const dayAt = (offset: number) => new Date(Date.UTC(2026, 10, 22 + offset)).toISOString().slice(0, 10);
+    const puzzles = Array.from({ length: 18 }, (_, offset) => dailyPuzzle(dayAt(offset), catalog)!);
+    expect(new Set(puzzles.map(puzzle => puzzle.formation.title)).size).toBe(18);
     for (const [offset, puzzle] of puzzles.entries()) {
-      const later = dailyPuzzle(dayAt(offset + 14), catalog)!;
+      const later = dailyPuzzle(dayAt(offset + 18), catalog)!;
       expect(later.formation.title).toBe(puzzle.formation.title);
       expect(later.pieces).not.toEqual(puzzle.pieces);
       const seen = new Set<string>([puzzle.pieces.join('|')]);
@@ -86,6 +86,28 @@ describe('daily formations', () => {
     }
   });
 
+  it('applies the four new battle rules and opens them on their scheduled dates', () => {
+    const dates = ['2026-11-22', '2026-11-23', '2026-11-24', '2026-11-25'];
+    const [gate, spirit, rows, corners] = dates.map(day => dailyPuzzle(day, catalog)!);
+    expect([gate.formation.enemy, spirit.formation.tiles?.[6], rows.formation.affix?.id, corners.formation.relic])
+      .toEqual(['regent_seal', 'spirit_gathering', 'odd_row_frenzy', 'bagua_mirror']);
+    const variations = [
+      { ...gate.formation, enemy: 'regent' as const }, { ...spirit.formation, tiles: undefined },
+      { ...rows.formation, affix: undefined }, { ...corners.formation, relic: undefined },
+    ];
+    for (const [index, puzzle] of [gate, spirit, rows, corners].entries()) {
+      const queues = [puzzle.formation.pieces, ...layer([[...puzzle.formation.pieces]])];
+      expect(queues.some(pieces => runDaily(puzzle.formation, puzzle.hp, pieces, catalog).damage !==
+        runDaily(variations[index], puzzle.hp, pieces, catalog).damage), puzzle.formation.title).toBe(true);
+      const score = { moves: puzzle.par, damage: puzzle.targetDamage, peakDamage: puzzle.peakDamage };
+      const url = new URL(dailyLink('https://example.com/play/', puzzle.day, score));
+      expect(url.searchParams.get('daily')).toMatch(/^v4\./);
+      expect(readDailyLink(url.searchParams.get('daily'), '2026-11-21')).toBeUndefined();
+      expect(readDailyLink(`v3.${puzzle.day}`, puzzle.day)).toBeUndefined();
+      expect(readDailyLink(url.searchParams.get('daily'), puzzle.day)).toEqual({ day: puzzle.day, score });
+    }
+  });
+
   it('keeps the fast clear and the highest damage even when they come from different attempts', () => {
     const best = { moves: 2, damage: 110 };
     const peak = betterDailyRecord({ moves: 3, damage: 120 }, best);
@@ -100,6 +122,7 @@ describe('daily formations', () => {
   it('shares both scores with the exact puzzle date and hides claims outside the puzzle limits', () => {
     const day = '2026-11-21';
     const puzzle = dailyPuzzle(day, catalog)!;
+    expect([puzzle.formation.title, puzzle.par, puzzle.targetDamage, puzzle.peakDamage]).toEqual(['印落攻城', 2, 360, 621]);
     const score = { moves: puzzle.par, damage: puzzle.targetDamage, peakDamage: puzzle.peakDamage };
     const url = new URL(dailyLink('https://example.com/game/', day, score));
     const raw = url.searchParams.get('daily');
