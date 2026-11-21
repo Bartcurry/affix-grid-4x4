@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { runDaily, shanghaiDay, type DailyPuzzle } from '../core/daily';
-import { readRelayLink, relayLink, relayWeek, restoreRelayDraft, stageAllowance, validRelayScore, weeklyRelay, type RelayMove } from '../core/weeklyRelay';
+import { compareRelayScores, readRelayLink, relayLink, relayOutlook, relayWeek, restoreRelayDraft, stageAllowance, validRelayScore, weeklyRelay, type RelayMove } from '../core/weeklyRelay';
 import { catalog } from '../data/catalog';
 
 function solvesWithin(stage: DailyPuzzle, limit: number) {
@@ -51,6 +51,9 @@ describe('three-board weekly relay', () => {
       for (const [extra, score] of relay.ceilings.entries()) {
         const totals = first.flatMap((damage, a) => second.flatMap((other, b) => a + b > extra ? [] : [damage + other + third[extra - a - b]]));
         expect(score, relay.day).toBe(Math.max(...totals));
+        const lastTwo = second.slice(0, extra + 1).map((damage, used) => damage + third[extra - used]);
+        expect(relay.remainingCeilings[1][extra], relay.day).toBe(Math.max(...lastTwo));
+        expect(relay.remainingCeilings[2][extra], relay.day).toBe(third[extra]);
       }
     }
   });
@@ -65,5 +68,19 @@ describe('three-board weekly relay', () => {
     expect(restoreRelayDraft(relay, { spent: [[]], current: [] }, catalog)).toBeUndefined();
     expect(restoreRelayDraft(relay, { spent: [path], current: [[0, 100]] }, catalog)).toBeUndefined();
     expect(restoreRelayDraft(relay, { spent: [path], current: Array(relay.budget).fill([0, 1]) }, catalog)).toBeUndefined();
+  });
+
+  it('carries locked damage and actual steps into the attainable finish', () => {
+    const relay = weeklyRelay('2026-11-16', catalog)!;
+    const first = relay.stages[0];
+    const later = relay.remainingCeilings[1];
+    const lock = { moves: first.par + 2, damage: first.targetDamage };
+    const outlook = relayOutlook(relay, 1, lock);
+    expect(outlook).toEqual({ damage: lock.damage + later[0], moves: relay.budget });
+    expect(relayOutlook(relay, 0, { damage: 0, moves: 0 }).damage).toBe(relay.ceilings.at(-1));
+    expect(relayOutlook(relay, 3, outlook)).toEqual(outlook);
+    const sameDamageFaster = { ...outlook, moves: outlook.moves - 1 };
+    expect(compareRelayScores(sameDamageFaster, outlook)).toBeGreaterThan(0);
+    expect(compareRelayScores({ ...outlook, damage: outlook.damage - 1, moves: 0 }, outlook)).toBeLessThan(0);
   });
 });

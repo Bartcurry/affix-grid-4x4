@@ -1386,9 +1386,15 @@ button:focus-visible, canvas:focus-visible {
 .relay-stages strong { font-size: .75rem; }
 .relay-stages small { color: #c9c9bd; font-size: .68rem; line-height: 1.3; overflow-wrap: anywhere; }
 .relay-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .42rem; }
+.relay-metrics:has(#relay-outlook:not([hidden])) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .relay-metrics div { display: grid; gap: .12rem; padding: .34rem .48rem; border: 1px solid #474b47; border-radius: 4px; background: #171d23; }
 .relay-metrics span { color: #bdc5ba; font-size: .69rem; }
-.relay-metrics strong { color: #ebd6af; font: 750 1rem var(--mono-font); }
+.relay-metrics strong { color: #ebd6af; font: 750 clamp(.86rem, 3.6vw, 1rem) var(--mono-font); }
+#relay-outlook { border-color: #617f72; background: #1d2b28; }
+#relay-ceiling { color: #d2eabf; }
+#relay-duel[data-result=behind] { color: #ffd5aa; }
+.relay-impact { padding: .36rem .46rem; border-left: 2px solid #7d9b84; background: #202d2b; color: #daebd3; font-size: .75rem; line-height: 1.36; }
+.relay-impact[data-cost=true] { border-color: #cb975c; background: #332923; color: #ffd5aa; }
 #relay-name { color: #ebd6af; font: 750 .95rem var(--display-font); }
 #relay-moves { color: #c6deb9; }
 .relay-dialog .relay-result { min-height: 2.55em; font-size: .78rem; line-height: 1.4; }
@@ -1402,6 +1408,7 @@ button:focus-visible, canvas:focus-visible {
 #relay-best { margin-right: auto; color: #c8d8be; font-size: .74rem; }
 #relay-restart, #relay-copy { flex: none; }
 #relay-copy { color: #d1e8d4; border-color: #6d8e71; }
+.relay-footer > #relay-copy { margin-left: auto; }
 .relay-footer:has(.puzzle-card-open:not([hidden])) { flex-wrap: wrap; }
 .relay-footer:has(.puzzle-card-open:not([hidden])) #relay-best { flex-basis: 100%; }
 .relay-footer:has(.puzzle-card-open:not([hidden])) > button { flex: 1; }

@@ -305,10 +305,12 @@
             <button id="relay-close" type="button" aria-label="关闭三阵接力">×</button>
           </header>
           <p id="relay-friend" class="daily-friend" hidden></p>
+          <p id="relay-duel" class="daily-duel" aria-live="polite" hidden></p>
           <ol id="relay-stages" class="relay-stages" aria-label="三阵进度"></ol>
           <div class="relay-metrics">
             <div><span>剩余换位</span><strong id="relay-budget"></strong></div>
             <div><span>已锁定伤害</span><strong id="relay-total"></strong></div>
+            <div id="relay-outlook"><span>本轮上限</span><strong id="relay-ceiling"></strong></div>
           </div>
           <section id="relay-stage" class="daily-stage" aria-label="当前棋盘">
             <div id="relay-board" class="daily-board" role="group" aria-label="点两枚符文换位"></div>
@@ -320,6 +322,7 @@
             </div>
           </section>
           <p id="relay-result" class="relay-result" role="status"></p>
+          <p id="relay-impact" class="relay-impact" aria-live="polite" hidden></p>
           <div id="relay-tools" class="relay-tools">
             <button id="relay-undo" type="button">撤销</button>
             <button id="relay-reset" type="button">重摆本阵</button>

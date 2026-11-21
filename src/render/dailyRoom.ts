@@ -57,6 +57,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     goalButtons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.goal === goal)));
     get('hint').textContent = goal === 'peak' ? '伤害提示' : '提示';
     const friend = invite?.day === puzzle.day ? invite.score : undefined;
+    get('card').textContent = friend ? '回传战绩' : '战绩卡';
     const duel = get('duel');
     duel.hidden = !friend || !best;
     if (!best) return;

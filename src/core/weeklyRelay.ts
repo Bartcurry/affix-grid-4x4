@@ -15,6 +15,7 @@ export type Relay = {
   minimum: number;
   budget: number;
   ceilings: number[];
+  remainingCeilings: number[][];
 };
 
 export function relayWeek(day = shanghaiDay()) {
@@ -33,13 +34,26 @@ export function weeklyRelay(day: string, catalog: Catalog): Relay | undefined {
   const stages = [0, 1, 2].flatMap(index => relayStage(day, weekIndex, index, catalog) ?? []);
   if (stages.length !== 3) return;
   const minimum = stages.reduce((total, stage) => total + stage.par, 0);
-  let ceilings = Array<number>(extraMoves + 1).fill(0);
-  for (const stage of stages) {
-    const scores = dailyDamageByBudget(stage, extraMoves, catalog);
-    ceilings = ceilings.map((_, allowance) => Math.max(...scores.slice(0, allowance + 1)
-      .map((score, used) => score + ceilings[allowance - used])));
+  const remainingCeilings = Array<number[]>(stages.length + 1);
+  remainingCeilings[stages.length] = Array<number>(extraMoves + 1).fill(0);
+  for (let index = stages.length - 1; index >= 0; index--) {
+    const scores = dailyDamageByBudget(stages[index], extraMoves, catalog);
+    const later = remainingCeilings[index + 1];
+    remainingCeilings[index] = later.map((_, allowance) => Math.max(...scores.slice(0, allowance + 1)
+      .map((score, used) => score + later[allowance - used])));
   }
-  return { day, stages, minimum, budget: minimum + extraMoves, ceilings };
+  return { day, stages, minimum, budget: minimum + extraMoves, ceilings: remainingCeilings[0], remainingCeilings };
+}
+
+export function relayOutlook(relay: Relay, locked: number, score: RelayScore): RelayScore {
+  const reserved = relay.stages.slice(locked).reduce((total, stage) => total + stage.par, 0);
+  const remaining = relay.remainingCeilings[locked];
+  const maximum = remaining[relay.budget - score.moves - reserved];
+  return { damage: score.damage + maximum, moves: score.moves + reserved + remaining.indexOf(maximum) };
+}
+
+export function compareRelayScores(left: RelayScore, right: RelayScore) {
+  return left.damage - right.damage || right.moves - left.moves;
 }
 
 export function stageAllowance(relay: Relay, spent: readonly RelayMove[][]) {

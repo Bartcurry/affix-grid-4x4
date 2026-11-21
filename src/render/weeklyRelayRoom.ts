@@ -1,6 +1,6 @@
 import { runDaily } from '../core/daily';
 import { encounters } from '../core/expedition';
-import { relayLink, relayPosition, relayWeek, restoreRelayDraft, stageAllowance, validRelayScore, weeklyRelay,
+import { compareRelayScores, relayLink, relayOutlook, relayPosition, relayWeek, restoreRelayDraft, stageAllowance, validRelayScore, weeklyRelay,
   type Relay, type RelayDraft, type RelayScore } from '../core/weeklyRelay';
 import type { Catalog, TurnResult } from '../core/types';
 import { formatNumber as format } from './canvasRenderer';
@@ -25,6 +25,7 @@ export function bindWeeklyRelay(catalog: Catalog, glyph: (cell: HTMLElement, id:
   let selected: number | undefined;
   let trial: TurnResult | undefined;
   let best: RelayScore | undefined;
+  let friend: RelayScore | undefined;
   const stage = () => relay.stages[draft.spent.length];
 
   function read(key: string): unknown {
@@ -47,8 +48,40 @@ export function bindWeeklyRelay(catalog: Catalog, glyph: (cell: HTMLElement, id:
 
   function record(score: RelayScore) {
     const saved = validRelayScore(relay, read('best') as RelayScore | undefined) ?? best;
-    best = saved && (saved.damage > score.damage || (saved.damage === score.damage && saved.moves <= score.moves)) ? saved : score;
+    best = saved && compareRelayScores(saved, score) >= 0 ? saved : score;
     write('best', best);
+  }
+
+  function showOutlook(locked: RelayScore) {
+    const round = results.length;
+    const outlook = relayOutlook(relay, round, locked);
+    get('outlook').hidden = !stage();
+    get('ceiling').textContent = format(outlook.damage);
+    const impact = get('impact');
+    impact.hidden = !trial?.win;
+    if (trial?.win) {
+      const next = relayOutlook(relay, round + 1, { damage: locked.damage + trial.damage, moves: locked.moves + draft.current.length });
+      const lost = outlook.damage - next.damage;
+      const extra = next.moves - outlook.moves;
+      const cost = lost ? `（少 ${format(lost)} 点）` : extra ? `（多 ${extra} 步）` : '';
+      impact.dataset.cost = String(!!cost);
+      impact.textContent = `锁定后本轮最高 ${format(next.damage)} 点，最快 ${next.moves} 步可达${cost}。`;
+    }
+    const duel = get('duel');
+    duel.hidden = !friend;
+    if (!friend) return;
+    const mine = best ?? outlook;
+    const order = compareRelayScores(mine, friend);
+    duel.dataset.result = order === 0 ? 'tie' : order > 0 ? 'ahead' : 'behind';
+    if (!best) {
+      duel.textContent = order > 0 ? '本轮还有机会超过朋友。' : order === 0 ? '本轮最多追平朋友。' : '本轮上限低于朋友的成绩。';
+    } else {
+      const gap = mine.damage - friend.damage;
+      const steps = friend.moves - mine.moves;
+      duel.textContent = gap ? `你的最佳成绩${gap > 0 ? '领先' : '落后'} ${format(Math.abs(gap))} 点。` : steps
+        ? `伤害相同，你的最佳成绩${steps > 0 ? '少' : '多'} ${Math.abs(steps)} 步。`
+        : '你和朋友的最高伤害、步数都相同。';
+    }
   }
 
   function draw(focus?: number) {
@@ -71,11 +104,14 @@ export function bindWeeklyRelay(catalog: Catalog, glyph: (cell: HTMLElement, id:
       return item;
     }));
     const target = relay.ceilings.at(-1)!;
+    get('best').hidden = !best && !moves;
     get('best').textContent = best ? `最佳 ${format(best.damage)} / ${format(target)} · ${best.moves} 步` : `本期满分 ${format(target)}`;
     get('card').hidden = !best;
+    get('card').textContent = friend ? '回传战绩' : '战绩卡';
     get('stage').hidden = !current;
     get('tools').hidden = !current;
     get('restart').hidden = !used;
+    showOutlook({ damage, moves });
     if (!current) return;
     get('name').textContent = current.formation.title;
     get('enemy').textContent = `${encounters[current.formation.enemy].name} · ${format(current.hp)} 血`;
@@ -143,6 +179,7 @@ export function bindWeeklyRelay(catalog: Catalog, glyph: (cell: HTMLElement, id:
     const next = canMove ? '可锁定成绩，或再换位冲更高伤害。' : '本阵步数已用完，可锁定成绩。';
     message(trial.win ? `打出 ${format(trial.damage)} 点。${next}` :
       `打出 ${format(trial.damage)} 点，离过关还差 ${format(trial.hp)} 点。${current.formation.clue}`, trial.win ? 'win' : 'loss');
+    showOutlook(summary());
     lock.disabled = !trial.win;
   };
   lock.onclick = () => {
@@ -190,7 +227,7 @@ export function bindWeeklyRelay(catalog: Catalog, glyph: (cell: HTMLElement, id:
     best = validRelayScore(relay, read('best') as RelayScore | undefined);
     if (!stage()) record(summary());
     selected = trial = undefined;
-    const friend = validRelayScore(relay, score);
+    friend = validRelayScore(relay, score);
     get('date').textContent = `${day} 当周 · 每周一换题`;
     get('friend').hidden = !friend;
     get('friend').textContent = friend ? `朋友的成绩 · ${friend.moves} 步 / ${format(friend.damage)} 点` : '';
