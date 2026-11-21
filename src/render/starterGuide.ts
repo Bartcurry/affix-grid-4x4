@@ -6,14 +6,16 @@ import { formatNumber as format } from './canvasRenderer';
 const lessons = [formationLessons[0], formationLessons[2], formationLessons[1]];
 
 export function bindStarterGuide(catalog: Catalog, glyph: (cell: HTMLElement, id: string) => void,
-  click: () => void, finish: () => void) {
+  click: () => void, finish: () => void, startCampaign: () => void) {
   const dialog = document.querySelector<HTMLDialogElement>('#starter-guide')!;
   const get = <T extends HTMLElement = HTMLElement>(id: string) => dialog.querySelector<T>(`#starter-${id}`)!;
   const grid = get('grid');
   const check = get<HTMLButtonElement>('check');
   const reset = get<HTMLButtonElement>('reset');
   const next = get<HTMLButtonElement>('next');
+  const campaign = get<HTMLButtonElement>('campaign');
   const feedback = get('feedback');
+  const result = get('result');
   let round = 0;
   let selected: number | undefined;
   let exercise: ReturnType<typeof lessonBoards>;
@@ -29,7 +31,9 @@ export function bindStarterGuide(catalog: Catalog, glyph: (cell: HTMLElement, id
   }
 
   function draw(focus?: number) {
-    const target = selected === lessons[round].move[0] ? lessons[round].move[1] : undefined;
+    const [from, to] = lessons[round].move;
+    const target = !passed && selected === from ? to : undefined;
+    const source = selected === undefined && board === exercise.original ? from : undefined;
     grid.replaceChildren(...board.board.map((rune, index) => {
       const cell = document.createElement('button');
       const config = rune && catalog[rune.configId];
@@ -39,7 +43,9 @@ export function bindStarterGuide(catalog: Catalog, glyph: (cell: HTMLElement, id
       cell.dataset.index = String(index);
       cell.dataset.occupied = String(!!config);
       cell.setAttribute('aria-pressed', String(selected === index));
-      cell.setAttribute('aria-label', `第 ${index + 1} 格，${config?.name ?? '空格'}${target === index ? '，建议落位' : ''}`);
+      const hint = target === index ? '，建议落位' : source === index ? '，先点这里' : '';
+      cell.setAttribute('aria-label', `第 ${index + 1} 格，${config?.name ?? '空格'}${hint}`);
+      if (source === index) cell.dataset.suggestion = 'from';
       if (target === index) cell.dataset.suggestion = 'to';
       cell.append(number);
       if (config) {
@@ -59,6 +65,7 @@ export function bindStarterGuide(catalog: Catalog, glyph: (cell: HTMLElement, id
           if (moved) {
             board = moved;
             check.disabled = reset.disabled = false;
+            result.textContent = '—';
             feedback.textContent = '摆好了，试打看看。';
             delete feedback.dataset.win;
           }
@@ -85,9 +92,11 @@ export function bindStarterGuide(catalog: Catalog, glyph: (cell: HTMLElement, id
     get('tip').textContent = lesson.tip;
     get('before').textContent = format(baseline);
     get('goal').textContent = format(goal);
-    feedback.textContent = '先点要移动的符文，再点目标格。';
+    result.textContent = '—';
+    feedback.textContent = `先点亮着的第 ${lesson.move[0] + 1} 格。`;
     delete feedback.dataset.win;
     next.hidden = true;
+    campaign.hidden = true;
     next.textContent = index + 1 === lessons.length ? '返回开局' : '下一课';
     check.hidden = false;
     check.disabled = reset.disabled = true;
@@ -97,6 +106,7 @@ export function bindStarterGuide(catalog: Catalog, glyph: (cell: HTMLElement, id
   check.onclick = () => {
     click();
     const amount = damage(board);
+    result.textContent = format(amount);
     passed = amount >= goal;
     feedback.textContent = passed
       ? `打出了 ${format(amount)} 点，比原阵多 ${format(amount - baseline)} 点。`
@@ -105,8 +115,13 @@ export function bindStarterGuide(catalog: Catalog, glyph: (cell: HTMLElement, id
     if (passed) {
       check.hidden = true;
       next.hidden = false;
+      campaign.hidden = false;
       next.focus({ preventScroll: true });
     }
+  };
+  campaign.onclick = () => {
+    dialog.close();
+    startCampaign();
   };
   next.onclick = () => {
     click();

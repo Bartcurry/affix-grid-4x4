@@ -16,6 +16,7 @@ import { createMulberry32 } from '../core/rng';
 import { newRun } from '../core/shopEngine';
 import fs from 'node:fs';
 import path from 'node:path';
+import { runInNewContext } from 'node:vm';
 
 describe('Cycle 1: PWA & Service Worker Configuration', () => {
   it('validates manifest.webmanifest format and required fields', () => {
@@ -41,20 +42,34 @@ describe('Cycle 1: PWA & Service Worker Configuration', () => {
     }
   });
 
-  it('validates service worker sw.js file existence and cache key', () => {
-    const swPath = path.resolve(__dirname, '../../public/sw.js');
-    expect(fs.existsSync(swPath)).toBe(true);
-    const content = fs.readFileSync(swPath, 'utf-8');
-    expect(content).toContain('affix-grid-cache');
-    expect(content).toContain('addEventListener');
-    expect(content).toContain('install');
-    expect(content).toContain('activate');
-    expect(content).toContain('fetch');
-    // Verify robustness: origin check, cloning, and awaited fallbacks
-    expect(content).toContain('url.origin === location.origin');
-    expect(content).toContain('.clone()');
-    expect(content).toContain('await caches.match');
-    expect(content).toContain('fallbackIndex');
+  it('falls back to the pinned shell for an offline invite in its Pages scope', async () => {
+    const source = fs.readFileSync(path.resolve(__dirname, '../platform/serviceWorker.js'), 'utf8');
+    const scope = 'https://example.com/affix-grid-4x4/';
+    const shell = new Response('offline play');
+    const events = new Map<string, (event: {
+      request: { url: string; method: string; mode: string };
+      respondWith: (response: Promise<Response>) => void;
+    }) => void>();
+    const match = (url: URL) => url.href === scope + 'offline-current.html' ? shell : undefined;
+    runInNewContext('const release = "current";\n' + source, {
+      URL, Response,
+      self: {
+        registration: { scope },
+        addEventListener: (name: string, callback: Parameters<typeof events.set>[1]) => events.set(name, callback),
+      },
+      fetch: () => Promise.reject(new Error('offline')),
+      caches: { open: async () => ({ match }) },
+    });
+    const navigation = (url: string) => {
+      let response: Promise<Response> | undefined;
+      events.get('fetch')!({
+        request: { url, method: 'GET', mode: 'navigate' },
+        respondWith: promise => { response = promise; },
+      });
+      return response;
+    };
+    expect(await navigation(scope + 'index.html?challenge=example')).toBe(shell);
+    expect(navigation('https://example.com/other-game/')).toBeUndefined();
   });
 });
 

@@ -773,20 +773,30 @@
             </div>
             <button id="opening-close" type="button" aria-label="回到当前局" title="回到当前局">×</button>
           </header>
-          <div id="opening-modes" class="opening-modes" role="group" aria-label="战役难度">
-            <button id="difficulty-beginner" type="button" aria-pressed="false"><strong>入门</strong><small>免费刷新 +1<br>过关补 1 盾</small></button>
-            <button id="difficulty-standard" type="button" aria-pressed="true"><strong>标准</strong><small>3 盾开局<br>每波免费刷新</small></button>
-            <button id="difficulty-expert" type="button" aria-pressed="false"><strong>进阶</strong><small>2 盾开局<br>第 2–20 波<br>敌人生命 +20%</small></button>
-          </div>
-          <div id="opening-choices" class="opening-choices-grid" role="group" aria-label="选择起手阵"></div>
           <div id="opening-actions" class="opening-actions">
-            <button id="opening-quick" class="primary" type="button">开局并打首波</button>
-            <button id="opening-prepare" type="button">先布阵</button>
-          </div>
-          <nav id="opening-extra" class="opening-extra" aria-label="练习和短局">
-            <button id="opening-guide" type="button" aria-haspopup="dialog">
-              <strong>新手练习</strong><span>三次换位上手</span>
+            <button id="opening-quick" class="primary" type="button">
+              <strong>打首波</strong><small id="opening-quick-detail"></small>
             </button>
+            <button id="opening-guide" type="button" aria-haspopup="dialog">
+              <strong>先练换位</strong><small>动手摆一次，看伤害</small>
+            </button>
+          </div>
+          <section id="opening-modes" class="opening-setup" aria-labelledby="opening-modes-label">
+            <h3 id="opening-modes-label">战役难度</h3>
+            <div class="opening-modes" role="group" aria-labelledby="opening-modes-label">
+              <button id="difficulty-beginner" type="button" aria-pressed="false"><strong>入门</strong><small>每波多一次免费刷新<br>过关补 1 盾</small></button>
+              <button id="difficulty-standard" type="button" aria-pressed="false"><strong>标准</strong><small>3 盾开局<br>每波免费刷新 1 次</small></button>
+              <button id="difficulty-expert" type="button" aria-pressed="false"><strong>进阶</strong><small>2 盾开局<br>第 2–20 波敌人生命 +20%</small></button>
+            </div>
+          </section>
+          <section id="opening-loadout" class="opening-setup" aria-labelledby="opening-loadout-label">
+            <div class="opening-setup-head">
+              <h3 id="opening-loadout-label">起手阵</h3>
+              <button id="opening-prepare" type="button">先布阵</button>
+            </div>
+            <div id="opening-choices" class="opening-choices-grid" role="group" aria-labelledby="opening-loadout-label"></div>
+          </section>
+          <nav id="opening-extra" class="opening-extra" aria-label="短局">
             <button id="opening-daily" type="button" aria-haspopup="dialog">
               <strong>每日残局</strong><span>一题两种目标</span>
             </button>
@@ -861,6 +871,7 @@
           <div id="starter-grid" class="trial-tiles" role="group" aria-label="练习棋盘"></div>
           <dl class="starter-scores">
             <div><dt>原阵伤害</dt><dd id="starter-before"></dd></div>
+            <div><dt>试打伤害</dt><dd id="starter-result">—</dd></div>
             <div><dt>目标伤害</dt><dd id="starter-goal"></dd></div>
           </dl>
           <p id="starter-feedback" role="status"></p>
@@ -869,6 +880,7 @@
             <button id="starter-check" type="button" class="primary">试打</button>
             <button id="starter-next" type="button" class="primary" hidden>下一课</button>
           </div>
+          <button id="starter-campaign" type="button" hidden>带着打法去打首波</button>
         </div>
       </dialog>
 

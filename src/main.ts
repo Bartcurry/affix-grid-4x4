@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import './style.css';
 import { simulateBattle } from './core/battleEngine';
 import { battleTargetFor, bountyCount, bountyPerkLabel, engravingPower, offersBounties } from './core/bounties';
@@ -50,9 +51,9 @@ import { runePlacement } from './data/tacticalTips';
 import { formationLessons } from './data/formationLessons';
 import type { RunArchive } from './platform/adapter';
 
-if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
+    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).catch(() => {});
   });
 }
 
@@ -276,10 +277,9 @@ button('reforge-open').onclick = () => {
 const retryScout = bindRetryScout(catalog, click, openRetryTrial);
 const showFormationLessons = bindFormationLessons(catalog, runeGlyph, click,
   (board, name, damage) => boardTrial.open(board, undefined, true, { name, damage }));
-button('opening-guide').onclick = bindStarterGuide(catalog, runeGlyph, click, () => {
-  element('opening-note').textContent = '练完了。打过首波后，到符文铺试试开局补货。';
-  button('opening-quick').focus({ preventScroll: true });
-});
+button('opening-guide').onclick = bindStarterGuide(catalog, runeGlyph, click,
+  () => button('opening-quick').focus({ preventScroll: true }),
+  () => chooseOpening(true));
 const showEncounters = bindEncounterRoom(catalog, click, wave => {
   if (!arranging()) return;
   if (wave === run.wave) openCampaignTrial();
@@ -1139,7 +1139,7 @@ function startOpening(id: OpeningId, customSeed?: string, quick = false, archive
 
 function openingConfirm(visible: boolean) {
   element('opening-confirm').hidden = !visible;
-  for (const id of ['opening-choices', 'opening-preview', 'opening-actions', 'opening-settings', 'opening-extra', 'opening-modes']) element(id).hidden = visible;
+  for (const id of ['opening-loadout', 'opening-preview', 'opening-actions', 'opening-settings', 'opening-extra', 'opening-modes']) element(id).hidden = visible;
 }
 
 const openingChoices = openingIds.map(id => {
@@ -1165,6 +1165,7 @@ function showOpeningPreview() {
   for (const mode of ['beginner', 'standard', 'expert']) {
     button(`difficulty-${mode}`).setAttribute('aria-pressed', String(mode === (openingDifficulty ?? 'standard')));
   }
+  element('opening-quick-detail').textContent = `${difficultyLabel(openingDifficulty)} · ${openings[openingCandidate].name}`;
   const sample = makeOpening(openingCandidate, chosenSeed(), openingDifficulty);
   renderOpeningPreview(element('opening-preview'), sample, catalog,
     recordsFor(openingDifficulty)[openingCandidate], runeGlyph, formatNumber, click);
@@ -1172,7 +1173,7 @@ function showOpeningPreview() {
 
 function openOpenings(first = false) {
   openingCandidate = first ? 'chain' : run.opening;
-  openingDifficulty = first ? undefined : run.difficulty;
+  openingDifficulty = first ? 'beginner' : run.difficulty;
   openingReplacesRun = run.status === 'active' && !first;
   openingConfirm(false);
   fallbackOpeningSeed = generateSeedCode().code;
@@ -1183,7 +1184,7 @@ function openOpenings(first = false) {
     : first && invite !== null ? '这个邀请来自旧版或已失效。你可以选一套阵直接开局。'
     : first && dailyRequest !== null && !sharedDaily ? '这条每日链接已失效。可以直接玩今天的题。'
     : first && boardRequested && !sharedBoard ? '这条阵型链接已失效。可以选一套起手阵开始。'
-    : '在 4×4 棋盘布阵，守住 20 波。';
+    : '摆符文，打连锁，守住 20 波。';
   button('opening-close').hidden = first || run.status !== 'active';
   openingDialog.dataset.first = String(first);
   showOpeningPreview();
