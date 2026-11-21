@@ -70,7 +70,7 @@ export function readJournal(raw: unknown, catalog: Catalog): BattleJournal | und
   if (events.every(valid)) return { formation, maxHp, events };
 }
 
-export function journalPlayback(journal: BattleJournal, startingGold: number) {
+export function journalPlayback(journal: Pick<BattleJournal, 'maxHp' | 'events'>, startingGold: number) {
   const { maxHp } = journal;
   let hp = maxHp;
   let poison = 0;

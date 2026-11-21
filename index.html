@@ -260,13 +260,28 @@
             <button id="daily-close" type="button" aria-label="关闭每日残局">×</button>
           </header>
           <div class="daily-stage">
-            <div id="daily-board" class="daily-board" role="group" aria-label="点两枚符文换位"></div>
-            <div class="daily-brief">
+            <div class="daily-board-wrap">
+              <div id="daily-board" class="daily-board" role="group" aria-label="点两枚符文换位"></div>
+              <span id="daily-replay-link" class="battle-frame-link" aria-hidden="true" hidden></span>
+            </div>
+            <div id="daily-brief" class="daily-brief">
               <strong id="daily-enemy"></strong>
               <p id="daily-trait" hidden></p>
               <p id="daily-rules"></p>
               <p id="daily-moves"></p>
             </div>
+            <section id="daily-replay" class="daily-replay" aria-label="本次试打战况" hidden>
+              <div class="daily-replay-head"><strong>敌人生命</strong><span id="daily-replay-hp"></span></div>
+              <progress id="daily-replay-health" aria-label="剩余敌人生命"></progress>
+              <p id="daily-replay-resources"></p>
+              <p id="daily-replay-event" role="status"></p>
+            </section>
+          </div>
+          <div id="daily-replay-nav" class="daily-replay-nav" role="group" aria-label="逐步查看战况" hidden>
+            <span id="daily-replay-count"></span>
+            <button id="daily-replay-prev" type="button">上一步</button>
+            <button id="daily-replay-next" type="button">下一步</button>
+            <button id="daily-replay-hit" type="button">最大一击</button>
           </div>
           <div id="daily-twist" class="daily-twist" hidden><strong id="daily-twist-name"></strong><p id="daily-twist-rule"></p></div>
           <p id="daily-friend" class="daily-friend" hidden></p>
@@ -275,7 +290,10 @@
             <button type="button" data-goal="clear" aria-pressed="true"><span>最少步数 <small id="daily-fast-seal" hidden>满</small></span><strong id="daily-best"></strong></button>
             <button type="button" data-goal="peak" aria-pressed="false"><span>最高伤害 <small id="daily-peak-seal" hidden>满</small></span><strong id="daily-peak"></strong></button>
           </div>
-          <p id="daily-result" role="status">点两枚符文换位，再试打。</p>
+          <div class="daily-result-line">
+            <p id="daily-result" role="status">点两枚符文换位，再试打。</p>
+            <button id="daily-replay-toggle" type="button" aria-expanded="false" aria-controls="daily-replay daily-replay-nav" hidden>看出手</button>
+          </div>
           <div class="daily-tools">
             <button id="daily-undo" type="button">撤销</button>
             <button id="daily-reset" type="button">重摆</button>
@@ -286,17 +304,17 @@
             <span id="daily-next-copy"></span>
             <button id="daily-next-action" type="button"></button>
           </div>
+          <div class="daily-footer">
+            <span id="daily-share-status" role="status">每天北京时间零点换题</span>
+            <button id="daily-copy" type="button">复制挑战</button>
+            <button id="daily-card" type="button" class="puzzle-card-open" aria-haspopup="dialog" hidden>战绩卡</button>
+            <button id="relay-open" type="button" aria-haspopup="dialog">三阵接力</button>
+          </div>
+          <input id="daily-link" type="url" readonly aria-label="每日残局链接" hidden />
           <details id="daily-archive" class="daily-archive">
             <summary><span id="daily-recent"></span><strong id="daily-streak"></strong></summary>
             <div id="daily-dates" class="daily-dates" role="group" aria-label="选择谜题日期"></div>
           </details>
-          <div class="daily-footer">
-            <span id="daily-share-status" role="status">每天北京时间零点换题</span>
-            <button id="relay-open" type="button" aria-haspopup="dialog">三阵接力</button>
-            <button id="daily-copy" type="button">复制挑战</button>
-            <button id="daily-card" type="button" class="puzzle-card-open" aria-haspopup="dialog" hidden>战绩卡</button>
-          </div>
-          <input id="daily-link" type="url" readonly aria-label="每日残局链接" hidden />
         </div>
       </dialog>
 
@@ -449,7 +467,7 @@
           <section class="journal-playback" aria-label="逐步复盘">
             <div class="journal-stage">
               <div class="journal-board" aria-hidden="true">
-                <div id="journal-board"></div><span id="journal-link" hidden></span>
+                <div id="journal-board"></div><span id="journal-link" class="battle-frame-link" hidden></span>
               </div>
               <div class="journal-scene">
                 <p id="journal-frame-kind"></p>

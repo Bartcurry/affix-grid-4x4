@@ -133,7 +133,7 @@ export function readDailyLink(raw: string | null, today = shanghaiDay()): DailyI
   return score ? { day, score } : { day };
 }
 
-export function runDaily(formation: Formation, hp: number, pieces: readonly string[], catalog: Catalog) {
+export function simulateDaily(formation: Formation, hp: number, pieces: readonly string[], catalog: Catalog) {
   const board: Slots = Array(16).fill(null);
   formation.cells.forEach((cell, index) => { board[cell] = { configId: pieces[index], star: 1 }; });
   const events = simulateBattle({ board, hp, gold: formation.gold ?? 0, encounter: formation.enemy,
@@ -141,7 +141,11 @@ export function runDaily(formation: Formation, hp: number, pieces: readonly stri
     affix: formation.affix?.id, enableSynergies: true }, catalog, () => 1);
   const result = events.at(-1);
   if (result?.type !== 'TURN_RESULT') throw new Error('Missing daily result');
-  return result;
+  return { events, result };
+}
+
+export function runDaily(formation: Formation, hp: number, pieces: readonly string[], catalog: Catalog) {
+  return simulateDaily(formation, hp, pieces, catalog).result;
 }
 
 function swaps(pieces: readonly string[]) {

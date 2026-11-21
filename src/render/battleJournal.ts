@@ -1,9 +1,9 @@
 import { readSharedBoard, type SharedBoard } from '../core/boardShare';
 import { battleTargetFor } from '../core/bounties';
 import { encounters } from '../core/expedition';
-import { GRID_SIZE, toCoords } from '../core/grid';
 import { damageLeaders, journalPlayback, journalRows, type JournalFilter } from '../core/journal';
-import type { BattleEvent, BattleJournal, Catalog, Slots } from '../core/types';
+import type { BattleJournal, Catalog, Slots } from '../core/types';
+import { describeBattleEvent, placeBattleLink } from './battleFrame';
 import { planJournalReplay } from './playbackController';
 
 export function bindBattleJournal(catalog: Catalog, format: (value: number) => string, glyph: (owner: HTMLElement, id: string) => void,
@@ -31,27 +31,9 @@ export function bindBattleJournal(catalog: Catalog, format: (value: number) => s
   let rate: 1 | 2 = 1;
   let cells: HTMLElement[] = [];
   let step = 0;
-  const signed = (value: number) => `${value < 0 ? '−' : '+'}${format(Math.abs(value))}`;
 
   function runeName(index: number) {
     return `${index + 1} 格 ${catalog[board[index]?.configId ?? '']?.name ?? '符文'}`;
-  }
-
-  function describe(event: BattleEvent, previousPoison: number) {
-    switch (event.type) {
-      case 'CELL_ACTIVATE': return `${event.isChain ? '连锁触发' : '轮到'} ${runeName(event.index)}`;
-      case 'CHAIN_LINK': return `${runeName(event.from)} 接到 ${runeName(event.to)}`;
-      case 'DAMAGE': {
-        const source = event.kind === 'tutorial' ? '起手共鸣' : event.source === null ? '回合末剧毒' :
-          `${runeName(event.source)}${event.kind === 'poison' ? '的羁绊毒爆' : ''}`;
-        const modifier = event.enemyDelta ? `（敌人招式 ${signed(event.enemyDelta)}）` : '';
-        return `${source}打出 ${format(event.amount)} 点${event.crit ? '暴击' : '伤害'}${event.gateBlocked ? ' · 同列轮锁' : ''}${modifier}`;
-      }
-      case 'POISON': return `${event.source === null ? '毒层衰减' : runeName(event.source)} · ${format(previousPoison)} → ${format(event.poison)} 层毒`;
-      case 'GOLD': return `${runeName(event.source)} · ${signed(event.delta)} 金`;
-      case 'RUNE_STATE': return `${runeName(event.index)} · 伤害 ×${+event.state.tempMult.toFixed(2)}，暴击 ${Math.round(event.state.tempCritChance * 100)}%，充能 ${event.state.chargeStacks}`;
-      case 'TURN_RESULT': return `共 ${format(event.damage)} 伤害 · ${event.combo} 次触发`;
-    }
   }
 
   function setStep(index: number) {
@@ -69,18 +51,7 @@ export function bindBattleJournal(catalog: Catalog, format: (value: number) => s
         source = event.from;
         target = event.to;
         kind.textContent = event.tutorial ? '起手共鸣' : '连锁接力';
-        const from = toCoords(source);
-        const to = toCoords(target);
-        const dx = to.col - from.col;
-        const dy = to.row - from.row;
-        const unit = 100 / GRID_SIZE;
-        Object.assign(link.style, {
-          left: `${(from.col + .5) * unit}%`,
-          top: `${(from.row + .5) * unit}%`,
-          width: `${Math.hypot(dx, dy) * unit}%`,
-          transform: `rotate(${Math.atan2(dy, dx)}rad)`,
-        });
-        link.hidden = source === target;
+        placeBattleLink(link, source, target);
         break;
       }
       case 'DAMAGE': source = event.source; kind.textContent = event.gateBlocked ? '同列轮锁' : event.crit ? '暴击' : '命中'; break;
@@ -95,7 +66,7 @@ export function bindBattleJournal(catalog: Catalog, format: (value: number) => s
       cell.toggleAttribute('data-target', position === target);
     }
     kind.dataset.kind = event?.type.toLowerCase() ?? 'start';
-    description.textContent = event ? describe(event, previousPoison) : '本波开战时的站位';
+    description.textContent = event ? describeBattleEvent(event, runeName, format, previousPoison) : '本波开战时的站位';
     health.max = maxHp;
     health.value = hp;
     get('journal-hp').textContent = format(hp);
@@ -174,7 +145,7 @@ export function bindBattleJournal(catalog: Catalog, format: (value: number) => s
       index.textContent = String(step);
       const label = document.createElement('span');
       entry.dataset.kind = event.type.toLowerCase();
-      label.textContent = describe(event, previousPoison);
+      label.textContent = describeBattleEvent(event, runeName, format, previousPoison);
       if (event.type === 'DAMAGE') label.append(` · 剩余敌血 ${format(event.hp)}`);
       if (event.type === 'GOLD') label.append(` · 手里剩 ${format(event.gold)} 金`);
       button.onclick = () => {
