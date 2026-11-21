@@ -13,6 +13,7 @@ interface ApplyFormation {
   apply(board: SharedBoard): boolean;
   label?: string;
   note?: string;
+  searchEmptyText?: string;
 }
 interface PracticeGoal { name: string; damage: number }
 
@@ -166,7 +167,7 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
   function showPlan(plan: FormationPlan | undefined, current: ReturnType<typeof planTurn>) {
     if (!plan) {
       showResult(current);
-      guide.textContent = '暂时没找到更高伤害的摆法。可以继续换位，或到符文铺试买。';
+      guide.textContent = availableApply?.searchEmptyText ?? '暂时没找到更高伤害的摆法。可以继续换位，或到符文铺试买。';
       guide.hidden = false;
       return;
     }

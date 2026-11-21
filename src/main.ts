@@ -922,7 +922,7 @@ button('forecast-scout').onclick = () => {
   openCampaignTrial(true);
 };
 
-function openRetryTrial(source: SharedBoard, preserving: boolean) {
+function openRetryTrial(source: SharedBoard, preserving: boolean, quickFind = false) {
   if (!run.pendingLoss || source.shield <= 0) return;
   const failed = run;
   const savedRun = platform.load(false)?.run;
@@ -933,6 +933,7 @@ function openRetryTrial(source: SharedBoard, preserving: boolean) {
   boardTrial.open(source, {
     label: '保存改阵',
     note: `第 ${source.wave} 波重打 · ${preserving ? '保留' : '扣盾后剩'} ${source.shield} 点护盾 · ${formatNumber(source.gold)} 金`,
+    searchEmptyText: '一两步内没找到更高伤害的摆法。可以手动换位，或回结算页选重打方式。',
     matches,
     apply: board => {
       if (!saveMatches || !matches(board) || JSON.stringify(platform.load(false)?.run) !== checkpoint) return false;
@@ -942,7 +943,7 @@ function openRetryTrial(source: SharedBoard, preserving: boolean) {
       retryScout.saved();
       return true;
     },
-  }, true);
+  }, true, undefined, quickFind);
 }
 
 interface Action { label: string; act: () => void | Promise<void>; primary?: boolean }
@@ -1202,20 +1203,32 @@ function showOutcome(archive = true) {
   if (run.pendingCamp) { showEndlessCamp(run); return; }
   if (run.pendingLoss) {
     const failed = run;
-    const after = (protectedRetry: boolean) => {
-      if (run !== failed || !run.pendingLoss) return;
+    const retry = async (protectedRetry: boolean, quick = false) => {
+      if (run !== failed || !run.pendingLoss || (quick && !protectedRetry && run.shield <= 1)) return;
+      const savedRun = platform.load(false)?.run;
+      if (savedRun && (!savedRun.pendingLoss || !sameBattleSetup(savedRun, run) || !sameFormation(savedRun, run))) {
+        retryScout.changed();
+        return;
+      }
+      const checkpoint = JSON.stringify(savedRun);
+      if (protectedRetry && !await platform.showRewardedVideo('retry')) return;
+      if (run !== failed || !run.pendingLoss || JSON.stringify(platform.load(false)?.run) !== checkpoint) {
+        retryScout.changed();
+        return;
+      }
       dialog.close(); resolveLoss(run, protectedRetry); resetTimeline(); redraw();
       if (run.status === 'defeat') showOutcome();
+      else if (quick) void startBattle(true);
       else notice(protectedRetry ? '护盾保留。现在可以重新布阵。' : '护盾 −1，重新布阵后可再次挑战。');
     };
     const { encounter, hp } = currentTarget();
     const enemy = encounters[encounter];
     showPanel(`第 ${run.wave} 波没打过`, `对${enemy.name}打了 ${formatNumber(run.lastDamage)} 点，还差 ${formatNumber(Math.max(0, hp - run.lastDamage))} 点。重打时敌人会回满血。`, [
       ...(run.lastJournal ? [{ label: '看看怎么打的', act: reviewLast }] : []),
-      { label: '看广告 · 无损改阵重打', act: async () => { if (await platform.showRewardedVideo('retry')) after(true); } },
-      { label: '扣除 1 点护盾', act: () => after(false) },
+      { label: '看广告 · 无损改阵重打', act: () => retry(true) },
+      { label: '扣除 1 点护盾', act: () => retry(false) },
     ]);
-    retryScout.open(failed);
+    retryScout.open(failed, preserve => { click(); void retry(preserve, true); });
   } else if (run.status !== 'active') {
     const won = run.status === 'victory';
     if (archive) recordRunHistory(run);
