@@ -405,6 +405,10 @@
             <div><h2 id="trial-board-title">试打这一波</h2><p id="trial-board-wave"></p></div>
             <button id="trial-board-close" type="button" aria-label="关闭试阵">×</button>
           </header>
+          <div id="trial-board-duel" class="trial-duel" hidden>
+            <strong id="trial-board-duel-target"></strong>
+            <span id="trial-board-duel-steps" aria-live="polite"></span>
+          </div>
           <div class="trial-board-stage">
             <div>
               <div id="trial-board-grid" class="trial-tiles" role="group" aria-label="棋盘"></div>
@@ -430,9 +434,10 @@
             <button id="trial-board-check" type="button" class="primary">试打</button>
           </div>
           <button id="trial-board-apply" type="button" hidden>应用到当前阵</button>
-          <div class="daily-footer">
+          <div class="daily-footer trial-share">
             <span id="trial-board-share-status" role="status">换位和试打都只在这里生效。</span>
             <button id="trial-board-copy" type="button" disabled>复制改阵</button>
+            <button id="trial-board-invite" type="button" hidden>发阵型挑战</button>
           </div>
           <input id="trial-board-link" type="url" readonly aria-label="改阵挑战链接" hidden />
         </div>

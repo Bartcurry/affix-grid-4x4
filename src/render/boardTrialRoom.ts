@@ -1,6 +1,7 @@
 import { boardShareUrl, type SharedBoard } from '../core/boardShare';
 import { battleTarget } from '../core/bounties';
 import { affixAt, encounters, relics } from '../core/expedition';
+import { formationDuelUrl, maxDuelMoves, type FormationDuel } from '../core/formationDuel';
 import { bestFormationMove, type FormationPlan } from '../core/formationMove';
 import { toCoords } from '../core/grid';
 import { planTurn, runeFootprint } from '../core/tactics';
@@ -18,12 +19,21 @@ interface ApplyFormation {
 }
 interface PracticeGoal { name: string; damage: number }
 
+function duelOutcome(goal: FormationDuel, damage: number, moves: number, format: (value: number) => string) {
+  if (damage < goal.damage) return { passed: false, verdict: `离挑战目标还差 ${format(goal.damage - damage)} 伤害。` };
+  if (moves > goal.moves) return { passed: false, verdict: `伤害达标，还需少换 ${moves - goal.moves} 步。` };
+  if (moves < goal.moves) return { passed: true, verdict: `挑战达成，少用 ${goal.moves - moves} 步。` };
+  if (damage > goal.damage) return { passed: true, verdict: `挑战达成，多打 ${format(damage - goal.damage)} 伤害。` };
+  return { passed: true, verdict: '挑战达成，追平朋友的成绩。' };
+}
+
 export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: string) => void, format: (value: number) => string, click: () => void) {
   const dialog = document.querySelector<HTMLDialogElement>('#trial-board-dialog')!;
   const get = <T extends HTMLElement = HTMLElement>(id: string) => dialog.querySelector<T>(`#trial-board-${id}`)!;
   const undo = get<HTMLButtonElement>('undo');
   const reset = get<HTMLButtonElement>('reset');
   const copy = get<HTMLButtonElement>('copy');
+  const invite = get<HTMLButtonElement>('invite');
   const apply = get<HTMLButtonElement>('apply');
   const find = get<HTMLButtonElement>('find');
   const guide = get('guide');
@@ -31,26 +41,35 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
   const outcome = get('result');
   const shareStatus = get('share-status');
   let active: SharedBoard;
+  let starting: SharedBoard;
   let original: ReturnType<typeof planTurn>;
   let originalPieces: Map<Rune, number>;
   let selected: Slot | undefined;
   let moves: Move[];
-  let tried = false;
+  let tested: TurnResult | undefined;
   let suggested: Move[] = [];
   let search: Worker | undefined;
   let availableApply: ApplyFormation | undefined;
   let practice: PracticeGoal | undefined;
+  let duel: FormationDuel | undefined;
   const delta = (value: number) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${format(Math.abs(value))}`;
 
   function updateControls() {
     undo.disabled = reset.disabled = !moves.length;
-    copy.disabled = !moves.length || !tried;
+    copy.disabled = !moves.length || !tested;
+    invite.hidden = !!practice || !tested || tested.damage <= original.result.damage || !moves.length || moves.length > maxDuelMoves ||
+      (!!duel && outcome.dataset.win !== 'true');
+    if (duel) {
+      const steps = get('duel-steps');
+      steps.textContent = `${moves.length} / ${duel.moves} 步`;
+      steps.dataset.over = String(moves.length > duel.moves);
+    }
     apply.hidden = !availableApply?.matches(active);
   }
 
   function clearAttempt() {
     stopSearch();
-    tried = false;
+    tested = undefined;
     get('current').textContent = '待试打';
     get('delta').textContent = '';
     delete get('delta').dataset.direction;
@@ -147,15 +166,21 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
     const poison = current.poisonDamage - original.poisonDamage;
     if (poison) sources.push({ name: '回合末剧毒', amount: poison });
     const largest = sources.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))[0];
-    const passed = practice ? current.result.damage >= practice.damage : current.result.win;
-    const verdict = practice
-      ? passed ? '达成练习目标。' : `离练习目标还差 ${format(practice.damage - current.result.damage)} 伤害。`
-      : passed ? '过了。' : `还差 ${format(current.result.hp)} 伤害。`;
+    const ordinaryPass = practice ? current.result.damage >= practice.damage : current.result.win;
+    const { passed, verdict } = duel ? duelOutcome(duel, current.result.damage, moves.length, format) : {
+      passed: ordinaryPass,
+      verdict: practice ? ordinaryPass ? '达成练习目标。' : `离练习目标还差 ${format(practice.damage - current.result.damage)} 伤害。`
+        : ordinaryPass ? '过了。' : `还差 ${format(current.result.hp)} 伤害。`,
+    };
     const settlement = availableApply?.settlement?.(active, current.result);
     outcome.textContent = `${verdict}${largest ? ` ${largest.name} ${delta(largest.amount)} 伤害。` : ''}${settlement ? ` ${settlement}` : ''}`;
     outcome.dataset.win = String(passed);
-    tried = true;
+    tested = current.result;
     updateControls();
+    if (!invite.hidden && !duel) shareStatus.textContent = `朋友从原阵开始，${moves.length} 步内打到 ${format(tested.damage)} 伤害。`;
+    else if (!practice && !duel && moves.length > maxDuelMoves && difference > 0) {
+      shareStatus.textContent = `用 ${maxDuelMoves} 步以内的改法可以发阵型挑战。`;
+    }
   }
 
   get('close').onclick = () => dialog.close();
@@ -254,38 +279,47 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
     clearAttempt();
     draw();
   };
-  copy.onclick = async () => {
+  async function copyTrialLink(url: string | undefined, message: string) {
     click();
-    const url = boardShareUrl(location.href, active);
-    if (!url) return;
+    if (!url || !tested) return;
+    const attempt = tested;
     link.value = url;
+    link.hidden = true;
+    const stillCurrent = () => dialog.open && tested === attempt && link.value === url;
     try {
       await navigator.clipboard.writeText(url);
-      if (dialog.open && tried) shareStatus.textContent = '改阵链接已复制。';
+      if (stillCurrent()) shareStatus.textContent = message;
     } catch {
-      if (!dialog.open || !tried) return;
+      if (!stillCurrent()) return;
       link.hidden = false;
       link.focus();
       link.select();
       shareStatus.textContent = '长按链接可手动复制。';
     }
-  };
+  }
+  copy.onclick = () => copyTrialLink(boardShareUrl(location.href, active), '改阵链接已复制。');
+  invite.onclick = () => copyTrialLink(formationDuelUrl(location.href, starting, moves), duel ? '回传链接已复制。' : '阵型挑战链接已复制。');
 
   return {
     dialog,
-    open(snapshot: SharedBoard, applyToRun?: ApplyFormation, fromCampaign = false, goal?: PracticeGoal, quickFind = false) {
+    open(snapshot: SharedBoard, applyToRun?: ApplyFormation, fromCampaign = false, goal?: PracticeGoal | FormationDuel, quickFind = false) {
       if (dialog.open) return;
-      active = { ...snapshot, board: [...snapshot.board], bench: [...snapshot.bench] };
+      starting = { ...snapshot, board: [...snapshot.board], bench: [...snapshot.bench] };
+      active = { ...starting, board: [...starting.board], bench: [...starting.bench] };
       availableApply = applyToRun;
-      practice = goal;
+      practice = goal && 'name' in goal ? goal : undefined;
+      duel = goal && 'moves' in goal ? goal : undefined;
       original = planTurn(active, catalog);
       originalPieces = new Map(active.board.flatMap((rune, index) => rune ? [[rune, original.byCell[index].damage] as const] : []));
       moves = [];
       selected = undefined;
       const { encounter, bounty } = battleTarget(active.wave, active.bountyRoute, active.finaleRule);
       const enemy = encounters[encounter];
-      get('wave').textContent = goal ? `${goal.name} · 练习目标 ${format(goal.damage)} 伤害`
+      get('title').textContent = duel ? '阵型挑战' : '试打这一波';
+      get('wave').textContent = practice ? `${practice.name} · 练习目标 ${format(practice.damage)} 伤害`
         : applyToRun?.note ?? `第 ${active.wave} 波 · ${bounty?.name ?? enemy.name} · ${format(original.hp)} 生命`;
+      get('duel').hidden = !duel;
+      get('duel-target').textContent = duel ? `目标 ${format(duel.damage)} 伤害` : '';
       get('original').textContent = format(original.result.damage);
       get('original-combo').textContent = `${format(original.result.combo)} 连击`;
       get('resources').textContent = `${format(active.gold)} 金 · ${active.shield} 护盾 · ${active.relics.length} 件遗物`;
@@ -295,6 +329,7 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
       get<HTMLDetailsElement>('conditions').open = false;
       find.hidden = !fromCampaign;
       copy.hidden = !!goal;
+      invite.textContent = duel ? '回传成绩' : '发阵型挑战';
       apply.textContent = applyToRun?.label ?? '应用到当前阵';
       dialog.toggleAttribute('data-campaign', fromCampaign);
       clearAttempt();

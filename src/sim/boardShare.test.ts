@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { boardShareParam, boardShareUrl, readSharedBoard, sameBattleSetup, sameFormation } from '../core/boardShare';
+import { formationDuelParam, formationDuelUrl, readFormationDuel } from '../core/formationDuel';
 import { createMulberry32 } from '../core/rng';
 import { newRun } from '../core/shopEngine';
 import { planTurn } from '../core/tactics';
@@ -57,5 +58,29 @@ describe('one-wave board links', () => {
     }
     expect(readSharedBoard('A'.repeat(2600), catalog)).toBeUndefined();
     expect(readSharedBoard(null, catalog)).toBeUndefined();
+  });
+
+  it('replays the steps in an invitation and derives a reachable score without changing the original board', () => {
+    const run = newRun(catalog, createMulberry32(667));
+    run.wave = 8;
+    run.tileModifiers = {};
+    run.board.fill(null);
+    run.bench[0] = { configId: 'spark_orb', star: 3, bonusPower: 190 };
+    const steps = [[{ zone: 'bench', index: 0 }, { zone: 'board', index: 1 }]] as const;
+    const url = new URL(formationDuelUrl('https://example.com/game/?daily=old#result', run, steps)!);
+    expect([...url.searchParams.keys()]).toEqual([boardShareParam, formationDuelParam]);
+    expect(url.searchParams.get(formationDuelParam)).toBe('v1.G1');
+    const restored = readSharedBoard(url.searchParams.get(boardShareParam), catalog)!;
+    expect(restored.board).toEqual(run.board);
+    const setup = { ...run, board: [...run.board], bench: [...run.bench] };
+    [setup.board[1], setup.bench[0]] = [setup.bench[0], setup.board[1]];
+    expect(readFormationDuel(url.searchParams.get(formationDuelParam), restored, catalog))
+      .toEqual({ moves: 1, damage: planTurn(setup, catalog).result.damage });
+    expect(restored.bench).toEqual(run.bench);
+    expect(restored.board.every(piece => !piece)).toBe(true);
+    for (const invalid of ['v2.G1', 'v1.G', 'v1.GZ', 'v1.GG', 'v1.1G', 'v1.G11G', 'v1.G11GG11GG1']) {
+      expect(readFormationDuel(invalid, restored, catalog), invalid).toBeUndefined();
+    }
+    expect(formationDuelUrl('https://example.com/game/', run, [])).toBeUndefined();
   });
 });

@@ -1516,6 +1516,9 @@ button:focus-visible, canvas:focus-visible {
 .journal-actions:has(#journal-try[hidden]) { grid-template-columns: 1fr; }
 .trial-board-dialog { width: min(30rem, calc(100% - 1.3rem)); max-height: 94dvh; }
 .trial-board-dialog .dialog-content { padding: clamp(.62rem, 3.4vw, 1rem); gap: .55rem; }
+.trial-duel { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: .25rem .6rem; padding: .45rem .58rem; border: 1px solid #6a8e7d; background: #20312e; color: #d6e8c9; font-size: .82rem; }
+#trial-board-duel-steps { font-variant-numeric: tabular-nums; }
+#trial-board-duel-steps[data-over=true] { color: #ffbf94; }
 .trial-board-stage { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); align-items: start; gap: .55rem; }
 .trial-tiles { display: grid; width: min(100%, 12rem); grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .16rem; }
 .trial-tiles button { position: relative; display: grid; place-items: center; min-width: 0; min-height: 0; aspect-ratio: 1; padding: 0; border: 1px solid #454955; background: #181e28; color: var(--rune-ink, #a9a7a1); }
@@ -1545,8 +1548,12 @@ button:focus-visible, canvas:focus-visible {
 .trial-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(0, 1.25fr); gap: .32rem; }
 .trial-board-dialog[data-campaign] .trial-tools { grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.16fr); }
 .trial-board-dialog[data-campaign] #trial-board-find { border-color: #6f8973; color: #d0e3bd; }
-.trial-tools button, #trial-board-copy { min-height: 2.55rem; padding: .22rem .36rem; font-size: .76rem; }
+.trial-tools button, .trial-share button { min-height: 2.55rem; padding: .22rem .36rem; font-size: .76rem; }
 #trial-board-copy:enabled { color: #dceac9; border-color: #788d6d; background: #26352c; }
+.trial-share:has(#trial-board-invite:not([hidden])) { flex-wrap: wrap; }
+.trial-share:has(#trial-board-invite:not([hidden])) span { flex-basis: 100%; }
+.trial-share:has(#trial-board-invite:not([hidden])) button { flex: 1; }
+#trial-board-invite { color: #24190f; background: #ecc58d; border-color: #efd5ac; font-weight: 750; }
 .trial-tools .primary { color: #261b11; background: #edc07f; border-color: #f9d7a0; }
 .trial-tools .primary:hover { color: #261b11; background: #f6cc8d; }
 #trial-board-apply { min-height: 2.55rem; border-color: #8ca888; background: #29372e; color: #d6e7c5; font-size: .79rem; }

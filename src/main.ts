@@ -10,6 +10,7 @@ import { affixAt, armorHitsFor, encounters, endlessSegment, relics } from './cor
 import { difficultyLabel, isOpening, openingIds, openings, runScore, updateRecords } from './core/openings';
 import { challengeParam, challengeSaveKey, matchesChallenge, readChallenge } from './core/challenge';
 import { boardShareParam, boardShareUrl, encodeBoardToken, readSharedBoard, sameBattleSetup, sameFormation, type SharedBoard } from './core/boardShare';
+import { formationDuelParam, readFormationDuel } from './core/formationDuel';
 import { readDailyLink } from './core/daily';
 import { readRelayLink, relayParam } from './core/weeklyRelay';
 import { createMulberry32, decodeSeed, generateSeedCode } from './core/rng';
@@ -72,8 +73,11 @@ const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const params = new URLSearchParams(location.search);
 const invite = params.get(challengeParam);
 const boardRequest = params.get(boardShareParam);
-const boardRequested = boardRequest !== null || location.hash.startsWith('#board=');
-const sharedBoard = readSharedBoard(boardRequest, catalog);
+const duelRequest = params.get(formationDuelParam);
+const boardRequested = boardRequest !== null || duelRequest !== null || location.hash.startsWith('#board=');
+const boardCandidate = readSharedBoard(boardRequest, catalog);
+const formationDuel = boardCandidate && readFormationDuel(duelRequest, boardCandidate, catalog);
+const sharedBoard = duelRequest === null || formationDuel ? boardCandidate : undefined;
 const challenge = sharedBoard ? undefined : readChallenge(invite);
 const dailyRequest = params.get('daily');
 const sharedDaily = challenge || sharedBoard ? undefined : readDailyLink(dailyRequest);
@@ -1821,11 +1825,11 @@ function openLanding(archive = true) {
   else if (boardRequested && !sharedBoard) notice('这条阵型链接来自旧版或已失效。');
 }
 
-function resumeAfterSideRoom(room: HTMLDialogElement, param: string) {
+function resumeAfterSideRoom(room: HTMLDialogElement, ...shareParams: string[]) {
   room.addEventListener('close', () => {
     sideLanding = false;
     const address = new URL(location.href);
-    address.searchParams.delete(param);
+    for (const param of shareParams) address.searchParams.delete(param);
     window.history.replaceState(window.history.state, '', address);
     redraw(false);
     openLanding(false);
@@ -1859,8 +1863,8 @@ function applySharedBoard(board: SharedBoard) {
 
 redraw(!!saved && !challenge && !sideLanding);
 if (sharedBoard) {
-  boardTrial.open(sharedBoard, { matches: board => !!saved && canReplaceFormation(board), apply: applySharedBoard });
-  resumeAfterSideRoom(boardTrial.dialog, boardShareParam);
+  boardTrial.open(sharedBoard, formationDuel ? undefined : { matches: board => !!saved && canReplaceFormation(board), apply: applySharedBoard }, false, formationDuel);
+  resumeAfterSideRoom(boardTrial.dialog, boardShareParam, formationDuelParam);
 } else if (sharedDaily && daily.open(sharedDaily.day, sharedDaily.score)) {
   resumeAfterSideRoom(daily.dialog, 'daily');
 } else if (sharedRelay && relay.open(sharedRelay.day, sharedRelay.score)) {
