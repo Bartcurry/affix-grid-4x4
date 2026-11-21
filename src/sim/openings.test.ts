@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { catalog } from '../data/catalog';
+import { simulateBattle } from '../core/battleEngine';
+import { findFirstSupply } from '../core/firstSupply';
 import { openingIds, updateRecords } from '../core/openings';
-import { newRun } from '../core/shopEngine';
+import { createMulberry32 } from '../core/rng';
+import { newRun, settleTurn } from '../core/shopEngine';
 import { planTurn } from '../core/tactics';
 
 const shopRandom = () => .4;
@@ -30,5 +33,26 @@ describe('opening routes', () => {
     expect(updateRecords(victory, { opening: 'gold', wave: 21, status: 'defeat', bestCombo: 18 }).gold)
       .toEqual({ cleared: 20, combo: 18 });
     expect(updateRecords({}, { opening: 'amplify', wave: 1, status: 'active', bestCombo: 0 })).toEqual({});
+  });
+
+  it('can preview one buy and one extra swap without spending or moving runes', () => {
+    const rng = createMulberry32(2 * 104729);
+    const run = newRun(catalog, rng);
+    const first = simulateBattle({ board: run.board, bench: run.bench, gold: run.gold, hp: 60, shield: run.shield,
+      tileModifiers: run.tileModifiers, tutorial: true, enableSynergies: true }, catalog, rng).at(-1);
+    if (first?.type !== 'TURN_RESULT') throw new Error('Missing first wave result');
+    settleTurn(run, first, catalog, rng);
+    run.rngState = rng.getState();
+    const before = structuredClone(run);
+    const current = planTurn(run, catalog).result;
+    expect(current.win).toBe(false);
+    const plan = findFirstSupply(run, catalog, current)!;
+    expect(plan.purchase).toBeDefined();
+    expect(plan.move).toBeDefined();
+    expect(plan.result.win).toBe(true);
+    expect(planTurn(plan.run, catalog).result).toEqual(plan.result);
+    expect(plan.run.gold).toBeLessThan(run.gold);
+    expect(run).toEqual(before);
+    expect(findFirstSupply(plan.run, catalog, plan.result)).toBeUndefined();
   });
 });

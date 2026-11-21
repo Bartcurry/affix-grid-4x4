@@ -2,6 +2,7 @@ import './style.css';
 import { simulateBattle } from './core/battleEngine';
 import { battleTarget, bountyCount, bountyPerkLabel, engravingPower, offersBounties } from './core/bounties';
 import { claimEngraving } from './core/engraving';
+import { findFirstSupply } from './core/firstSupply';
 import { claimCamp } from './core/endlessCamp';
 import { canReforge, prepareReforge } from './core/reforge';
 import { toCoords } from './core/grid';
@@ -35,6 +36,7 @@ import { bindRetryScout } from './render/retryScout';
 import { bindPurchaseRoom } from './render/purchaseRoom';
 import { bindBountyRoom } from './render/bountyRoom';
 import { bindEngravingRoom } from './render/engravingRoom';
+import { bindFirstSupplyRoom } from './render/firstSupplyRoom';
 import { bindEndlessCampRoom } from './render/endlessCampRoom';
 import { bindReforgeRoom } from './render/reforgeRoom';
 import { bindRelicRoom } from './render/relicRoom';
@@ -188,6 +190,7 @@ const boardTrial = bindBoardTrial(catalog, runeGlyph, formatNumber, click);
 const showPurchase = bindPurchaseRoom(catalog, runeGlyph, click);
 const showReforge = bindReforgeRoom(catalog, runeGlyph, click);
 const showEngraving = bindEngravingRoom(catalog, runeGlyph, click);
+const showFirstSupply = bindFirstSupplyRoom(catalog, runeGlyph, click);
 const showEndlessCamp = bindEndlessCampRoom(catalog, runeGlyph, click, choice => {
   if (!claimCamp(run, choice)) return false;
   click();
@@ -679,15 +682,36 @@ function buyOffer(index: number, target?: Slot) {
 
 function showFirstClear() {
   const banner = element('first-clear');
-  const supply = openings[run.opening].supply;
-  const stock = run.shop.findIndex(offer => offer?.configId === supply);
-  banner.hidden = firstClearPayout === undefined || run.wave !== 2 || stock < 0 || !arranging();
-  if (banner.hidden) return;
-  element('first-clear-score').textContent = `首波拿下 · +${firstClearPayout} 金`;
+  banner.hidden = firstClearPayout === undefined || run.wave !== 2 || !arranging();
+  if (banner.hidden || !forecast) return;
+  const { result } = forecast;
+  banner.dataset.ready = String(result.win);
+  element('first-clear-score').textContent = `首胜 +${firstClearPayout} 金 · ${result.win ? '第 2 波可直接打' : `还差 ${formatNumber(result.hp)} 伤害`}`;
   const action = button('first-clear-supply');
-  action.textContent = `试摆 ${catalog[supply].name}`;
-  action.onclick = () => openPurchase(stock);
+  action.hidden = result.win;
 }
+
+button('first-clear-supply').onclick = () => {
+  if (!arranging() || run.wave !== 2 || firstClearPayout === undefined || !forecast || forecast.result.win) return;
+  click();
+  const original = run;
+  const visible = JSON.stringify(run);
+  const checkpoint = JSON.stringify(platform.load(false)?.run);
+  const plan = findFirstSupply(run, catalog, forecast.result);
+  if (!plan) { openCampaignTrial(true); return; }
+  showFirstSupply(run, forecast.result, plan, () => {
+    if (!arranging() || run !== original || JSON.stringify(run) !== visible ||
+      JSON.stringify(platform.load(false)?.run) !== checkpoint) return false;
+    undoStack.push(run);
+    restoreSnapshot(run, createSnapshot(plan.run));
+    click();
+    audio.jadeChime();
+    const slot = plan.move?.to ?? plan.purchase?.landing;
+    if (slot) select(slot);
+    redraw();
+    return true;
+  });
+};
 
 button('first-clear-close').onclick = () => {
   click();
@@ -1391,7 +1415,7 @@ async function startBattle(quick = false) {
     }
     renderer.waveComplete = true; renderer.invalidate();
     victoryTimer = setTimeout(() => { renderer.waveComplete = false; renderer.invalidate(); }, 1500);
-    notice(`${payout.bounty ? '悬赏完成' : `打过第 ${run.wave - 1} 波`} · ${formatNumber(result.damage)} 伤害 · 过关 +${payout.total} 金${payout.perk ? ` · ${bountyPerkLabel(payout.perk, run)}` : ''}${repairedByDifficulty ? ' · 入门补盾 +1' : ''}`);
+    if (run.wave !== 2 || repairedByDifficulty) notice(`${payout.bounty ? '悬赏完成' : `打过第 ${run.wave - 1} 波`} · ${formatNumber(result.damage)} 伤害 · 过关 +${payout.total} 金${payout.perk ? ` · ${bountyPerkLabel(payout.perk, run)}` : ''}${repairedByDifficulty ? ' · 入门补盾 +1' : ''}`);
   }
   showOutcome();
 }

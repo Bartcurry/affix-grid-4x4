@@ -106,7 +106,7 @@
         </div>
         <div id="first-clear" class="first-clear" hidden>
           <span id="first-clear-score"></span>
-          <button id="first-clear-supply" type="button" aria-haspopup="dialog"></button>
+          <button id="first-clear-supply" type="button" aria-haspopup="dialog">看过关方案</button>
           <button id="first-clear-close" type="button" aria-label="关闭首胜提示">×</button>
         </div>
         <button class="bounty-open" id="bounty-open" type="button" aria-haspopup="dialog" hidden>
@@ -570,6 +570,26 @@
           <div class="dialog-actions">
             <button id="forecast-close" class="primary" type="button">返回布阵</button>
           </div>
+        </div>
+      </dialog>
+
+      <dialog id="first-supply-dialog" class="first-supply-dialog" aria-labelledby="first-supply-title">
+        <div class="dialog-content">
+          <header class="invite-heading">
+            <h2 id="first-supply-title">第 2 波怎么打</h2>
+            <button id="first-supply-close" type="button" aria-label="关闭过关方案">×</button>
+          </header>
+          <div class="first-supply-stage">
+            <div id="first-supply-board" class="daily-board" role="group" aria-label="应用后的棋盘"></div>
+            <ol id="first-supply-steps"></ol>
+          </div>
+          <dl class="first-supply-stats">
+            <div><dt>本波伤害</dt><dd id="first-supply-damage"></dd></div>
+            <div><dt>手里金币</dt><dd id="first-supply-gold"></dd></div>
+          </dl>
+          <p id="first-supply-verdict"></p>
+          <p id="first-supply-status" role="status" hidden></p>
+          <button id="first-supply-confirm" class="primary" type="button"></button>
         </div>
       </dialog>
 
