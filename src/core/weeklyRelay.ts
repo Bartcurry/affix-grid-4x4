@@ -1,4 +1,5 @@
 import { dailyDamageByBudget, relayStage, runDaily, shanghaiDay, validDailyDate, type DailyPuzzle } from './daily';
+import { campaignUrl } from './sitePaths';
 import type { Catalog } from './types';
 
 const firstWeek = '2026-11-16';
@@ -109,7 +110,7 @@ export function readRelayLink(raw: string | null, today = shanghaiDay()) {
 }
 
 export function relayLink(page: string, day: string, score?: RelayScore) {
-  const url = new URL(page);
+  const url = campaignUrl(page);
   url.search = '';
   url.hash = '';
   url.searchParams.set(relayParam, score ? `v1.${day}.${score.moves}.${score.damage}` : `v1.${day}`);

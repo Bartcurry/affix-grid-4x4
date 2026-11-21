@@ -3,6 +3,7 @@ import { bountyAt } from './bounties';
 import { CELL_COUNT } from './grid';
 import { isOpening } from './openings';
 import { BENCH_SIZE } from './shopEngine';
+import { campaignUrl } from './sitePaths';
 import type { BountyRoute, Catalog, RelicId, Run, Rune, Slots, TileModifier, TileModifierMap } from './types';
 
 export const boardShareParam = 'board';
@@ -56,7 +57,7 @@ export function encodeBoardToken(run: SharedBoard) {
 }
 
 export function boardShareUrl(page: string, run: SharedBoard) {
-  const url = new URL(page);
+  const url = campaignUrl(page);
   if ((url.protocol !== 'https:' && url.protocol !== 'http:') || (!run.board.some(Boolean) && !run.bench.some(Boolean))) return;
   const token = encodeBoardToken(run);
   if (!token) return;

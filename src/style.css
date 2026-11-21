@@ -1328,6 +1328,7 @@ button:focus-visible, canvas:focus-visible {
 .daily-dialog .dialog-content { padding: clamp(.65rem, 3.45vw, 1.05rem); gap: .6rem; }
 .daily-heading, .daily-footer { display: flex; align-items: center; justify-content: space-between; gap: .55rem; }
 #daily-date { color: #c7b496; font: .72rem var(--mono-font); }
+#daily-title:focus { outline: none; }
 #daily-close { width: 2.45rem; height: 2.45rem; padding: 0; font-size: 1.4rem; }
 .daily-stage { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, .85fr); gap: clamp(.45rem, 2.3vw, .85rem); align-items: center; padding: .56rem; background: linear-gradient(130deg, #252822, #171c23 78%); border: 1px solid #5d6757; }
 .daily-board-wrap { position: relative; width: min(100%, 13rem); }

@@ -156,7 +156,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
           message('点两枚符文换位，再试打。');
         } else if (start === undefined || pieces[start] === pieces[index]) {
           selected = index;
-          message(`${rune.name} · ${rune.desc}`);
+          message(`已选中${rune.name}。再点另一枚换位。 ${rune.desc}`);
         } else {
           replay.clear();
           const move: Move = [start, index];
@@ -181,7 +181,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     draw();
   }
 
-  function open(day = shanghaiDay(), score?: DailyRecord) {
+  function open(day = shanghaiDay(), score?: DailyRecord, expired = false) {
     if (dialog.open && puzzle.day === day) return true;
     const next = dailyPuzzle(day, catalog);
     if (!next) return false;
@@ -223,6 +223,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
       goal = 'clear';
       reset();
     }
+    if (expired) message('这条挑战链接已失效，已打开今天的题。点两枚符文换位，再试打。');
     renderArchive();
     if (!dialog.open) {
       dialog.showModal();

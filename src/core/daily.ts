@@ -1,5 +1,6 @@
 import { simulateBattle } from './battleEngine';
 import { endlessAffixes, type EncounterId, type EndlessAffix } from './expedition';
+import { dailyPage } from './sitePaths';
 import type { Catalog, RelicId, Slots, TileModifierMap } from './types';
 
 interface Formation {
@@ -104,9 +105,7 @@ export function validDailyDate(day: unknown): day is string {
 }
 
 export function dailyLink(page: string, day: string, score?: DailyRecord) {
-  const url = new URL(page);
-  url.search = '';
-  url.hash = '';
+  const url = new URL(dailyPage, page);
   const { version } = editionFor(day);
   const payload: (string | number)[] = [version, day];
   if (version !== 'v2' && score) payload.push(score.moves, score.damage, score.peakDamage ?? score.damage);

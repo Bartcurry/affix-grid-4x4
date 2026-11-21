@@ -1,5 +1,6 @@
 import { isOpening, runScore, type OpeningRecord } from './openings';
 import { decodeSeed, encodeSeed } from './rng';
+import { campaignUrl } from './sitePaths';
 import type { OpeningId, Run } from './types';
 
 export const challengeParam = 'challenge';
@@ -69,7 +70,7 @@ export function readChallenge(raw: string | null): Challenge | undefined {
 }
 
 export function challengeUrl(page: string, challenge: Challenge): string {
-  const url = new URL(page);
+  const url = campaignUrl(page);
   url.search = '';
   url.hash = '';
   const mode = challenge.firstWaveRule === 1 ? [challenge.difficulty ?? 'standard'] : [];

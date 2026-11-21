@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
     <meta name="theme-color" content="#090B10" />
+    <!-- social-preview:start -->
     <meta name="description" content="在 4×4 法阵里摆放符文、合成升星，靠连锁守住 20 波。也能把阵容发给朋友，让对方接着摆。" />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="zh_CN" />
@@ -16,6 +17,8 @@
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="黑底描金的 4×4 符文棋盘。摆符文，打连锁，守住 20 波。" />
     <meta name="twitter:card" content="summary_large_image" />
+    <title>4×4 词条法阵 · 玄墨鎏金</title>
+    <!-- social-preview:end -->
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="icon-192.png" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -23,7 +26,6 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="词条法阵" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23090B10' d='M0 0h32v32H0z'/%3E%3Cpath fill='none' stroke='%23D4AF37' stroke-width='1.5' d='M3 3h26v26H3zM16 7l9 9-9 9-9-9zm0 4v10m-5-5h10'/%3E%3C/svg%3E" />
-    <title>4×4 词条法阵 · 玄墨鎏金</title>
   </head>
   <body>
     <main class="game" id="game" aria-label="4×4 词条法阵" data-enemy="sentry">
@@ -259,6 +261,7 @@
             <div><p id="daily-date"></p><h2 id="daily-title" tabindex="-1"></h2></div>
             <button id="daily-close" type="button" aria-label="关闭每日残局">×</button>
           </header>
+          <p id="daily-friend" class="daily-friend" hidden></p>
           <div class="daily-stage">
             <div class="daily-board-wrap">
               <div id="daily-board" class="daily-board" role="group" aria-label="点两枚符文换位"></div>
@@ -284,7 +287,6 @@
             <button id="daily-replay-hit" type="button">最大一击</button>
           </div>
           <div id="daily-twist" class="daily-twist" hidden><strong id="daily-twist-name"></strong><p id="daily-twist-rule"></p></div>
-          <p id="daily-friend" class="daily-friend" hidden></p>
           <p id="daily-duel" class="daily-duel" hidden></p>
           <div id="daily-goals" class="daily-goals" role="group" aria-label="选择每日挑战目标" hidden>
             <button type="button" data-goal="clear" aria-pressed="true"><span>最少步数 <small id="daily-fast-seal" hidden>满</small></span><strong id="daily-best"></strong></button>

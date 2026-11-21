@@ -4,6 +4,7 @@ const prefix = `affix-grid-release:${scope.href}:`;
 const cacheName = prefix + release;
 const shell = new URL(`offline-${release}.html`, scope);
 const index = new URL('index.html', scope);
+const daily = new URL('daily.html', scope);
 
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
@@ -61,7 +62,7 @@ self.addEventListener('fetch', event => {
   const url = new URL(request.url);
   if (request.method !== 'GET' || url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname)) return;
   if (request.mode === 'navigate') {
-    if (url.pathname === scope.pathname || url.pathname === index.pathname) event.respondWith(navigate(request));
+    if ([scope.pathname, index.pathname, daily.pathname].includes(url.pathname)) event.respondWith(navigate(request));
   } else {
     event.respondWith(asset(request));
   }

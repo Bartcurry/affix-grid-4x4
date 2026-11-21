@@ -69,6 +69,7 @@ describe('Cycle 1: PWA & Service Worker Configuration', () => {
       return response;
     };
     expect(await navigation(scope + 'index.html?challenge=example')).toBe(shell);
+    expect(await navigation(scope + 'daily.html?daily=v4.2026-11-22')).toBe(shell);
     expect(navigation('https://example.com/other-game/')).toBeUndefined();
   });
 });

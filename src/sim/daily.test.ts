@@ -18,8 +18,11 @@ describe('daily formations', () => {
     expect(shanghaiDay(new Date('2026-11-20T15:59:59Z'))).toBe('2026-11-20');
     expect(shanghaiDay(new Date('2026-11-20T16:00:00Z'))).toBe('2026-11-21');
     const url = new URL(dailyLink('https://example.com/game/?challenge=old#board', '2026-11-20'));
-    expect(url.pathname).toBe('/game/');
+    expect(url.pathname).toBe('/game/daily.html');
     expect(url.hash).toBe('');
+    expect([...url.searchParams.keys()]).toEqual(['daily']);
+    expect(dailyLink('https://example.com/game/index.html', '2026-11-20')).toBe(url.href);
+    expect(dailyLink('https://example.com/game/daily.html?relay=old', '2026-11-20')).toBe(url.href);
     expect(readDailyLink(url.searchParams.get('daily'), '2026-11-20')).toEqual({ day: '2026-11-20' });
     expect(readDailyLink('2026-11-20', '2026-11-20')).toBeUndefined();
     expect(readDailyLink('v2.2026-11-21', '2026-11-20')).toBeUndefined();

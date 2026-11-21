@@ -13,6 +13,7 @@ import { challengeParam, challengeSaveKey, matchesChallenge, readChallenge } fro
 import { boardShareParam, boardShareUrl, encodeBoardToken, readSharedBoard, sameBattleSetup, sameFormation, type SharedBoard } from './core/boardShare';
 import { formationDuelParam, readFormationDuel } from './core/formationDuel';
 import { readDailyLink } from './core/daily';
+import { campaignUrl, isDailyPage } from './core/sitePaths';
 import { readRelayLink, relayParam } from './core/weeklyRelay';
 import { createMulberry32, decodeSeed, generateSeedCode } from './core/rng';
 import { planTurn, previewPlacement, runeFootprint, usesTutorial } from './core/tactics';
@@ -84,7 +85,9 @@ const dailyRequest = params.get('daily');
 const sharedDaily = challenge || sharedBoard ? undefined : readDailyLink(dailyRequest);
 const relayRequest = params.get(relayParam);
 const sharedRelay = challenge || sharedBoard || sharedDaily ? undefined : readRelayLink(relayRequest);
-let sideLanding = !!(sharedDaily || sharedBoard || sharedRelay);
+const fromDailyPage = isDailyPage(location.pathname);
+const dailyPageLanding = fromDailyPage && !challenge && !sharedBoard && !sharedRelay;
+let sideLanding = !!(sharedDaily || dailyPageLanding || sharedBoard || sharedRelay);
 let appliedSharedBoard = false;
 const createPlatform = (key?: string) => new WebMockAdapter(catalog, element('ad'), element('ad-text'), button('cancel-ad'), key);
 const platform = createPlatform(challenge ? challengeSaveKey(challenge) : undefined);
@@ -164,7 +167,7 @@ const showChallenge = bindChallengeRoom(quick => {
 }, leaveChallenge, local => { click(); shareRoom(local, true); });
 
 function leaveChallenge() {
-  const address = new URL(location.href);
+  const address = campaignUrl(location.href);
   address.searchParams.delete(challengeParam);
   location.assign(address.href);
 }
@@ -1854,9 +1857,10 @@ function openLanding(archive = true) {
 function resumeAfterSideRoom(room: HTMLDialogElement, ...shareParams: string[]) {
   room.addEventListener('close', () => {
     sideLanding = false;
-    const address = new URL(location.href);
+    const address = campaignUrl(location.href);
     for (const param of shareParams) address.searchParams.delete(param);
     window.history.replaceState(window.history.state, '', address);
+    if (fromDailyPage) document.title = '4×4 词条法阵 · 玄墨鎏金';
     redraw(false);
     openLanding(false);
     if (appliedSharedBoard) notice('已应用改阵，可以撤销。');
@@ -1891,7 +1895,9 @@ redraw(!!saved && !challenge && !sideLanding);
 if (sharedBoard) {
   boardTrial.open(sharedBoard, formationDuel ? undefined : { matches: board => !!saved && canReplaceFormation(board), apply: applySharedBoard }, false, formationDuel);
   resumeAfterSideRoom(boardTrial.dialog, boardShareParam, formationDuelParam);
-} else if (sharedDaily && daily.open(sharedDaily.day, sharedDaily.score)) {
+} else if ((sharedDaily || dailyPageLanding) && daily.open(sharedDaily?.day, sharedDaily?.score,
+  dailyRequest !== null && !sharedDaily)) {
+  if (dailyPageLanding) document.title = '每日残局 · 4×4 词条法阵';
   resumeAfterSideRoom(daily.dialog, 'daily');
 } else if (sharedRelay && relay.open(sharedRelay.day, sharedRelay.score)) {
   resumeAfterSideRoom(relay.dialog, relayParam);
