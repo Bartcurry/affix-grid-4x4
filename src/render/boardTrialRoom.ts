@@ -4,7 +4,7 @@ import { affixAt, encounters, relics } from '../core/expedition';
 import { bestFormationMove, type FormationPlan } from '../core/formationMove';
 import { toCoords } from '../core/grid';
 import { planTurn, runeFootprint } from '../core/tactics';
-import type { Catalog, Rune, Slot } from '../core/types';
+import type { Catalog, Rune, Slot, TurnResult } from '../core/types';
 
 const tileNames = { li_fire: '离火', xuan_ice: '玄冰', spirit_gathering: '聚灵' } as const;
 type Move = [Slot, Slot];
@@ -14,6 +14,7 @@ interface ApplyFormation {
   label?: string;
   note?: string;
   searchEmptyText?: string;
+  settlement?(board: SharedBoard, result: TurnResult): string;
 }
 interface PracticeGoal { name: string; damage: number }
 
@@ -150,7 +151,8 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
     const verdict = practice
       ? passed ? '达成练习目标。' : `离练习目标还差 ${format(practice.damage - current.result.damage)} 伤害。`
       : passed ? '过了。' : `还差 ${format(current.result.hp)} 伤害。`;
-    outcome.textContent = `${verdict}${largest ? ` ${largest.name} ${delta(largest.amount)} 伤害。` : ''}`;
+    const settlement = availableApply?.settlement?.(active, current.result);
+    outcome.textContent = `${verdict}${largest ? ` ${largest.name} ${delta(largest.amount)} 伤害。` : ''}${settlement ? ` ${settlement}` : ''}`;
     outcome.dataset.win = String(passed);
     tried = true;
     updateControls();

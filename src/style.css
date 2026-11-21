@@ -1771,15 +1771,20 @@ dialog::backdrop {
   background: #171c26;
   text-align: left;
 }
-.bounty-options button[aria-pressed=true] { background: #372b25; border-color: #e4b779; }
+.bounty-options button[aria-pressed=true] { background: #362b26; border-color: #e8bf83; box-shadow: inset 3px 0 #e8bf83; }
 .bounty-options strong { color: #f2e2c6; font: 800 .96rem/1.35 var(--display-font); }
+.bounty-current-marker { color: #bdab92; font-size: .66rem; font-weight: 650; }
 .bounty-reward { color: #eab978; font-size: .73rem; font-weight: 700; }
-.bounty-enemy, .bounty-estimate, .bounty-perk { grid-column: 1 / -1; font-size: .73rem; line-height: 1.35; }
+.bounty-enemy, .bounty-estimate, .bounty-perk, .bounty-wallet { grid-column: 1 / -1; font-size: .73rem; line-height: 1.35; }
 .bounty-enemy { color: #c8b79b; }
 .bounty-estimate { color: #f0c798; font-weight: 700; font-variant-numeric: tabular-nums; }
 .bounty-estimate[data-win=true] { color: #bce1a1; }
 .bounty-perk { color: #d6c6a4; }
-#bounty-confirm { min-height: 2.45rem; font-size: .8rem; }
+.bounty-wallet { color: #b8bed0; font-variant-numeric: tabular-nums; }
+.bounty-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: .45rem; }
+.bounty-actions button { min-height: 2.65rem; font-size: .8rem; }
+#bounty-trial { background: #233139; border-color: #6f9290; color: #d5eddc; }
+#bounty-status { color: #f0c798; font-size: .78rem; }
 
 .encounter-room { padding: clamp(.7rem, 3.7vw, 1.1rem); gap: .85rem; }
 .encounter-header, .encounter-boss {

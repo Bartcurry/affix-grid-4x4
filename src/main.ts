@@ -16,7 +16,7 @@ import { createMulberry32, decodeSeed, generateSeedCode } from './core/rng';
 import { planTurn, previewPlacement, runeFootprint, usesTutorial } from './core/tactics';
 import { canArrange, chooseRelic, createSnapshot, newRun, purchaseInfo, refreshShop, resolveLoss, restoreSnapshot, runeAt, selectBounty, sellRune, sellValue, settleTurn, startEndless, swapRunes, toggleLock, UndoStack, victoryPayout } from './core/shopEngine';
 import { preparePurchase } from './core/purchasePreview';
-import { STAR_MULT, initialRuneState, type BattleEvent, type OpeningId, type Rune, type Run, type RuneState, type Slot } from './core/types';
+import { STAR_MULT, initialRuneState, type BattleEvent, type BountyRoute, type OpeningId, type Rune, type Run, type RuneState, type Slot } from './core/types';
 import { catalog } from './data/catalog';
 import { CanvasRenderer, formatNumber, runeVectors, tileStamp } from './render/canvasRenderer';
 import { getArchetypeEmblemPath, getBossSvgPath, getRelicSvgPath } from './render/glyphs';
@@ -43,7 +43,7 @@ import { bindRelicRoom } from './render/relicRoom';
 import { renderOpeningPreview } from './render/openingPreview';
 import { PlaybackController, type PlaybackBeat } from './render/playbackController';
 import { SynthAudio } from './audio/synthAudio';
-import { WebMockAdapter } from './platform/webMockAdapter';
+import { migrateSave, WebMockAdapter } from './platform/webMockAdapter';
 import { runePlacement } from './data/tacticalTips';
 import { formationLessons } from './data/formationLessons';
 import type { RunArchive } from './platform/adapter';
@@ -199,17 +199,51 @@ const showEndlessCamp = bindEndlessCampRoom(catalog, runeGlyph, click, choice =>
   notice(choice.id === 'move' ? `离火位移到了第 ${choice.cell + 1} 格` : choice.id === 'repair' ? '护盾 +1' : '营地补给已领取');
   return true;
 });
-const showBounties = bindBountyRoom(catalog, click, route => {
-  if (!arranging()) return false;
-  const prior = run.bountyRoute;
-  if (!selectBounty(run, route)) return false;
-  undoStack.push({ ...run, bountyRoute: prior });
+const showBounties = bindBountyRoom(catalog, click);
+button('bounty-open').onclick = () => {
+  if (!arranging() || !offersBounties(run)) return;
   click();
-  resetTimeline();
-  redraw();
-  return true;
-});
-button('bounty-open').onclick = () => { if (arranging() && offersBounties(run)) { click(); showBounties(run); } };
+  const original = run;
+  const saved = platform.load(false);
+  const checkpoint = JSON.stringify(saved);
+  const saveMatches = !saved || JSON.stringify(saved.run) === JSON.stringify(migrateSave({ run }, catalog).run);
+  const current = () => saveMatches && run === original && arranging() && JSON.stringify(platform.load(false)) === checkpoint;
+  const apply = (route: BountyRoute | undefined, board?: SharedBoard) => {
+    if (!current()) return false;
+    const prior = { ...run };
+    if (route !== prior.bountyRoute && !selectBounty(run, route)) return false;
+    if (board) applyBoardLayout(board, prior);
+    else undoStack.push(prior);
+    resetTimeline();
+    if (board) select(null);
+    redraw();
+    if (board) notice('已保存路线和布阵，可以一起撤销。');
+    return true;
+  };
+  showBounties(run, {
+    choose: apply,
+    trial(route, quickFind, close) {
+      if (!current()) return false;
+      const source = { ...run, bountyRoute: route };
+      const label = route === run.bountyRoute ? '应用改阵' : route ? '接悬赏并应用改阵' : '走原路并应用改阵';
+      boardTrial.open(source, {
+        label,
+        matches: board => !sameFormation(source, board),
+        apply: board => {
+          if (!sameBattleSetup(source, board) || !apply(route, board)) return false;
+          boardTrial.dialog.addEventListener('close', close, { once: true });
+          return true;
+        },
+        searchEmptyText: '一两步内没找到更高伤害的摆法。可以手动换位，或返回比较其他路线。',
+        settlement: (board, result) => {
+          const payout = result.win ? victoryPayout({ ...source, board: board.board }, result.gold, catalog).total : 0;
+          return `${result.win ? '过关' : '失利'}后有 ${formatNumber(result.gold + payout)} 金。`;
+        },
+      }, true, undefined, quickFind);
+      return true;
+    },
+  });
+};
 button('reforge-open').onclick = () => {
   if (!arranging() || !forecast || !canReforge(run)) return;
   click();
@@ -1778,8 +1812,8 @@ function replaceFormation(board: SharedBoard) {
   return true;
 }
 
-function applyBoardLayout(board: SharedBoard) {
-  undoStack.push(run);
+function applyBoardLayout(board: SharedBoard, prior = run) {
+  undoStack.push(prior);
   run.board = [...board.board];
   run.bench = [...board.bench];
 }

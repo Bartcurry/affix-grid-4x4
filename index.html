@@ -522,7 +522,11 @@
             <button id="bounty-close" type="button" aria-label="关闭悬赏路线">×</button>
           </header>
           <div id="bounty-options" class="bounty-options" role="group" aria-label="比较本波路线"></div>
-          <button id="bounty-confirm" type="button" class="primary" disabled></button>
+          <p id="bounty-status" role="status" hidden></p>
+          <div class="bounty-actions">
+            <button id="bounty-trial" type="button" aria-haspopup="dialog">试打所选路线</button>
+            <button id="bounty-confirm" type="button" class="primary" disabled></button>
+          </div>
         </div>
       </dialog>
 
