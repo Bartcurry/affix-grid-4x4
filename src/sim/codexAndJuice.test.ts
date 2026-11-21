@@ -5,8 +5,10 @@ import { getRelicSvgPath } from '../render/glyphs';
 import { runePlacement } from '../data/tacticalTips';
 import { formationLessons, lessonBoards } from '../data/formationLessons';
 import { simulateFormation } from '../core/tactics';
+import { encodeBoardToken } from '../core/boardShare';
 import { migrateSave } from '../platform/webMockAdapter';
 import type { RunArchive } from '../platform/adapter';
+import { archiveBoard, updateArchive } from '../platform/runArchive';
 import { STAR_MULT } from '../core/types';
 import { SynthAudio } from '../audio/synthAudio';
 import { CanvasRenderer } from '../render/canvasRenderer';
@@ -149,27 +151,30 @@ describe('Cycle 2: Codex (天机图鉴) & Tactical Tips Coverage', () => {
     expect(migrated.history?.length).toBe(0);
   });
 
-  it('updates existing run entry in history when recording same seed', () => {
-    let history: RunArchive[] = [];
-    const record = (entry: RunArchive) => {
-      const idx = history.findIndex(h => h.seed === entry.seed);
-      if (idx >= 0) {
-        history[idx] = entry;
-      } else {
-        history.unshift(entry);
-        if (history.length > 5) history = history.slice(0, 5);
-      }
-    };
+  it('keeps the best attempt for each seed, opening and ruleset', () => {
+    const first: RunArchive = { id: '1', seed: 'SEED-A', wave: 5, opening: 'chain', status: 'active', lastDamage: 500, bestCombo: 5, date: '11-20', relicsCount: 1 };
+    const other = { ...first, id: '2', seed: 'SEED-B' };
+    const winner = { ...first, id: '3', wave: 20, status: 'victory' as const, bestCombo: 22 };
+    const starting = updateArchive(updateArchive([], first), other);
+    const better = updateArchive(starting, winner);
+    expect(better).toEqual([other, winner]);
+    expect(updateArchive(better, { ...first, bestCombo: 40 })).toBe(better);
+    expect(updateArchive(better, { ...winner, id: 'same' })).toBe(better);
+    expect(updateArchive(better, { ...winner, id: '4', bestCombo: 23 })[1].id).toBe('4');
+    const beginner = { ...first, difficulty: 'beginner' as const, finaleRule: 1 as const };
+    expect(updateArchive(better, beginner)).toEqual([beginner, other, winner]);
+  });
 
-    record({ id: '1', seed: 'SEED-A', wave: 5, opening: 'chain', status: 'active', lastDamage: 500, bestCombo: 5, date: '11-20', relicsCount: 1 });
-    record({ id: '2', seed: 'SEED-B', wave: 10, opening: 'poison', status: 'active', lastDamage: 2000, bestCombo: 10, date: '11-20', relicsCount: 2 });
-    expect(history.length).toBe(2);
-
-    // Progress in SEED-A to wave 20 victory
-    record({ id: '3', seed: 'SEED-A', wave: 20, opening: 'chain', status: 'victory', lastDamage: 50000, bestCombo: 22, date: '11-20', relicsCount: 4 });
-    expect(history.length).toBe(2);
-    expect(history.find(h => h.seed === 'SEED-A')?.wave).toBe(20);
-    expect(history.find(h => h.seed === 'SEED-A')?.status).toBe('victory');
+  it('preserves a small battle snapshot and rejects a snapshot of the wrong wave or opening', () => {
+    const run = newRun(catalog, createMulberry32(1));
+    const formation = encodeBoardToken({ ...run, wave: 20 })!;
+    const entry: RunArchive = { id: '1', seed: run.seed, wave: 20, opening: run.opening, status: 'victory', lastDamage: 50000,
+      bestCombo: 22, date: '11-20', relicsCount: 4, altarRule: 1, bountyRule: 1, endlessRule: 1, reforgeRule: 1, finaleRule: 1, formation };
+    const active: RunArchive = { ...entry, wave: 21, status: 'active', endless: true };
+    expect(archiveBoard(active, catalog)?.board).toEqual(run.board);
+    expect(migrateSave({ run, history: [entry, active, { ...entry, wave: 19 }, { ...entry, opening: 'poison' },
+      { ...entry, formation: 'bad-token' }] }, catalog).history?.map(item => item.formation)).toEqual([formation, formation, undefined, undefined, undefined]);
+    expect(archiveBoard({ ...entry, finaleRule: undefined }, catalog)).toBeUndefined();
   });
 });
 

@@ -3019,6 +3019,7 @@ dialog::backdrop {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: .4rem;
 }
 
 .codex-archive-opening-group {
@@ -3043,6 +3044,7 @@ dialog::backdrop {
 }
 
 .codex-archive-status-badge {
+  flex: none;
   font-size: 0.72rem;
   font-weight: 800;
   padding: 0.15rem 0.45rem;
@@ -3081,6 +3083,7 @@ dialog::backdrop {
 
 .codex-archive-foot {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 0.5rem;
@@ -3090,17 +3093,24 @@ dialog::backdrop {
   font-size: 0.74rem;
   color: var(--text-sub);
   font-family: var(--mono-font);
+  overflow-wrap: anywhere;
 }
 
 .codex-archive-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.4rem;
 }
 
 .codex-archive-actions button {
+  min-height: 2.6rem;
   font-size: 0.74rem;
   padding: 0.25rem 0.55rem;
 }
+
+.codex-archive-actions .archive-trial { background: #253835; border-color: #7c9e8e; color: #d7edda; }
+#codex-archive-status { margin-bottom: .45rem; color: #ded3b6; font-size: .77rem; }
+#codex-archive-status:empty { display: none; }
 
 .codex-empty-note {
   text-align: center;

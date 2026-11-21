@@ -12,10 +12,12 @@ export interface RunArchive {
   bestCombo: number;
   date: string;
   relicsCount: number;
+  enableSynergies?: false;
   altarRule?: 1;
   bountyRule?: 1;
   engravingRule?: 1;
   bountiesCleared?: number;
+  formation?: string;
   endlessRule?: 1;
   reforgeRule?: 1;
   finaleRule?: 1;

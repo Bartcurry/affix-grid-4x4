@@ -9,6 +9,7 @@ import { createMulberry32, decodeSeed, generateSeedCode } from '../core/rng';
 import type { Catalog, OpeningId, Run, Slots, TileModifierMap } from '../core/types';
 import { catalog as defaultCatalog } from '../data/catalog';
 import type { PlatformAdapter, Reward, RunArchive, SaveData } from './adapter';
+import { archiveBoard, archiveLimit } from './runArchive';
 
 const SAVE_KEY_V2 = 'affix-grid-4x4.v2';
 const SAVE_KEY_V1 = 'affix-grid-4x4.v1';
@@ -49,7 +50,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
     if (!Array.isArray(rawList)) return [];
     return rawList
       .filter((item: any) => item && typeof item.seed === 'string' && isOpening(item.opening))
-      .slice(0, 5)
+      .slice(0, archiveLimit)
       .map((item: any) => ({
         id: typeof item.id === 'string' ? item.id : `${item.seed}-${item.wave}`,
         seed: String(item.seed),
@@ -60,6 +61,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
         bestCombo: natural(item.bestCombo) ? item.bestCombo : 0,
         date: typeof item.date === 'string' ? item.date : new Date().toLocaleDateString('zh-CN'),
         relicsCount: natural(item.relicsCount) ? item.relicsCount : 0,
+        ...(item.enableSynergies === false ? { enableSynergies: false as const } : {}),
         ...(item.altarRule === 1 ? { altarRule: 1 as const } : {}),
         ...(item.altarRule === 1 && item.bountyRule === 1 ? { bountyRule: 1 as const } : {}),
         ...(natural(item.bountiesCleared) && item.bountiesCleared <= bountyCount ? { bountiesCleared: item.bountiesCleared } : {}),
@@ -69,6 +71,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
         ...(item.finaleRule === 1 && item.engravingRule === 1 ? { engravingRule: 1 as const } : {}),
         ...(item.finaleRule === 1 && item.difficulty === 'beginner' ? { difficulty: 'beginner' as const } : {}),
         ...(item.endless === true || (natural(item.wave) && item.wave > 20) ? { endless: true as const } : {}),
+        ...(typeof item.formation === 'string' && archiveBoard(item, catalog) ? { formation: item.formation } : {}),
       }));
   };
 

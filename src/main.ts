@@ -44,6 +44,7 @@ import { renderOpeningPreview } from './render/openingPreview';
 import { PlaybackController, type PlaybackBeat } from './render/playbackController';
 import { SynthAudio } from './audio/synthAudio';
 import { migrateSave, WebMockAdapter } from './platform/webMockAdapter';
+import { archiveBoard, updateArchive } from './platform/runArchive';
 import { runePlacement } from './data/tacticalTips';
 import { formationLessons } from './data/formationLessons';
 import type { RunArchive } from './platform/adapter';
@@ -1054,6 +1055,7 @@ function recordRunHistory(runToRecord: Run) {
     bestCombo: runToRecord.bestCombo,
     date: new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
     relicsCount: runToRecord.relics.length,
+    ...(runToRecord.enableSynergies === false ? { enableSynergies: false } : {}),
     ...(runToRecord.altarRule === 1 ? { altarRule: 1 } : {}),
     ...(runToRecord.bountyRule === 1 ? { bountyRule: 1 } : {}),
     ...(runToRecord.engravingRule === 1 ? { engravingRule: 1 } : {}),
@@ -1063,15 +1065,9 @@ function recordRunHistory(runToRecord: Run) {
     ...(runToRecord.finaleRule === 1 ? { finaleRule: 1 } : {}),
     ...(runToRecord.endless ? { endless: true } : {}),
   };
-  const existingIdx = history.findIndex(item => item.seed === entry.seed && item.opening === entry.opening && item.difficulty === entry.difficulty &&
-    item.altarRule === entry.altarRule && item.bountyRule === entry.bountyRule && item.engravingRule === entry.engravingRule &&
-    item.endlessRule === entry.endlessRule && item.reforgeRule === entry.reforgeRule && item.finaleRule === entry.finaleRule);
-  if (existingIdx >= 0) {
-    history[existingIdx] = entry;
-  } else {
-    history.unshift(entry);
-    if (history.length > 5) history = history.slice(0, 5);
-  }
+  const formation = runToRecord.lastJournal?.formation;
+  if (formation && archiveBoard({ ...entry, formation }, catalog)) entry.formation = formation;
+  history = updateArchive(history, entry);
   persist();
 }
 
@@ -1101,6 +1097,7 @@ function startOpening(id: OpeningId, customSeed?: string, quick = false, archive
   if (openingDialog.open) openingDialog.close();
   if (dialog.open) dialog.close();
   run = makeOpening(challenge?.opening ?? id, challenge?.seed || customSeed || chosenSeed(), archived ? archived.difficulty : openingDifficulty);
+  if (!challenge && archived?.enableSynergies === false) run.enableSynergies = false;
   if (!challenge && archived && !archived.altarRule) delete run.altarRule;
   if (!challenge && archived && !archived.bountyRule) delete run.bountyRule;
   if (!challenge && archived && !archived.engravingRule) delete run.engravingRule;
@@ -1663,8 +1660,13 @@ function renderCodexRelics() {
 
 function renderCodexArchives() {
   const list = element('codex-archives-list');
+  const status = element('codex-archive-status');
+  status.textContent = '';
   if (!history.length) {
-    list.innerHTML = '<div class="codex-empty-note">天机未启，尚无历劫战史。<br>请先行运转法阵历练，破阵之后自会在此载入青史。</div>';
+    const empty = document.createElement('p');
+    empty.className = 'codex-empty-note';
+    empty.textContent = '打过至少一场后，结束本局或开新局时会保存战绩。';
+    list.replaceChildren(empty);
     return;
   }
 
@@ -1680,26 +1682,19 @@ function renderCodexArchives() {
 
     const emblemWrap = document.createElement('div');
     emblemWrap.className = 'codex-archive-emblem';
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('viewBox', '0 0 32 32');
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', getArchetypeEmblemPath(item.opening));
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', 'currentColor');
-    path.setAttribute('stroke-width', '2');
-    svg.append(path);
-    emblemWrap.append(svg);
+    iconPath(emblemWrap, getArchetypeEmblemPath(item.opening));
 
     const openingName = document.createElement('strong');
     openingName.className = 'codex-archive-opening-name';
-    const stage = item.endless ? `无尽第 ${item.wave} 波` : item.status === 'victory' ? '二十波通关' : `第 ${item.wave} 波`;
+    const cleared = formatNumber(Math.max(0, runScore(item).cleared));
+    const stage = item.endless ? `无尽 · 已过 ${cleared} 波` : item.status === 'victory' ? '20 波通关' : `已过 ${cleared} 波`;
     openingName.textContent = `${openings[item.opening].name} · ${difficultyLabel(item.difficulty)} · ${stage}`;
 
     openingGroup.append(emblemWrap, openingName);
 
     const badge = document.createElement('span');
     badge.className = `codex-archive-status-badge status-${item.status}`;
-    badge.textContent = item.status === 'victory' ? '破阵胜捷' : item.status === 'defeat' ? '灵气耗竭' : '历练中';
+    badge.textContent = item.status === 'victory' ? '通关' : item.status === 'defeat' ? '战败' : '中途记录';
 
     head.append(openingGroup, badge);
 
@@ -1707,6 +1702,7 @@ function renderCodexArchives() {
     body.className = 'codex-archive-body';
     const details = [`末战伤害 ${formatNumber(item.lastDamage)}`, `最高 ${item.bestCombo} 连击`, `遗物 ${item.relicsCount} 件`, item.date];
     if (item.bountyRule) details.push(`悬赏 ${item.bountiesCleared ?? 0} / ${bountyCount}`);
+    if (item.enableSynergies === false) details.push('羁绊关闭');
     body.append(...details.map(text => {
       const detail = document.createElement('span');
       detail.textContent = text;
@@ -1718,33 +1714,68 @@ function renderCodexArchives() {
 
     const seedSpan = document.createElement('span');
     seedSpan.className = 'codex-archive-seed';
-    seedSpan.textContent = `玄码：${item.seed}`;
+    const seed = document.createElement('code');
+    seed.textContent = item.seed;
+    seedSpan.append('种子 ', seed);
 
     const actions = document.createElement('div');
     actions.className = 'codex-archive-actions';
 
-    const replayBtn = document.createElement('button');
-    replayBtn.type = 'button';
-    replayBtn.className = 'primary';
-    replayBtn.textContent = '复盘启阵';
-    replayBtn.onclick = () => {
+    const snapshot = archiveBoard(item, catalog);
+    if (snapshot) {
+      const trial = document.createElement('button');
+      trial.type = 'button';
+      trial.className = 'archive-trial';
+      trial.textContent = `试打第 ${formatNumber(snapshot.wave)} 波`;
+      trial.setAttribute('aria-haspopup', 'dialog');
+      trial.onclick = () => {
+        click();
+        boardTrial.open(snapshot, undefined, true);
+      };
+      actions.append(trial);
+    }
+
+    const restart = document.createElement('button');
+    restart.type = 'button';
+    restart.textContent = '同种子重开';
+    restart.setAttribute('aria-haspopup', 'dialog');
+    restart.onclick = () => {
       click();
-      audio.singingBowl();
-      codexDialog.close();
-      startOpening(item.opening, item.seed, false, item);
-      notice(`已依玄码【${item.seed}】重开复盘！`);
+      const original = run;
+      const stored = platform.load(false);
+      const checkpoint = JSON.stringify(stored);
+      showPanel('用同种子重开？', `将用「${openings[item.opening].name}」开启${difficultyLabel(item.difficulty)}战役，种子 ${item.seed}。当前局会结束。`, [
+        { label: '返回战绩', act: () => dialog.close() },
+        { label: '确认重开', primary: true, act: () => {
+          if (run !== original || JSON.stringify(platform.load(false)) !== checkpoint ||
+            (stored && JSON.stringify(stored.run) !== JSON.stringify(migrateSave({ run }, catalog).run))) {
+            dialog.close();
+            status.textContent = '战况已有更新，请刷新后再重开。';
+            return;
+          }
+          audio.singingBowl();
+          codexDialog.close();
+          startOpening(item.opening, item.seed, false, item);
+          notice(`已用种子 ${item.seed} 重开。`);
+        } },
+      ], true);
     };
 
     const copyBtn = document.createElement('button');
     copyBtn.type = 'button';
-    copyBtn.textContent = '复制玄码';
-    copyBtn.onclick = () => {
+    copyBtn.textContent = '复制种子';
+    copyBtn.onclick = async () => {
       click();
-      void navigator.clipboard?.writeText(item.seed);
-      notice(`已复制天机玄码：${item.seed}`);
+      try {
+        await navigator.clipboard.writeText(item.seed);
+        status.textContent = `已复制种子 ${item.seed}。`;
+      } catch {
+        window.getSelection()?.selectAllChildren(seed);
+        status.textContent = '长按或选中种子码即可复制。';
+      }
     };
 
-    actions.append(replayBtn, copyBtn);
+    actions.append(restart, copyBtn);
     foot.append(seedSpan, actions);
 
     card.append(head, body, foot);
