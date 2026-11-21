@@ -71,7 +71,7 @@ describe('expedition', () => {
     expect(chooseRelic(run, 'moss_bowl')).toBe(false);
     expect(run.relics).toEqual(['whetstone']);
     expect(canArrange(run)).toBe(true);
-    expect(planTurn(run, catalog).byCell[0].damage).toBeGreaterThanOrEqual(16);
+    expect(planTurn(run, catalog).byCell[1].damage).toBeGreaterThanOrEqual(16);
     expect(relicChoices(16, ['whetstone', 'gate_tithe', 'copper_ledger'])).toEqual(['red_lens', 'moss_bowl', 'chain_ring']);
     expect(relicChoices(20, [])).toEqual([]);
     expect(encounterAt(20)).toBe('regent');

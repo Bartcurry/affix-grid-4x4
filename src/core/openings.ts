@@ -4,8 +4,8 @@ export const openings = {
   chain: {
     name: '借火', label: '连锁', play: '一个接一个触发',
     gold: 10, supply: 'echo_stone',
-    note: '首波先别换位，原阵会多打 42 点。后面把电火花摆到镜子右边，一枚当两枚用。',
-    pieces: [[0, 'spark_orb'], [1, 'prism_right']],
+    note: '折射镜先触发右边的电火花。轮到电火花自己时，它还会再打一次。',
+    pieces: [[0, 'prism_right'], [1, 'spark_orb']],
   },
   poison: {
     name: '养苔', label: '剧毒', play: '叠毒，再引爆',

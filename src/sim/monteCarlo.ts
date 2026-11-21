@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { catalog } from '../data/catalog';
-import { bossHealth, simulateBattle } from '../core/battleEngine';
+import { simulateBattle } from '../core/battleEngine';
+import { battleTargetFor } from '../core/bounties';
 import { encounterAt, affixAt, EncounterId, encounters } from '../core/expedition';
 import { countSynergies } from '../core/synergy';
 import { createMulberry32 } from '../core/rng';
@@ -178,14 +179,15 @@ function simulateBotRun(opening: OpeningId, seed: number, runeStats: Record<stri
         }
       }
 
+      const target = battleTargetFor(run);
       const battleInput = {
         board: run.board,
         bench: run.bench,
-        hp: bossHealth(run.wave),
+        hp: target.hp,
         gold: run.gold,
         seed: rng(),
         tutorial: usesTutorial(run),
-        encounter: encounterAt(run.wave),
+        encounter: target.encounter,
         relics: run.relics,
         tileModifiers: run.tileModifiers,
         affix: affixAt(run.wave)?.id,

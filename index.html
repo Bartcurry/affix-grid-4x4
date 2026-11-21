@@ -802,9 +802,9 @@
           <section id="opening-modes" class="opening-setup" aria-labelledby="opening-modes-label">
             <h3 id="opening-modes-label">战役难度</h3>
             <div class="opening-modes" role="group" aria-labelledby="opening-modes-label">
-              <button id="difficulty-beginner" type="button" aria-pressed="false"><strong>入门</strong><small>每波多一次免费刷新<br>过关补 1 盾</small></button>
-              <button id="difficulty-standard" type="button" aria-pressed="false"><strong>标准</strong><small>3 盾开局<br>每波免费刷新 1 次</small></button>
-              <button id="difficulty-expert" type="button" aria-pressed="false"><strong>进阶</strong><small>2 盾开局<br>第 2–20 波敌人生命 +20%</small></button>
+              <button id="difficulty-beginner" type="button" aria-pressed="false"><strong>入门</strong><small>每波免费刷 2 次<br>过关补 1 盾</small></button>
+              <button id="difficulty-standard" type="button" aria-pressed="false"><strong>标准</strong><small>每波免费刷 1 次<br>3 盾开局</small></button>
+              <button id="difficulty-expert" type="button" aria-pressed="false"><strong>进阶</strong><small>2 盾开局<br>第 2–20 波<br>敌人生命 +20%</small></button>
             </div>
           </section>
           <section id="opening-loadout" class="opening-setup" aria-labelledby="opening-loadout-label">
@@ -823,7 +823,10 @@
             </button>
           </nav>
           <section id="opening-preview" class="opening-preview" aria-label="首波推演">
-            <div id="opening-board" class="opening-board" role="group" aria-label="点符文看首波表现"></div>
+            <div class="opening-board-wrap">
+              <div id="opening-board" class="opening-board" role="group" aria-label="点符文看首波表现"></div>
+              <span id="opening-link" class="battle-frame-link" aria-hidden="true" hidden></span>
+            </div>
             <div class="opening-preview-side">
               <dl class="opening-preview-stats">
                 <div><dt>首波伤害</dt><dd id="opening-damage"></dd></div>

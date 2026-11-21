@@ -94,6 +94,7 @@ export interface Run {
   reforgeRule?: 1;
   reforgeUsed?: true;
   finaleRule?: 1;
+  firstWaveRule?: 1;
   lastCellDamage?: number[];
   lastJournal?: BattleJournal;
 }

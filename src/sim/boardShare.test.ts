@@ -15,8 +15,10 @@ describe('one-wave board links', () => {
     expect([...url.searchParams.keys()]).toEqual([boardShareParam]);
     const restored = readSharedBoard(url.searchParams.get(boardShareParam), catalog)!;
     expect(restored).toMatchObject({ opening: run.opening, shield: run.shield, rngState: run.rngState,
-      enableSynergies: true, tileModifiers: run.tileModifiers });
+      enableSynergies: true, firstWaveRule: 1, tileModifiers: run.tileModifiers });
     expect(planTurn(restored, catalog).events).toEqual(planTurn(run, catalog).events);
+    const legacy = { ...run, firstWaveRule: undefined };
+    expect(sameBattleSetup(legacy, restored)).toBe(false);
   });
 
   it('preserves the full bench, relics, rune power and both layouts through a rematch link', () => {
@@ -52,7 +54,7 @@ describe('one-wave board links', () => {
     const url = new URL(boardShareUrl('https://example.com/play/', run)!);
     const original = JSON.parse(atob(url.searchParams.get(boardShareParam)!.replaceAll('-', '+').replaceAll('_', '/')));
     const encode = (value: unknown) => btoa(JSON.stringify(value)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
-    for (const edits of [{ 0: 's2' }, { 4: 4 }, { 7: ['qiankun_pouch', 'qiankun_pouch'] },
+    for (const edits of [{ 0: 's2' }, { 1: 'gold' }, { 2: 2 }, { 4: 4 }, { 7: ['qiankun_pouch', 'qiankun_pouch'] },
       { 8: [[10, 'li_fire'], [10, 'xuan_ice']] }, { 9: [['not-in-catalog', 1, 0]] }, { 10: [] }]) {
       expect(readSharedBoard(encode(Object.assign([...original], edits)), catalog)).toBeUndefined();
     }
@@ -86,12 +88,12 @@ describe('one-wave board links', () => {
 
   it('carries expert health, bounty enemies and finale armor through shared boards', () => {
     const expert = newRun(catalog, createMulberry32(667), 'chain', undefined, 'expert');
-    const rounds = [{ ...expert, wave: 5, bountyRoute: 'alternate' as const }, { ...expert, wave: 20 }, { ...expert, wave: 25 }];
+    const rounds = [expert, { ...expert, wave: 5, bountyRoute: 'alternate' as const }, { ...expert, wave: 20 }, { ...expert, wave: 25 }];
     for (const run of rounds) {
       const url = new URL(boardShareUrl('https://example.org/game/', run)!);
       const token = url.searchParams.get(boardShareParam)!;
       const data = JSON.parse(atob(token.replaceAll('-', '+').replaceAll('_', '/')));
-      expect(data[0]).toBe('s6');
+      expect(data[0]).toBe(run.wave === 1 ? 's7' : 's6');
       const restored = readSharedBoard(token, catalog)!;
       expect(restored.difficulty).toBe('expert');
       expect(restored.bountyRoute).toBe(run.bountyRoute);

@@ -151,7 +151,6 @@ const persist = () => {
     ambientMuted: audio.ambientMuted,
   });
 };
-const tutorials = () => usesTutorial(run);
 const click = () => { audio.unlock(); audio.click(); };
 const shareRoom = bindShareRoom();
 const showChallenge = bindChallengeRoom(quick => {
@@ -546,7 +545,7 @@ function inspect() {
       info.textContent = '每当上下左右相邻格子激活时，位于此格的符文获得 +2 永久基础威力（跨波保留）。';
     }
   } else {
-    name.textContent = config?.name ?? (run.wave === 1 ? tutorials() ? '第一波可以直接打' : openings[run.opening].name : '先挑一枚符文');
+    name.textContent = config?.name ?? (run.wave === 1 ? '试试起手阵' : '先挑一枚符文');
     info.textContent = config?.desc ?? (run.wave === 1 ? openings[run.opening].note : '点棋盘或店里的一枚符文，就能看到它的作用。');
   }
   const stats = config && rune ? [rarityLabel[config.rarity], `${rune.star} 星`] : emptyTileMod ? ['特殊阵眼', `格 ${slot!.index + 1}`] : [];
@@ -1079,6 +1078,7 @@ function recordRunHistory(runToRecord: Run) {
     ...(runToRecord.endlessRule === 1 ? { endlessRule: 1 } : {}),
     ...(runToRecord.reforgeRule === 1 ? { reforgeRule: 1 } : {}),
     ...(runToRecord.finaleRule === 1 ? { finaleRule: 1 } : {}),
+    ...(runToRecord.firstWaveRule === 1 ? { firstWaveRule: 1 } : {}),
     ...(runToRecord.endless ? { endless: true } : {}),
   };
   const formation = runToRecord.lastJournal?.formation;
@@ -1095,8 +1095,10 @@ let openingDifficulty: Run['difficulty'];
 let openingReplacesRun = false;
 let openingQuick = false;
 const chosenSeed = () => openingSeed.value.trim() || fallbackOpeningSeed;
-function makeOpening(id: OpeningId, seed: string, difficulty?: Run['difficulty']) {
-  const next = newRun(catalog, createMulberry32(decodeSeed(seed)), id, seed, challenge ? challenge.difficulty : difficulty);
+function makeOpening(id: OpeningId, seed: string, difficulty?: Run['difficulty'], archived?: RunArchive) {
+  const rules = challenge ?? archived;
+  const next = newRun(catalog, createMulberry32(decodeSeed(seed)), id, seed,
+    rules ? rules.difficulty : difficulty, !rules || rules.firstWaveRule === 1 ? 1 : 0);
   if (challenge && !challenge.altarRule) delete next.altarRule;
   if (challenge && !challenge.bountyRule) delete next.bountyRule;
   if (challenge && !challenge.engravingRule) delete next.engravingRule;
@@ -1112,7 +1114,7 @@ function startOpening(id: OpeningId, customSeed?: string, quick = false, archive
   }
   if (openingDialog.open) openingDialog.close();
   if (dialog.open) dialog.close();
-  run = makeOpening(challenge?.opening ?? id, challenge?.seed || customSeed || chosenSeed(), archived ? archived.difficulty : openingDifficulty);
+  run = makeOpening(challenge?.opening ?? id, challenge?.seed || customSeed || chosenSeed(), openingDifficulty, archived);
   if (!challenge && archived?.enableSynergies === false) run.enableSynergies = false;
   if (!challenge && archived && !archived.altarRule) delete run.altarRule;
   if (!challenge && archived && !archived.bountyRule) delete run.bountyRule;
@@ -1538,7 +1540,7 @@ button('support').onclick = async () => {
   }
 };
 button('help').onclick = () => {
-  click(); showPanel('怎么玩', '先把符文放置在棋盘上。符文从左上角开始，逐行触发；比如折射镜会再触发右边那一枚。\n\n点击已选中的符文，再点击目标格即可快速交换（支持手机单手操作），拖拽换位时悬浮符文自动向上偏移防遮挡。\n\n棋盘中生成了【离火位】（额外触发1次）、【玄冰位】（暴击率+45%）和【聚灵位】（相邻激活永久威力+2）。\n\n三枚同名同星的符文会自动升一级。开局两枚先别挪，直接打就能过第一波。',
+  click(); showPanel('怎么玩', '符文从左上角开始逐行触发。折射镜会额外触发右边的符文，「借火」起手阵就用这一招。\n\n先点一枚符文，再点目标格就能换位。也可以拖动。\n\n离火位让符文多触发一次，玄冰位加 45% 暴击率，聚灵位会在邻格触发时增加 2 点威力。\n\n三枚同名同星的符文会自动升星。',
     [{ label: '知道了', primary: true, act: () => dialog.close() }], true);
 };
 

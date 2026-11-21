@@ -5,12 +5,13 @@ import { resolveTargets } from './grid';
 import { runeAt } from './shopEngine';
 import type { Catalog, RuneConfig, Run, Scope, Slot } from './types';
 
-export function usesTutorial(run: Pick<Run, 'wave' | 'board' | 'opening'>) {
-  return run.opening === 'chain' && run.wave === 1 && run.board[0]?.configId === 'spark_orb' && run.board[1]?.configId === 'prism_right';
+export function usesTutorial(run: Pick<Run, 'wave' | 'board' | 'opening' | 'firstWaveRule'>) {
+  return run.firstWaveRule !== 1 && run.opening === 'chain' && run.wave === 1 &&
+    run.board[0]?.configId === 'spark_orb' && run.board[1]?.configId === 'prism_right';
 }
 
 type BattleSetup = Pick<Run, 'wave' | 'board' | 'gold' | 'relics' | 'opening' | 'tileModifiers' | 'shield' | 'rngState'> &
-  Partial<Pick<Run, 'bench' | 'enableSynergies' | 'bountyRoute' | 'finaleRule' | 'difficulty'>>;
+  Partial<Pick<Run, 'bench' | 'enableSynergies' | 'bountyRoute' | 'finaleRule' | 'difficulty' | 'firstWaveRule'>>;
 
 function battleInput(run: BattleSetup) {
   const { hp, encounter } = battleTargetFor(run);

@@ -70,7 +70,8 @@ export function generateTileModifiers(rng: Random): TileModifierMap {
   };
 }
 
-export function newRun(catalog: Catalog, rng: Random, opening: OpeningId = 'chain', seedInput?: string, difficulty?: Run['difficulty']): Run {
+export function newRun(catalog: Catalog, rng: Random, opening: OpeningId = 'chain', seedInput?: string,
+  difficulty?: Run['difficulty'], firstWaveRule: 0 | 1 = 1): Run {
   let seedCode = seedInput;
   let rngState = 1;
   let effectiveRng: Random = rng;
@@ -119,8 +120,10 @@ export function newRun(catalog: Catalog, rng: Random, opening: OpeningId = 'chai
     reforgeRule: 1,
     finaleRule: 1,
     engravingRule: 1,
+    ...(opening === 'chain' && firstWaveRule === 1 ? { firstWaveRule } : {}),
   };
   for (const [index, configId] of setup.pieces) run.board[index] = { configId, star: 1 };
+  if (opening === 'chain' && firstWaveRule === 0) [run.board[0], run.board[1]] = [run.board[1], run.board[0]];
   rollShop(run, catalog, effectiveRng);
   if (typeof (effectiveRng as any)?.getState === 'function') {
     run.rngState = (effectiveRng as PRNG).getState();

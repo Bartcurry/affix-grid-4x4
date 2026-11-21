@@ -54,8 +54,9 @@ export function battleTarget(wave: number, route?: BountyRoute, finaleRule?: 1, 
   };
 }
 
-export function battleTargetFor(run: Pick<Run, 'wave' | 'bountyRoute' | 'finaleRule' | 'difficulty'>) {
-  return battleTarget(run.wave, run.bountyRoute, run.finaleRule, run.difficulty);
+export function battleTargetFor(run: Pick<Run, 'wave' | 'bountyRoute' | 'finaleRule' | 'difficulty' | 'firstWaveRule'>) {
+  const target = battleTarget(run.wave, run.bountyRoute, run.finaleRule, run.difficulty);
+  return run.wave === 1 && run.firstWaveRule === 1 ? { ...target, hp: 40 } : target;
 }
 
 export function offersBounties(run: Pick<Run, 'wave' | 'endless' | 'bountyRule'>) {

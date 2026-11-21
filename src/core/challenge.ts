@@ -13,8 +13,9 @@ const beginnerVersion = 'v13';
 const engravingVersion = 'v14';
 const beginnerEngravingVersion = 'v15';
 const expertVersion = 'v16';
+const firstWaveVersion = 'v17';
 const revisions = [legacyVersion, altarVersion, bountyVersion, campVersion, reforgeVersion, finaleVersion, beginnerVersion,
-  engravingVersion, beginnerEngravingVersion, expertVersion];
+  engravingVersion, beginnerEngravingVersion, expertVersion, firstWaveVersion];
 
 export interface Challenge extends OpeningRecord {
   opening: OpeningId;
@@ -26,9 +27,11 @@ export interface Challenge extends OpeningRecord {
   endlessRule?: 1;
   reforgeRule?: 1;
   finaleRule?: 1;
+  firstWaveRule?: 1;
 }
 
-const version = (challenge: Challenge) => challenge.difficulty === 'expert' ? expertVersion : challenge.engravingRule === 1
+const version = (challenge: Challenge) => challenge.firstWaveRule === 1 ? firstWaveVersion
+  : challenge.difficulty === 'expert' ? expertVersion : challenge.engravingRule === 1
   ? (challenge.difficulty === 'beginner' ? beginnerEngravingVersion : engravingVersion)
   : challenge.difficulty === 'beginner' ? beginnerVersion :
   challenge.finaleRule === 1 ? finaleVersion : challenge.reforgeRule === 1 ? reforgeVersion : challenge.endlessRule === 1 ? campVersion
@@ -40,15 +43,18 @@ export function challengeFromRun(run: Run): Challenge {
     ...(run.altarRule === 1 ? { altarRule: 1 } : {}), ...(run.bountyRule === 1 ? { bountyRule: 1 } : {}),
     ...(run.engravingRule === 1 ? { engravingRule: 1 } : {}),
     ...(run.endlessRule === 1 ? { endlessRule: 1 } : {}), ...(run.reforgeRule === 1 ? { reforgeRule: 1 } : {}),
-    ...(run.finaleRule === 1 ? { finaleRule: 1 } : {}) };
+    ...(run.finaleRule === 1 ? { finaleRule: 1 } : {}), ...(run.firstWaveRule === 1 ? { firstWaveRule: 1 } : {}) };
 }
 
 export function readChallenge(raw: string | null): Challenge | undefined {
   if (!raw || raw.length > 64) return;
   const [revision, opening, seed, waves, combo, ...remainder] = raw.split('.');
   const rules = revisions.indexOf(revision);
+  const firstWave = revision === firstWaveVersion;
+  const mode = remainder[0];
   if (rules < 0 ||
-      remainder.length || !isOpening(opening) ||
+      !isOpening(opening) || (firstWave ? opening !== 'chain' || remainder.length !== 1 ||
+        (mode !== 'standard' && mode !== 'beginner' && mode !== 'expert') : remainder.length !== 0) ||
       !/^[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/.test(seed) || seed !== encodeSeed(decodeSeed(seed)) ||
       !/^\d+$/.test(waves) || !/^\d+$/.test(combo)) return;
   const score = { cleared: Number(waves), combo: Number(combo) };
@@ -56,8 +62,9 @@ export function readChallenge(raw: string | null): Challenge | undefined {
   return { opening, seed, ...score, ...(rules >= 1 ? { altarRule: 1 } : {}),
     ...(rules >= 2 ? { bountyRule: 1 } : {}), ...(rules >= 3 ? { endlessRule: 1 } : {}),
     ...(rules >= 4 ? { reforgeRule: 1 } : {}), ...(rules >= 5 ? { finaleRule: 1 } : {}),
-    ...(revision === beginnerVersion || revision === beginnerEngravingVersion ? { difficulty: 'beginner' } : {}),
-    ...(revision === expertVersion ? { difficulty: 'expert' } : {}),
+    ...(revision === beginnerVersion || revision === beginnerEngravingVersion || (firstWave && mode === 'beginner') ? { difficulty: 'beginner' } : {}),
+    ...(revision === expertVersion || (firstWave && mode === 'expert') ? { difficulty: 'expert' } : {}),
+    ...(firstWave ? { firstWaveRule: 1 } : {}),
     ...(rules >= 7 ? { engravingRule: 1 } : {}) };
 }
 
@@ -65,18 +72,21 @@ export function challengeUrl(page: string, challenge: Challenge): string {
   const url = new URL(page);
   url.search = '';
   url.hash = '';
-  url.searchParams.set(challengeParam, [version(challenge), challenge.opening, challenge.seed, challenge.cleared, challenge.combo].join('.'));
+  const mode = challenge.firstWaveRule === 1 ? [challenge.difficulty ?? 'standard'] : [];
+  url.searchParams.set(challengeParam, [version(challenge), challenge.opening, challenge.seed, challenge.cleared, challenge.combo, ...mode].join('.'));
   return url.href;
 }
 
 export function challengeSaveKey(challenge: Challenge) {
-  return `affix-grid-4x4.challenge.${version(challenge)}.${challenge.opening}.${challenge.seed}`;
+  const mode = challenge.firstWaveRule === 1 ? `.${challenge.difficulty ?? 'standard'}` : '';
+  return `affix-grid-4x4.challenge.${version(challenge)}.${challenge.opening}.${challenge.seed}${mode}`;
 }
 
 export function matchesChallenge(run: Run, challenge: Challenge) {
   return run.enableSynergies !== false && run.opening === challenge.opening && run.altarRule === challenge.altarRule &&
     run.bountyRule === challenge.bountyRule && run.engravingRule === challenge.engravingRule && run.endlessRule === challenge.endlessRule &&
     run.reforgeRule === challenge.reforgeRule && run.finaleRule === challenge.finaleRule && run.difficulty === challenge.difficulty &&
+    run.firstWaveRule === challenge.firstWaveRule &&
     encodeSeed(decodeSeed(run.seed)) === challenge.seed;
 }
 

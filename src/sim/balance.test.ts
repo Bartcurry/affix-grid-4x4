@@ -84,8 +84,8 @@ describe('battle simulation', () => {
     expect(resultOf(events).combo).toBe(2);
   });
 
-  it('keeps inputs unchanged and clears wave one with the documented tutorial link', () => {
-    const run = newRun(catalog, noCrit);
+  it('keeps inputs unchanged and replays the legacy tutorial link', () => {
+    const run = newRun(catalog, noCrit, 'chain', undefined, undefined, 0);
     const before = structuredClone(run);
     const input = { ...run, hp: bossHealth(1), tutorial: true };
     const events = simulateBattle(input, catalog, noCrit);
@@ -157,10 +157,10 @@ describe('run economy', () => {
     expect(purchaseInfo(run, 1, catalog)).toEqual({ copies: 0, willMerge: false, blocked: 'bench' });
     expect(purchaseInfo(run, 0, catalog)).toEqual({ copies: 2, willMerge: true, blocked: null });
     expect(buyRune(run, 1, catalog)).toBeNull();
-    expect(buyRune(run, 0, catalog)?.[0]).toMatchObject({ slot: { zone: 'board', index: 0 }, rune: { star: 2 } });
+    expect(buyRune(run, 0, catalog)?.[0]).toMatchObject({ slot: { zone: 'board', index: 1 }, rune: { star: 2 } });
     expect(run.bench).toHaveLength(4);
     expect(run.gold).toBe(7);
-    expect(swapRunes(run, { zone: 'board', index: 0 }, { zone: 'bench', index: 0 })).toBe(true);
+    expect(swapRunes(run, { zone: 'board', index: 1 }, { zone: 'bench', index: 0 })).toBe(true);
   });
 
   it('shows purchase requirements without mutating the run', () => {

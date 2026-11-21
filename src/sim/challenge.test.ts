@@ -77,12 +77,20 @@ describe('same-seed challenges', () => {
     expect(standard.freeRefreshes).toBe(1);
     const score = challengeFromRun(beginner);
     const invite = new URL(challengeUrl('https://example.org/game/', score)).searchParams.get('challenge');
-    expect(invite).toMatch(/^v15\./);
+    expect(invite).toBe(`v17.chain.${score.seed}.0.0.beginner`);
     expect(readChallenge(invite)).toEqual(score);
     const older = readChallenge(`v13.chain.${score.seed}.0.0`)!;
     expect(older.difficulty).toBe('beginner');
     expect(older.engravingRule).toBeUndefined();
-    expect(matchesChallenge({ ...beginner, engravingRule: undefined }, older)).toBe(true);
+    const legacy = newRun(catalog, createMulberry32(667), 'chain', undefined, 'beginner', 0);
+    expect(matchesChallenge({ ...legacy, engravingRule: undefined }, older)).toBe(true);
+    const legacyScore = readChallenge(`v15.chain.${score.seed}.0.0`)!;
+    expect(matchesChallenge(legacy, legacyScore)).toBe(true);
+    expect(matchesChallenge(beginner, legacyScore)).toBe(false);
+    expect(challengeSaveKey(score)).not.toBe(challengeSaveKey(legacyScore));
+    expect(planTurn(migrateSave({ run: legacy }, catalog).run, catalog)).toMatchObject({ hp: 60, tutorialDamage: 42 });
+    expect(readChallenge(invite!.replace('.beginner', ''))).toBeUndefined();
+    expect(readChallenge(invite!.replace('.chain.', '.gold.'))).toBeUndefined();
     expect(matchesChallenge(standard, score)).toBe(false);
     expect(challengeSaveKey(score)).not.toBe(challengeSaveKey(challengeFromRun(standard)));
 
@@ -103,6 +111,7 @@ describe('same-seed challenges', () => {
     expect(beginner.freeRefreshes).toBe(2);
     const migrated = migrateSave({ run: beginner, records: { chain: { cleared: 7, combo: 32 } } }, catalog);
     expect(migrated.run.difficulty).toBe('beginner');
+    expect(migrated.run.firstWaveRule).toBe(1);
     expect(migrated.records.chain).toEqual({ cleared: 7, combo: 32 });
     expect(migrated.beginnerRecords?.chain).toEqual({ cleared: 1, combo: win.combo });
 
@@ -145,9 +154,10 @@ describe('same-seed challenges', () => {
 
     const score = challengeFromRun(expert);
     const invite = new URL(challengeUrl('https://example.org/game/', score)).searchParams.get('challenge');
-    expect(invite).toMatch(/^v16\./);
+    expect(invite).toMatch(/^v17\.chain\..+\.expert$/);
     expect(readChallenge(invite)).toEqual(score);
     expect(matchesChallenge(expert, score)).toBe(true);
+    expect(readChallenge(`v16.chain.${score.seed}.0.0`)).toMatchObject({ difficulty: 'expert', engravingRule: 1 });
     expect(matchesChallenge(standard, score)).toBe(false);
     expect(challengeSaveKey(score)).not.toBe(challengeSaveKey(challengeFromRun(standard)));
     const migrated = migrateSave({ run: expert, records: { chain: { cleared: 7, combo: 32 } } }, catalog);

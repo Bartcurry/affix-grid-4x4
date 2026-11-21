@@ -10,7 +10,8 @@ export function archiveBoard(entry: RunArchive, catalog: Catalog) {
   const board = readSharedBoard(entry.formation, catalog);
   if (!board || board.opening !== entry.opening || (board.enableSynergies === false) !== (entry.enableSynergies === false) ||
     (board.difficulty === 'expert') !== (entry.difficulty === 'expert') ||
-    (board.bountyRoute && entry.bountyRule !== 1) || (board.wave === 20 && board.finaleRule !== entry.finaleRule)) return;
+    (board.bountyRoute && entry.bountyRule !== 1) || (board.wave === 20 && board.finaleRule !== entry.finaleRule) ||
+    (board.wave === 1 && board.firstWaveRule !== entry.firstWaveRule)) return;
   if (board.wave === entry.wave || (entry.status === 'active' && board.wave === entry.wave - 1)) return board;
 }
 
@@ -18,7 +19,8 @@ export function updateArchive(history: RunArchive[], entry: RunArchive) {
   const index = history.findIndex(item => item.seed === entry.seed && item.opening === entry.opening && item.difficulty === entry.difficulty &&
     item.enableSynergies === entry.enableSynergies &&
     item.altarRule === entry.altarRule && item.bountyRule === entry.bountyRule && item.engravingRule === entry.engravingRule &&
-    item.endlessRule === entry.endlessRule && item.reforgeRule === entry.reforgeRule && item.finaleRule === entry.finaleRule);
+    item.endlessRule === entry.endlessRule && item.reforgeRule === entry.reforgeRule && item.finaleRule === entry.finaleRule &&
+    item.firstWaveRule === entry.firstWaveRule);
   if (index < 0) return [entry, ...history].slice(0, archiveLimit);
   const prior = history[index];
   const before = runScore(prior);

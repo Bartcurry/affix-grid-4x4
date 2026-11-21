@@ -21,6 +21,7 @@ export interface RunArchive {
   endlessRule?: 1;
   reforgeRule?: 1;
   finaleRule?: 1;
+  firstWaveRule?: 1;
   endless?: true;
 }
 

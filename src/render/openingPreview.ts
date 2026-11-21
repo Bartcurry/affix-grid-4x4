@@ -1,6 +1,7 @@
 import { openings, type OpeningRecord } from '../core/openings';
 import { planTurn } from '../core/tactics';
 import type { Catalog, Run } from '../core/types';
+import { placeBattleLink } from './battleFrame';
 
 export function renderOpeningPreview(
   preview: HTMLElement,
@@ -15,6 +16,7 @@ export function renderOpeningPreview(
   const { events, hp, result, byCell } = planTurn(run, catalog);
   const route = openings[run.opening];
   const tip = get('tip');
+  const arrow = get('link');
   let selected: number | undefined;
   get('damage').textContent = `${format(result.damage)} / ${format(hp)}`;
   get('damage').dataset.win = String(result.win);
@@ -42,14 +44,21 @@ export function renderOpeningPreview(
 
   function show(index?: number) {
     selected = index;
-    const links = events.flatMap(event => event.type === 'CHAIN_LINK' && event.from === index ? [event] : []);
+    const from = index ?? (run.firstWaveRule === 1 ? 0 : undefined);
+    const links = events.flatMap(event => event.type === 'CHAIN_LINK' && event.from === from ? [event] : []);
+    arrow.hidden = true;
+    if (links[0]) placeBattleLink(arrow, links[0].from, links[0].to);
     for (const [position, cell] of cells.entries()) {
       if (!(cell instanceof HTMLButtonElement)) continue;
       cell.setAttribute('aria-pressed', String(position === index));
       cell.toggleAttribute('data-link', links.some(event => event.to === position));
     }
     const rune = index === undefined ? null : run.board[index];
-    if (!rune || index === undefined) { tip.textContent = route.note; return; }
+    if (!rune || index === undefined) {
+      tip.textContent = run.opening === 'chain' && run.firstWaveRule !== 1
+        ? '这局首波保留原来的站位，电火花会额外打出一次起手共鸣。' : route.note;
+      return;
+    }
     const config = catalog[rune.configId];
     const linksText = [...new Set(links.flatMap(event => {
       const target = run.board[event.to];

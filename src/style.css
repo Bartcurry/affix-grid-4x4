@@ -2578,7 +2578,8 @@ dialog::backdrop {
 .opening-emblem-wrap { grid-row: span 2; align-self: center; display: grid; place-items: center; color: var(--route-ink); }
 .opening-emblem-wrap svg { width: 1.28rem; height: 1.28rem; }
 .opening-preview { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); gap: .46rem; padding: .55rem; border: 1px solid #665946; background: linear-gradient(135deg, #282524, #181d25 72%); }
-.opening-board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .13rem; width: min(100%, 10rem); align-self: start; }
+.opening-board-wrap { position: relative; width: min(100%, 10rem); align-self: start; }
+.opening-board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .13rem; }
 .opening-board > * { display: grid; place-items: center; min-width: 0; min-height: 0; aspect-ratio: 1; padding: 0; border: 1px solid #3c4148; border-radius: 3px; background: #161b23; }
 .opening-board button { color: var(--opening-glyph); border-color: #626e73; background: #252e36; }
 .opening-board button[aria-pressed=true] { border-color: #efc280; background: #3d3027; }
