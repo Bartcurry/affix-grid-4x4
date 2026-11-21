@@ -51,3 +51,22 @@ export function purchaseLayouts(purchase: NonNullable<ReturnType<typeof prepareP
   });
   return { fixed, placements, recommended, economy: richest && richest.wallet.gold > strongest.wallet.gold ? economy : undefined };
 }
+
+export function compareStock(run: Run, current: TurnResult, catalog: Catalog) {
+  const offers = run.shop.map((offer, index) => {
+    if (!offer) return;
+    const config = catalog[offer.configId];
+    const info = purchaseInfo(run, index, catalog);
+    const prepared = preparePurchase(run, index, catalog);
+    if (!prepared) return { config, info };
+    const layouts = purchaseLayouts(prepared, catalog);
+    const best = layouts.recommended === undefined ? layouts.fixed : layouts.placements[layouts.recommended]!;
+    return { config, info, quote: { prepared, layouts, best } };
+  });
+  const available = offers.flatMap((offer, index) => offer?.quote ? [{ index, cost: offer.config.cost, ...offer.quote.best }] : []);
+  const improving = available.filter(offer => offer.result.damage > current.damage);
+  const winners = improving.filter(offer => offer.result.win)
+    .sort((a, b) => a.cost - b.cost || b.wallet.gold - a.wallet.gold || b.result.damage - a.result.damage);
+  const strongest = improving.sort((a, b) => b.result.damage - a.result.damage || a.cost - b.cost)[0];
+  return { offers, suggested: current.win ? undefined : winners[0] ?? strongest };
+}

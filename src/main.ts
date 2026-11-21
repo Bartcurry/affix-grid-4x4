@@ -690,25 +690,33 @@ const offers = Array.from({ length: 3 }, (_, index) => {
   return { card, preview, icon, name, meta, lock, buy };
 });
 
-function openPurchase(first: number) {
-  if (!arranging() || !forecast || !run.shop[first]) return;
+function openPurchase(first?: number, trial?: SharedBoard) {
+  if (!arranging() || !forecast || !run.shop.some(Boolean) || (trial && !sameBattleSetup(run, trial))) return;
   click();
   const original = run;
+  const visible = JSON.stringify(run);
   const saved = platform.load(false)?.run;
   const checkpoint = JSON.stringify(saved);
   const saveMatches = !saved || (canArrange(saved) && sameBattleSetup(saved, run) && sameFormation(saved, run) &&
     JSON.stringify(saved.shop) === JSON.stringify(run.shop));
-  showPurchase(run, first, forecast.result, (index, target) => saveMatches && run === original &&
-    JSON.stringify(platform.load(false)?.run) === checkpoint && buyOffer(index, target));
+  const changed = trial && !sameFormation(run, trial);
+  const layout = changed ? { ...run, board: [...trial.board], bench: [...trial.bench] } : run;
+  const current = changed ? planTurn(layout, catalog).result : forecast.result;
+  showPurchase(layout, first, current, (index, target) => {
+    if (!saveMatches || run !== original || JSON.stringify(run) !== visible ||
+      JSON.stringify(platform.load(false)?.run) !== checkpoint || !buyOffer(index, target, changed ? layout : undefined)) return false;
+    if (trial) boardTrial.dialog.close();
+    return true;
+  }, changed);
 }
 
 button('purchase-open').onclick = () => {
-  openPurchase(shopInspect !== null && run.shop[shopInspect] ? shopInspect : run.shop.findIndex(Boolean));
+  openPurchase(shopInspect !== null && run.shop[shopInspect] ? shopInspect : undefined);
 };
 
-function buyOffer(index: number, target?: Slot) {
+function buyOffer(index: number, target?: Slot, layout = run) {
   if (!arranging()) return false;
-  const prepared = preparePurchase(run, index, catalog);
+  const prepared = preparePurchase(layout, index, catalog);
   if (!prepared || (target && !swapRunes(prepared.candidate, prepared.slot, target))) return false;
   undoStack.push(run);
   restoreSnapshot(run, createSnapshot(prepared.candidate));
@@ -724,7 +732,8 @@ function buyOffer(index: number, target?: Slot) {
   const selected = target ?? merges.at(-1)?.slot ?? slot;
   select(selected);
   if (!merges.length) renderer.land(selected);
-  if (target) notice(`已买入并放到棋盘第 ${target.index + 1} 格，可以一起撤销。`);
+  if (layout !== run) notice(`已应用改阵并买入${target ? `，新符文落在第 ${target.index + 1} 格` : ''}。可以一起撤销。`);
+  else if (target) notice(`已买入并放到棋盘第 ${target.index + 1} 格，可以一起撤销。`);
   else if (!merges.length) notice('买到了。在备战区，拖上棋盘才会触发。');
   redraw();
   return true;
@@ -952,6 +961,7 @@ function openCampaignTrial(quickFind = false) {
   const checkpoint = JSON.stringify(platform.load(false));
   boardTrial.open(run, {
     matches: canReplaceFormation,
+    shop: run.shop.some(Boolean) ? board => openPurchase(undefined, board) : undefined,
     apply: board => {
       if (!arranging() || JSON.stringify(platform.load(false)) !== checkpoint || !replaceFormation(board)) return false;
       select(null);

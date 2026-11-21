@@ -983,16 +983,26 @@ button:focus-visible, canvas:focus-visible {
 .purchase-stock { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .35rem; }
 .purchase-stock button {
   display: grid;
+  align-content: start;
+  justify-items: center;
   gap: .14rem;
-  min-height: 2.62rem;
-  padding: .28rem .18rem;
+  min-height: 3.5rem;
+  padding: .32rem .25rem;
   color: #ede0c7;
   border-color: #9d805955;
   background: #1d212b;
   font-size: .72rem;
 }
+.purchase-stock-icon { display: grid; place-items: center; height: 1.1rem; }
+.purchase-stock-icon svg { width: 1.08rem; height: 1.08rem; }
 .purchase-stock small { color: #c3ad8a; font-size: .65rem; }
 .purchase-stock button[aria-pressed=true] { border-color: #e2b77a; background: #392d24; }
+.purchase-stock-forecast { color: #c7c9cb; font-size: .67rem; line-height: 1.25; }
+.purchase-stock button[data-quote=win] .purchase-stock-forecast { color: #c8e6ad; }
+.purchase-stock button[data-quote=blocked] .purchase-stock-forecast { color: #e0ae98; }
+#purchase-context { color: #c1d5ce; font-size: .74rem; line-height: 1.35; }
+#purchase-suggestion { padding: .38rem .5rem; border-left: 2px solid #b59263; color: #e6c9a4; background: #2c2521; font-size: .76rem; }
+#purchase-suggestion[data-win=true] { border-color: #85ad82; color: #d1e9c0; background: #26342b; }
 .purchase-room #purchase-rule { font-size: .79rem; line-height: 1.4; color: #dcd1bd; }
 .purchase-room #purchase-blocked, .purchase-status {
   padding: .48rem .6rem;
@@ -1590,7 +1600,11 @@ button:focus-visible, canvas:focus-visible {
 #trial-board-invite { color: #24190f; background: #ecc58d; border-color: #efd5ac; font-weight: 750; }
 .trial-tools .primary { color: #261b11; background: #edc07f; border-color: #f9d7a0; }
 .trial-tools .primary:hover { color: #261b11; background: #f6cc8d; }
-#trial-board-apply { min-height: 2.55rem; border-color: #8ca888; background: #29372e; color: #d6e7c5; font-size: .79rem; }
+#trial-board-apply { border-color: #8ca888; background: #29372e; color: #d6e7c5; }
+.trial-board-commit { display: flex; gap: .32rem; }
+.trial-board-commit:not(:has(button:not([hidden]))) { display: none; }
+.trial-board-commit button { flex: 1; min-height: 2.55rem; padding: .2rem .34rem; font-size: .76rem; }
+#trial-board-shop { border-color: #a78b62; background: #352b22; color: #efcf9f; }
 #trial-board-link { width: 100%; min-width: 0; padding: .44rem; color: #e9e1d4; background: #141922; border: 1px solid #6b5d4b; font: .72rem var(--mono-font); }
 
 .report-stats {

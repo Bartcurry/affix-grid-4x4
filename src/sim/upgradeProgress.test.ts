@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createMulberry32 } from '../core/rng';
-import { preparePurchase, purchaseLayouts } from '../core/purchasePreview';
+import { compareStock, preparePurchase, purchaseLayouts } from '../core/purchasePreview';
 import { buyRune, newRun, settleTurn, swapRunes, UndoStack } from '../core/shopEngine';
 import { planTurn } from '../core/tactics';
 import { previewUpgrade, upgradeProgress } from '../core/upgradeProgress';
@@ -58,6 +58,25 @@ describe('upgrade book', () => {
 });
 
 describe('shop purchase previews', () => {
+  it('prefers the lowest-cost clearing purchase over a stronger, more expensive offer', () => {
+    const run = newRun(catalog, createMulberry32(667));
+    Object.assign(run, { wave: 8, gold: 20, rngState: 667, tileModifiers: {},
+      board: [null, { configId: 'spark_orb', star: 3, bonusPower: 100 }, { configId: 'gold_cannon', star: 1 }, ...Array(13).fill(null)],
+      shop: [{ configId: 'echo_stone', locked: false }, { configId: 'prism_right', locked: true }, null] });
+    const original = structuredClone(run);
+    const base = planTurn(run, catalog).result;
+    const { offers, suggested } = compareStock(run, base, catalog);
+    expect(base.win).toBe(false);
+    expect(offers[0]?.quote?.best.result.damage).toBeGreaterThan(offers[1]!.quote!.best.result.damage);
+    expect(suggested).toMatchObject({ index: 1, cost: 4, result: { win: true } });
+    expect(compareStock(run, { ...base, win: true }, catalog).suggested).toBeUndefined();
+    expect(run).toEqual(original);
+    run.gold = 4;
+    const limited = compareStock(run, planTurn(run, catalog).result, catalog);
+    expect(limited.offers[0]).toMatchObject({ info: { blocked: 'gold' } });
+    expect(limited.offers[0]?.quote).toBeUndefined();
+  });
+
   it('accounts for the lost cannon damage when buying and verifies the placed result against real operations', () => {
     const run = newRun(catalog, createMulberry32(667));
     Object.assign(run, { wave: 8, gold: 20, rngState: 667, tileModifiers: {},

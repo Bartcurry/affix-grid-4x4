@@ -15,6 +15,7 @@ interface ApplyFormation {
   label?: string;
   note?: string;
   searchEmptyText?: string;
+  shop?(board: SharedBoard): void;
   settlement?(board: SharedBoard, result: TurnResult): string;
 }
 interface PracticeGoal { name: string; damage: number }
@@ -36,6 +37,7 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
   const invite = get<HTMLButtonElement>('invite');
   const apply = get<HTMLButtonElement>('apply');
   const find = get<HTMLButtonElement>('find');
+  const shop = get<HTMLButtonElement>('shop');
   const guide = get('guide');
   const link = get<HTMLInputElement>('link');
   const outcome = get('result');
@@ -65,6 +67,8 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
       steps.dataset.over = String(moves.length > duel.moves);
     }
     apply.hidden = !availableApply?.matches(active);
+    shop.hidden = !availableApply?.shop || (tested ?? original.result).win;
+    shop.textContent = moves.length ? '带这个阵试买' : '试买现货';
   }
 
   function clearAttempt() {
@@ -86,6 +90,7 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
     search?.terminate();
     search = undefined;
     find.disabled = false;
+    shop.disabled = false;
   }
 
   function exchange([from, to]: Move) {
@@ -194,7 +199,9 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
   function showPlan(plan: FormationPlan | undefined, current: ReturnType<typeof planTurn>) {
     if (!plan) {
       showResult(current);
-      guide.textContent = availableApply?.searchEmptyText ?? '暂时没找到更高伤害的摆法。可以继续换位，或到符文铺试买。';
+      guide.textContent = availableApply?.searchEmptyText ?? (availableApply?.shop
+        ? '一两步内没找到更高伤害的摆法，可以带着这个阵试买现货。'
+        : '一两步内没找到更高伤害的摆法，可以继续手动换位。');
       guide.hidden = false;
       return;
     }
@@ -237,6 +244,7 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
       const worker = new Worker(new URL('./formationSearch.worker.ts', import.meta.url), { type: 'module' });
       search = worker;
       find.disabled = true;
+      shop.disabled = true;
       guide.textContent = '正在试换一两步…';
       guide.hidden = false;
       worker.onmessage = (event: MessageEvent<FormationPlan | undefined>) => {
@@ -258,6 +266,7 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
   }
 
   find.onclick = () => { click(); findPlan(); };
+  shop.onclick = () => availableApply?.shop?.(active);
   apply.onclick = () => {
     click();
     if (availableApply?.apply(active)) dialog.close();

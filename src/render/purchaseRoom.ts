@@ -1,5 +1,4 @@
-import { preparePurchase, purchaseLayouts, purchaseWallet } from '../core/purchasePreview';
-import { purchaseInfo } from '../core/shopEngine';
+import { compareStock, purchaseWallet } from '../core/purchasePreview';
 import { synergyTierChanges } from '../core/synergy';
 import type { Catalog, Run, Slot, TurnResult } from '../core/types';
 import { formatNumber as format } from './canvasRenderer';
@@ -19,43 +18,67 @@ export function bindPurchaseRoom(catalog: Catalog, glyph: (cell: HTMLElement, id
   const confirm = get<HTMLButtonElement>('confirm');
   get('close').onclick = () => { click(); dialog.close(); };
 
-  return (run: Run, initial: number, current: TurnResult, buy: (index: number, target?: Slot) => boolean) => {
+  return (run: Run, initial: number | undefined, current: TurnResult, buy: (index: number, target?: Slot) => boolean, fromTrial = false) => {
     const currentWallet = purchaseWallet(run, current, catalog);
-    let index = initial;
-    const tabs = run.shop.map((offer, offerIndex) => {
+    const { offers, suggested } = compareStock(run, current, catalog);
+    let index = initial ?? suggested?.index ?? offers.findIndex(Boolean);
+    if (!offers[index]) return;
+    get('context').hidden = !fromTrial;
+    const summary = get('suggestion');
+    summary.hidden = !suggested;
+    summary.dataset.win = String(suggested?.result.win === true);
+    summary.textContent = suggested ? suggested.result.win
+      ? `花 ${format(suggested.cost)} 金可过关 · ${offers[suggested.index]!.config.name}`
+      : `现货最多打 ${format(suggested.result.damage)}，还差 ${format(suggested.result.hp)}。` : '';
+    const blockedText = (offer: NonNullable<typeof offers[number]>) => offer.info.blocked === 'gold'
+      ? `还差 ${format(offer.config.cost - run.gold)} 金`
+      : offer.info.blocked === 'bench' ? '备战区已满' : '暂时买不了';
+
+    const tabs = offers.map((offer, offerIndex) => {
       const tab = document.createElement('button');
       tab.type = 'button';
       tab.dataset.index = String(offerIndex);
-      const config = offer && catalog[offer.configId];
-      tab.disabled = !config;
+      tab.disabled = !offer;
+      const icon = document.createElement('span');
+      icon.className = 'purchase-stock-icon';
+      icon.setAttribute('aria-hidden', 'true');
+      if (offer) {
+        icon.style.color = offer.config.color;
+        glyph(icon, offer.config.id);
+      }
       const name = document.createElement('strong');
-      name.textContent = config?.name ?? '已售罄';
+      name.textContent = offer?.config.name ?? '已售罄';
       const price = document.createElement('small');
-      price.textContent = config ? `${config.cost} 金${purchaseInfo(run, offerIndex, catalog).willMerge ? ' · 可升星' : ''}` : '';
-      tab.append(name, price);
+      price.textContent = offer ? `${offer.config.cost} 金${offer.info.willMerge ? ' · 可升星' : ''}` : '';
+      const forecast = document.createElement('span');
+      forecast.className = 'purchase-stock-forecast';
+      const result = offer?.quote?.best.result;
+      forecast.textContent = result
+        ? `${format(result.damage)} 伤害${result.win ? ' · 可过' : ''}`
+        : offer ? blockedText(offer) : '';
+      tab.dataset.quote = result ? result.win ? 'win' : 'short' : 'blocked';
+      tab.append(icon, name, price, forecast);
       tab.onclick = () => { click(); index = offerIndex; showOffer(); };
       return tab;
     });
     stock.replaceChildren(...tabs);
 
     function showOffer() {
-      const offer = run.shop[index];
+      const offer = offers[index];
       if (!offer) return;
-      const config = catalog[offer.configId];
+      const { config, quote } = offer;
       tabs.forEach((tab, position) => tab.setAttribute('aria-pressed', String(position === index)));
       get('rule').textContent = config.desc;
-      const prepared = preparePurchase(run, index, catalog);
       const blocked = get('blocked');
       const plan = get('plan');
-      blocked.hidden = !!prepared;
-      plan.hidden = !prepared;
-      if (!prepared) {
-        const reason = purchaseInfo(run, index, catalog).blocked;
-        blocked.textContent = reason === 'gold' ? `还差 ${format(config.cost - run.gold)} 金。`
-          : reason === 'bench' ? '备战区已满。腾一个位置，或等买入就能升星的符文。' : '这枚符文暂时买不了。';
+      blocked.hidden = !!quote;
+      plan.hidden = !quote;
+      if (!quote) {
+        blocked.textContent = offer.info.blocked === 'bench' ? '备战区已满。腾一个位置，或等买入就能升星的符文。'
+          : `${blockedText(offer)}。`;
         return;
       }
-      const layouts = purchaseLayouts(prepared, catalog);
+      const { layouts, prepared } = quote;
       const { candidate, slot, rune } = prepared;
       const acquired = `${config.name} ${rune.star} 星`;
       let destination = layouts.recommended;
@@ -113,7 +136,7 @@ export function bindPurchaseRoom(catalog: Catalog, glyph: (cell: HTMLElement, id
           cell.onclick = () => { click(); destination = layouts.placements[position] ? position : undefined; draw(position); };
           return cell;
         }));
-        confirm.textContent = `${destination === undefined ? '购买' : '购买并落位'} · ${config.cost} 金`;
+        confirm.textContent = `${fromTrial ? '应用改阵并购买' : destination === undefined ? '购买' : '购买并落位'} · ${config.cost} 金`;
         if (focus !== undefined) board.querySelector<HTMLButtonElement>(`[data-index="${focus}"]`)?.focus({ preventScroll: true });
       }
 
@@ -134,6 +157,7 @@ export function bindPurchaseRoom(catalog: Catalog, glyph: (cell: HTMLElement, id
 
     showOffer();
     dialog.showModal();
+    tabs[index].focus({ preventScroll: true });
     dialog.scrollTop = 0;
   };
 }
