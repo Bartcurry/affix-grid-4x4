@@ -1,5 +1,5 @@
 import { readSharedBoard, type SharedBoard } from '../core/boardShare';
-import { battleTarget } from '../core/bounties';
+import { battleTargetFor } from '../core/bounties';
 import { encounters } from '../core/expedition';
 import { GRID_SIZE, toCoords } from '../core/grid';
 import { damageLeaders, journalPlayback, journalRows, type JournalFilter } from '../core/journal';
@@ -239,7 +239,7 @@ export function bindBattleJournal(catalog: Catalog, format: (value: number) => s
       return cell;
     });
     get('journal-board').replaceChildren(...cells);
-    const { encounter, bounty } = battleTarget(snapshot.wave, snapshot.bountyRoute, snapshot.finaleRule);
+    const { encounter, bounty } = battleTargetFor(snapshot);
     get('journal-title').textContent = `第 ${snapshot.wave} 波 · ${bounty?.name ?? encounters[encounter].name}`;
     get('journal-summary').textContent = `${format(result.damage)} 伤害 · ${result.combo} 次触发 · ${result.win ? '打过了' : `还差 ${format(result.hp)} 点`}`;
     const tryOriginal = get('journal-try');

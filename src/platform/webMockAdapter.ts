@@ -38,13 +38,19 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
 
   const defaultRecords = readRecords(parsed?.records);
   const beginnerRecords = readRecords(parsed?.beginnerRecords);
+  const expertRecords = readRecords(parsed?.expertRecords);
   if (parsed?.run && isOpening(parsed.run.opening) && natural(parsed.run.wave) && parsed.run.wave > 1) {
     const op: OpeningId = parsed.run.opening;
-    const records = parsed.run.difficulty === 'beginner' && parsed.run.finaleRule === 1 ? beginnerRecords : defaultRecords;
+    const records = parsed.run.difficulty === 'expert' && parsed.run.engravingRule === 1 ? expertRecords
+      : parsed.run.difficulty === 'beginner' && parsed.run.finaleRule === 1 ? beginnerRecords : defaultRecords;
     if (!records[op]) {
       records[op] = { cleared: parsed.run.wave - Number(parsed.run.status !== 'victory'), combo: natural(parsed.run.bestCombo) ? parsed.run.bestCombo : 0 };
     }
   }
+  const difficultyRecords = {
+    ...(Object.keys(beginnerRecords).length ? { beginnerRecords } : {}),
+    ...(Object.keys(expertRecords).length ? { expertRecords } : {}),
+  };
 
   const parseHistory = (rawList: unknown): RunArchive[] => {
     if (!Array.isArray(rawList)) return [];
@@ -70,6 +76,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
         ...(item.altarRule === 1 && item.bountyRule === 1 && item.endlessRule === 1 && item.reforgeRule === 1 && item.finaleRule === 1 ? { finaleRule: 1 as const } : {}),
         ...(item.finaleRule === 1 && item.engravingRule === 1 ? { engravingRule: 1 as const } : {}),
         ...(item.finaleRule === 1 && item.difficulty === 'beginner' ? { difficulty: 'beginner' as const } : {}),
+        ...(item.engravingRule === 1 && item.difficulty === 'expert' ? { difficulty: 'expert' as const } : {}),
         ...(item.endless === true || (natural(item.wave) && item.wave > 20) ? { endless: true as const } : {}),
         ...(typeof item.formation === 'string' && archiveBoard(item, catalog) ? { formation: item.formation } : {}),
       }));
@@ -85,7 +92,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
     speed: parsed?.speed === 0 || parsed?.speed === 2 ? parsed.speed : 1,
     exactForecast: !!parsed?.exactForecast,
     records: defaultRecords,
-    ...(Object.keys(beginnerRecords).length ? { beginnerRecords } : {}),
+    ...difficultyRecords,
     history: defaultHistory,
     ambientMuted: !!parsed?.ambientMuted,
   });
@@ -178,6 +185,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       ...(engravingRule ? { engravingRule: 1 } : {}),
       ...(pendingEngraving ? { pendingEngraving: true } : {}),
       ...(finaleRule && rawRun.difficulty === 'beginner' ? { difficulty: 'beginner' } : {}),
+      ...(engravingRule && rawRun.difficulty === 'expert' ? { difficulty: 'expert' } : {}),
       ...(reforgeRule && wave === reforgeWave && rawRun.reforgeUsed === true ? { reforgeUsed: true } : {}),
       ...(pendingCamp ? { pendingCamp: true } : {}),
       ...(Array.isArray(rawRun.lastCellDamage) && rawRun.lastCellDamage.length === CELL_COUNT && rawRun.lastCellDamage.every(damageCount)
@@ -195,7 +203,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       ...(typeof parsed.trackedUpgrade === 'string' && Object.hasOwn(catalog, parsed.trackedUpgrade) ? { trackedUpgrade: parsed.trackedUpgrade } : {}),
       ...(wave === 2 && natural(parsed.firstClearPayout) ? { firstClearPayout: parsed.firstClearPayout } : {}),
       records: defaultRecords,
-      ...(Object.keys(beginnerRecords).length ? { beginnerRecords } : {}),
+      ...difficultyRecords,
       history: defaultHistory,
       ambientMuted: !!parsed.ambientMuted,
     };

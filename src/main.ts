@@ -1,6 +1,6 @@
 import './style.css';
 import { simulateBattle } from './core/battleEngine';
-import { battleTarget, bountyCount, bountyPerkLabel, engravingPower, offersBounties } from './core/bounties';
+import { battleTargetFor, bountyCount, bountyPerkLabel, engravingPower, offersBounties } from './core/bounties';
 import { claimEngraving } from './core/engraving';
 import { findFirstSupply } from './core/firstSupply';
 import { claimCamp } from './core/endlessCamp';
@@ -97,6 +97,8 @@ const initialSeed = challenge?.seed ?? generateSeedCode().code;
 let run = saved?.run ?? makeOpening(challenge?.opening ?? 'chain', initialSeed);
 let records = saved?.records ?? {};
 let beginnerRecords = saved?.beginnerRecords ?? {};
+let expertRecords = saved?.expertRecords ?? {};
+const recordsFor = (difficulty: Run['difficulty']) => difficulty === 'expert' ? expertRecords : difficulty === 'beginner' ? beginnerRecords : records;
 let history: RunArchive[] = saved?.history ?? [];
 let forecast: ReturnType<typeof planTurn> | null = null;
 let placement: ReturnType<typeof planTurn> | null = null;
@@ -108,7 +110,7 @@ audio.ambientMuted = saved?.ambientMuted ?? false;
 player.speed = saved?.speed ?? 1;
 
 let phase: 'ARRANGE' | 'PLAYBACK' = 'ARRANGE';
-const currentTarget = () => battleTarget(run.wave, run.bountyRoute, run.finaleRule);
+const currentTarget = () => battleTargetFor(run);
 let displayed = { hp: currentTarget().hp, poison: 0, gold: run.gold, combo: 0 };
 let shopInspect: number | null = null;
 let inspectorOpen = false;
@@ -130,6 +132,7 @@ const arranging = () => challengeEntered && !sideLanding && phase === 'ARRANGE' 
 const persist = () => {
   if (!challengeEntered || sideLanding) return;
   if (run.difficulty === 'beginner') beginnerRecords = updateRecords(beginnerRecords, run);
+  else if (run.difficulty === 'expert') expertRecords = updateRecords(expertRecords, run);
   else records = updateRecords(records, run);
   platform.save({
     schemaVersion: 2,
@@ -142,6 +145,7 @@ const persist = () => {
     firstClearPayout,
     records,
     ...(Object.keys(beginnerRecords).length ? { beginnerRecords } : {}),
+    ...(Object.keys(expertRecords).length ? { expertRecords } : {}),
     history,
     ambientMuted: audio.ambientMuted,
   });
@@ -284,7 +288,7 @@ const showEncounters = bindEncounterRoom(catalog, click, wave => {
 button('boss-intel').onclick = () => {
   if (phase !== 'ARRANGE') return;
   click();
-  showEncounters(run, arranging(), (run.difficulty === 'beginner' ? beginnerRecords : records)[run.opening]?.cleared);
+  showEncounters(run, arranging(), recordsFor(run.difficulty)[run.opening]?.cleared);
 };
 const showJournal = bindBattleJournal(catalog, formatNumber, runeGlyph, board => { click(); boardTrial.open(board, undefined, true); });
 const reviewLast = () => showJournal(run.lastJournal);
@@ -376,7 +380,10 @@ function updateBossArmorUi(hits: number, breaking = false, column?: number) {
 }
 
 function updateHud() {
-  element('beginner-badge').hidden = run.difficulty !== 'beginner' || run.endless;
+  const badge = element('beginner-badge');
+  badge.hidden = !run.difficulty || run.endless;
+  badge.dataset.difficulty = run.difficulty ?? 'standard';
+  badge.textContent = difficultyLabel(run.difficulty);
   const maxHp = currentTarget().hp;
   const showOutcomeState = run.pendingLoss || run.status !== 'active';
   const hp = phase === 'PLAYBACK' ? displayed.hp : showOutcomeState ? Math.max(0, maxHp - run.lastDamage) : maxHp;
@@ -1155,12 +1162,12 @@ element('opening-choices').replaceChildren(...openingChoices);
 
 function showOpeningPreview() {
   for (const [index, id] of openingIds.entries()) openingChoices[index].setAttribute('aria-pressed', String(id === openingCandidate));
-  const beginner = openingDifficulty === 'beginner';
-  button('difficulty-beginner').setAttribute('aria-pressed', String(beginner));
-  button('difficulty-standard').setAttribute('aria-pressed', String(!beginner));
+  for (const mode of ['beginner', 'standard', 'expert']) {
+    button(`difficulty-${mode}`).setAttribute('aria-pressed', String(mode === (openingDifficulty ?? 'standard')));
+  }
   const sample = makeOpening(openingCandidate, chosenSeed(), openingDifficulty);
   renderOpeningPreview(element('opening-preview'), sample, catalog,
-    (beginner ? beginnerRecords : records)[openingCandidate], runeGlyph, formatNumber, click);
+    recordsFor(openingDifficulty)[openingCandidate], runeGlyph, formatNumber, click);
 }
 
 function openOpenings(first = false) {
@@ -1203,6 +1210,7 @@ button('opening-quick').onclick = () => chooseOpening(true);
 button('opening-prepare').onclick = () => chooseOpening(false);
 button('difficulty-beginner').onclick = () => { click(); openingDifficulty = 'beginner'; showOpeningPreview(); };
 button('difficulty-standard').onclick = () => { click(); openingDifficulty = undefined; showOpeningPreview(); };
+button('difficulty-expert').onclick = () => { click(); openingDifficulty = 'expert'; showOpeningPreview(); };
 button('opening-start').onclick = () => { click(); startOpening(openingCandidate, chosenSeed(), openingQuick); };
 button('opening-back').onclick = () => { click(); openingConfirm(false); openingChoices[openingIds.indexOf(openingCandidate)].focus(); };
 button('opening-close').onclick = () => openingDialog.close();

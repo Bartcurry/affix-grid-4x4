@@ -12,8 +12,9 @@ const finaleVersion = 'v12';
 const beginnerVersion = 'v13';
 const engravingVersion = 'v14';
 const beginnerEngravingVersion = 'v15';
+const expertVersion = 'v16';
 const revisions = [legacyVersion, altarVersion, bountyVersion, campVersion, reforgeVersion, finaleVersion, beginnerVersion,
-  engravingVersion, beginnerEngravingVersion];
+  engravingVersion, beginnerEngravingVersion, expertVersion];
 
 export interface Challenge extends OpeningRecord {
   opening: OpeningId;
@@ -27,7 +28,7 @@ export interface Challenge extends OpeningRecord {
   finaleRule?: 1;
 }
 
-const version = (challenge: Challenge) => challenge.engravingRule === 1
+const version = (challenge: Challenge) => challenge.difficulty === 'expert' ? expertVersion : challenge.engravingRule === 1
   ? (challenge.difficulty === 'beginner' ? beginnerEngravingVersion : engravingVersion)
   : challenge.difficulty === 'beginner' ? beginnerVersion :
   challenge.finaleRule === 1 ? finaleVersion : challenge.reforgeRule === 1 ? reforgeVersion : challenge.endlessRule === 1 ? campVersion
@@ -35,7 +36,7 @@ const version = (challenge: Challenge) => challenge.engravingRule === 1
 
 export function challengeFromRun(run: Run): Challenge {
   return { opening: run.opening, seed: encodeSeed(decodeSeed(run.seed)), ...runScore(run),
-    ...(run.difficulty === 'beginner' ? { difficulty: run.difficulty } : {}),
+    ...(run.difficulty ? { difficulty: run.difficulty } : {}),
     ...(run.altarRule === 1 ? { altarRule: 1 } : {}), ...(run.bountyRule === 1 ? { bountyRule: 1 } : {}),
     ...(run.engravingRule === 1 ? { engravingRule: 1 } : {}),
     ...(run.endlessRule === 1 ? { endlessRule: 1 } : {}), ...(run.reforgeRule === 1 ? { reforgeRule: 1 } : {}),
@@ -56,6 +57,7 @@ export function readChallenge(raw: string | null): Challenge | undefined {
     ...(rules >= 2 ? { bountyRule: 1 } : {}), ...(rules >= 3 ? { endlessRule: 1 } : {}),
     ...(rules >= 4 ? { reforgeRule: 1 } : {}), ...(rules >= 5 ? { finaleRule: 1 } : {}),
     ...(revision === beginnerVersion || revision === beginnerEngravingVersion ? { difficulty: 'beginner' } : {}),
+    ...(revision === expertVersion ? { difficulty: 'expert' } : {}),
     ...(rules >= 7 ? { engravingRule: 1 } : {}) };
 }
 

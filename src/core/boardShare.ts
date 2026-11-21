@@ -9,6 +9,7 @@ export const boardShareParam = 'board';
 const revision = 's3';
 const bountyRevision = 's4';
 const finaleRevision = 's5';
+const expertRevision = 's6';
 const tileTypes = new Set<TileModifier>(['li_fire', 'xuan_ice', 'spirit_gathering']);
 const maxTokenLength = 2590;
 const tuple = (rune: Rune | null) => rune ? [rune.configId, rune.star, rune.bonusPower ?? 0] : null;
@@ -16,12 +17,13 @@ const integer = (value: unknown, min: number, max = Number.MAX_SAFE_INTEGER): va
   typeof value === 'number' && Number.isSafeInteger(value) && value >= min && value <= max;
 
 export type SharedBoard = Pick<Run, 'opening' | 'wave' | 'gold' | 'shield' | 'board' | 'bench' |
-  'rngState' | 'relics' | 'tileModifiers' | 'enableSynergies' | 'bountyRoute' | 'finaleRule'>;
+  'rngState' | 'relics' | 'tileModifiers' | 'enableSynergies' | 'bountyRoute' | 'finaleRule' | 'difficulty'>;
 
 const pieceKey = (piece: Rune | null) => JSON.stringify(tuple(piece));
 
 export function sameBattleSetup(a: SharedBoard, b: SharedBoard) {
   return a.wave === b.wave && a.gold === b.gold && a.shield === b.shield && a.rngState === b.rngState &&
+    (a.difficulty === 'expert') === (b.difficulty === 'expert') &&
     (a.wave !== 20 || a.finaleRule === b.finaleRule) &&
     a.opening === b.opening && a.bountyRoute === b.bountyRoute && (a.enableSynergies !== false) === (b.enableSynergies !== false) &&
     [...a.relics].sort().join('|') === [...b.relics].sort().join('|') &&
@@ -38,9 +40,10 @@ export function encodeBoardToken(run: SharedBoard) {
   try {
     const route = run.bountyRoute;
     const finale = run.wave === 20 && run.finaleRule === 1;
-    const raw = [route ? bountyRevision : finale ? finaleRevision : revision, run.opening, run.wave, run.gold, run.shield, run.rngState, run.enableSynergies !== false, run.relics,
+    const expert = run.difficulty === 'expert';
+    const raw = [expert ? expertRevision : route ? bountyRevision : finale ? finaleRevision : revision, run.opening, run.wave, run.gold, run.shield, run.rngState, run.enableSynergies !== false, run.relics,
       Object.entries(run.tileModifiers).map(([index, tile]) => [Number(index), tile]), run.board.map(tuple), run.bench.map(tuple),
-      ...(route ? [route] : [])];
+      ...(expert ? [route ?? null, finale] : route ? [route] : [])];
     const token = btoa(JSON.stringify(raw)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
     return token.length <= maxTokenLength ? token : undefined;
   } catch {
@@ -64,11 +67,13 @@ export function readSharedBoard(token: string | null, catalog: Catalog, allowEmp
   try {
     const raw: unknown = JSON.parse(atob(token.replaceAll('-', '+').replaceAll('_', '/')));
     if (!Array.isArray(raw)) return;
-    const [version, opening, wave, gold, shield, rngState, enableSynergies, owned, tiles, rawBoard, rawBench, route] = raw;
+    const [version, opening, wave, gold, shield, rngState, enableSynergies, owned, tiles, rawBoard, rawBench, route, sealed] = raw;
     const standard = version === revision && raw.length === 11;
     const bounty = version === bountyRevision && raw.length === 12 && bountyAt(wave, route);
     const finale = version === finaleRevision && raw.length === 11 && wave === 20;
-    if ((!standard && !bounty && !finale) || !isOpening(opening) || !integer(wave, 1) || !integer(gold, 0) || !integer(shield, 0, 3) ||
+    const expert = version === expertRevision && raw.length === 13 && (route === null || !!bountyAt(wave, route)) &&
+      typeof sealed === 'boolean' && (!sealed || wave === 20);
+    if ((!standard && !bounty && !finale && !expert) || !isOpening(opening) || !integer(wave, 1) || !integer(gold, 0) || !integer(shield, 0, 3) ||
       !integer(rngState, 0, 0xffffffff) || typeof enableSynergies !== 'boolean' ||
       !Array.isArray(owned) || owned.length > Object.keys(relics).length || new Set(owned).size !== owned.length ||
       !owned.every(id => typeof id === 'string' && Object.hasOwn(relics, id)) ||
@@ -83,7 +88,9 @@ export function readSharedBoard(token: string | null, catalog: Catalog, allowEmp
     const bench = readSlots(rawBench, BENCH_SIZE, catalog);
     if (!board || !bench || (!allowEmpty && !board.some(Boolean) && !bench.some(Boolean))) return;
     return { opening, wave, gold, shield, rngState, enableSynergies, relics: owned as RelicId[], tileModifiers, board, bench,
-      ...(bounty ? { bountyRoute: route as BountyRoute } : {}), ...(finale ? { finaleRule: 1 as const } : {}) };
+      ...(expert ? { difficulty: 'expert' as const } : {}),
+      ...(bounty || (expert && route !== null) ? { bountyRoute: route as BountyRoute } : {}),
+      ...(finale || (expert && sealed) ? { finaleRule: 1 as const } : {}) };
   } catch {
     return;
   }

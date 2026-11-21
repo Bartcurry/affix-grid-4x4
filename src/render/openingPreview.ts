@@ -20,6 +20,7 @@ export function renderOpeningPreview(
   get('damage').dataset.win = String(result.win);
   get('combo').textContent = format(result.combo);
   get('gold').textContent = format(run.gold);
+  get('shield').textContent = format(run.shield);
   get('supply').textContent = `第 2 波补货 · ${catalog[route.supply].name}`;
   get('record').hidden = !record;
   if (record) get('record').textContent = `纪录 ${format(record.cleared)} 波 · ${format(record.combo)} 连击`;

@@ -1,4 +1,4 @@
-import { battleTarget } from '../core/bounties';
+import { battleTargetFor } from '../core/bounties';
 import { encounters, relics } from '../core/expedition';
 import { previewRelics } from '../core/relicPreview';
 import type { Catalog, RelicId, Run } from '../core/types';
@@ -20,7 +20,7 @@ export function bindRelicRoom(
     if (dialog.open) return false;
     const { original, choices } = previewRelics(run, catalog);
     if (!choices.length) return false;
-    const enemy = encounters[battleTarget(run.wave, run.bountyRoute).encounter];
+    const enemy = encounters[battleTargetFor(run).encounter];
     get('wave').textContent = `打过第 ${run.wave - 1} 波`;
     get('target').textContent = `第 ${run.wave} 波 · ${enemy.name} · ${format(original.hp)} 生命`;
     get('before').textContent = `当前预计 ${format(original.result.damage)} 伤害 · 结算 ${format(original.gold)} 金`;

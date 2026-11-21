@@ -43,14 +43,19 @@ export function bountyAt(wave: number, route: unknown) {
   return route === 'standard' || route === 'alternate' ? rounds.get(wave)?.[route] : undefined;
 }
 
-export function battleTarget(wave: number, route?: BountyRoute, finaleRule?: 1) {
+export function battleTarget(wave: number, route?: BountyRoute, finaleRule?: 1, difficulty?: Run['difficulty']) {
   const bounty = bountyAt(wave, route);
-  const hp = bossHealth(wave);
+  const base = bossHealth(wave);
+  const hp = difficulty === 'expert' && wave >= 2 && wave <= 20 ? Math.round(base * 1.2) : base;
   return {
     bounty,
     encounter: bounty?.enemy ?? (wave === 20 && finaleRule === 1 ? 'regent_seal' : encounterAt(wave)),
     hp: bounty ? Math.round(hp * bounty.healthPercent / 100) : hp,
   };
+}
+
+export function battleTargetFor(run: Pick<Run, 'wave' | 'bountyRoute' | 'finaleRule' | 'difficulty'>) {
+  return battleTarget(run.wave, run.bountyRoute, run.finaleRule, run.difficulty);
 }
 
 export function offersBounties(run: Pick<Run, 'wave' | 'endless' | 'bountyRule'>) {

@@ -1,4 +1,4 @@
-import { battleTarget, engravingPower } from '../core/bounties';
+import { battleTargetFor, engravingPower } from '../core/bounties';
 import { previewEngravings } from '../core/engraving';
 import { encounters } from '../core/expedition';
 import type { Catalog, Run } from '../core/types';
@@ -18,7 +18,7 @@ export function bindEngravingRoom(catalog: Catalog, glyph: (node: HTMLElement, i
     if (!choices.length) return;
     const recommended = choices.reduce((best, option) => option.result.damage > best.result.damage ? option : best);
     let selected = recommended;
-    const enemy = encounters[battleTarget(run.wave, run.bountyRoute, run.finaleRule).encounter];
+    const enemy = encounters[battleTargetFor(run).encounter];
     get('enemy').textContent = `第 ${run.wave} 波 · ${enemy.name} · ${format(baseline.hp)} 生命`;
     get('rule').textContent = `选一枚上阵符文，永久威力 +${engravingPower}。以后换位也会保留。`;
     status.hidden = true;

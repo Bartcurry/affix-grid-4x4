@@ -98,7 +98,7 @@ export function newRun(catalog: Catalog, rng: Random, opening: OpeningId = 'chai
     shopFocus: opening,
     wave: 1,
     gold: setup.gold,
-    shield: 3,
+    shield: difficulty === 'expert' ? 2 : 3,
     board: Array<Rune | null>(CELL_COUNT).fill(null),
     bench: Array<Rune | null>(BENCH_SIZE).fill(null),
     shop: [],

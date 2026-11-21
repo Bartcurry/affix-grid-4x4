@@ -1,4 +1,4 @@
-import { battleTarget } from '../core/bounties';
+import { battleTargetFor } from '../core/bounties';
 import { campSupplies, fireCell, previewCamp, type CampChoice } from '../core/endlessCamp';
 import { affixAt, encounters, endlessSegment } from '../core/expedition';
 import type { Catalog, Run } from '../core/types';
@@ -24,7 +24,7 @@ export function bindEndlessCampRoom(
     const { baseline, supplies, repair, placements } = previewCamp(run, catalog);
     if (!supplies) return;
     const { from, through, next } = endlessSegment(run.wave);
-    const { encounter } = battleTarget(run.wave);
+    const { encounter } = battleTargetFor(run);
     const affix = affixAt(run.wave);
     const nextAffix = next !== undefined && affixAt(next);
     const current = fireCell(run);

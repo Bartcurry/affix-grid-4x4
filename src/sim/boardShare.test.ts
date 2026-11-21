@@ -83,4 +83,21 @@ describe('one-wave board links', () => {
     }
     expect(formationDuelUrl('https://example.com/game/', run, [])).toBeUndefined();
   });
+
+  it('carries expert health, bounty enemies and finale armor through shared boards', () => {
+    const expert = newRun(catalog, createMulberry32(667), 'chain', undefined, 'expert');
+    const rounds = [{ ...expert, wave: 5, bountyRoute: 'alternate' as const }, { ...expert, wave: 20 }, { ...expert, wave: 25 }];
+    for (const run of rounds) {
+      const url = new URL(boardShareUrl('https://example.org/game/', run)!);
+      const token = url.searchParams.get(boardShareParam)!;
+      const data = JSON.parse(atob(token.replaceAll('-', '+').replaceAll('_', '/')));
+      expect(data[0]).toBe('s6');
+      const restored = readSharedBoard(token, catalog)!;
+      expect(restored.difficulty).toBe('expert');
+      expect(restored.bountyRoute).toBe(run.bountyRoute);
+      expect(sameBattleSetup(run, restored)).toBe(true);
+      expect(sameBattleSetup({ ...run, difficulty: undefined }, restored)).toBe(false);
+      expect(planTurn(restored, catalog)).toEqual(planTurn(run, catalog));
+    }
+  });
 });

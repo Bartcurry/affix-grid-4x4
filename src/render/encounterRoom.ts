@@ -1,4 +1,4 @@
-import { battleTarget, bountyWaves } from '../core/bounties';
+import { battleTargetFor, bountyWaves } from '../core/bounties';
 import { affixAt, encounters, endlessCampAt, endlessRoute, endlessSegment } from '../core/expedition';
 import { runScore } from '../core/openings';
 import { planTurn, simulateFormation } from '../core/tactics';
@@ -24,7 +24,7 @@ export function bindEncounterRoom(catalog: Catalog, click: () => void, trial: (w
 
   function draw() {
     const selectedRoute = selected === run.wave ? run.bountyRoute : undefined;
-    const { encounter, hp, bounty } = battleTarget(selected, selectedRoute, run.finaleRule);
+    const { encounter, hp, bounty } = battleTargetFor({ ...run, wave: selected, bountyRoute: selectedRoute });
     const { name, trait, tip } = encounters[encounter];
     const affix = affixAt(selected);
     const milestone = selected % 4 === 0 && selected !== 20;
@@ -62,7 +62,7 @@ export function bindEncounterRoom(catalog: Catalog, click: () => void, trial: (w
 
   function waveOption(wave: number, predicted?: boolean) {
     const label = document.createElement('label');
-    const { encounter } = battleTarget(wave, wave === run.wave ? run.bountyRoute : undefined, run.finaleRule);
+    const { encounter } = battleTargetFor({ ...run, wave, bountyRoute: wave === run.wave ? run.bountyRoute : undefined });
     label.dataset.enemy = encounter;
     label.dataset.state = wave === run.wave ? 'current' : wave < run.wave ? 'cleared' : 'ahead';
     if (predicted !== undefined) label.dataset.forecast = String(predicted);

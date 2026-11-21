@@ -35,6 +35,7 @@ export interface SaveData {
   firstClearPayout?: number;
   records: RunRecords;
   beginnerRecords?: RunRecords;
+  expertRecords?: RunRecords;
   history?: RunArchive[];
   ambientMuted?: boolean;
 }

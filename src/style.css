@@ -2460,13 +2460,16 @@ dialog::backdrop {
   background: linear-gradient(150deg, #23232c, #141922 64%);
 }
 .opening-dialog-grand .dialog-content { padding: clamp(.64rem, 3vw, 1rem); gap: .47rem; }
-.opening-modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .34rem; }
+.opening-modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .34rem; }
 .opening-modes button { display: grid; justify-items: start; align-content: center; gap: .11rem; min-height: 2.75rem; padding: .35rem .46rem; text-align: left; }
 .opening-modes button strong { color: #e8d2a9; font-size: .81rem; }
 .opening-modes button small { color: #c3bdaf; font-size: .68rem; line-height: 1.3; }
+.opening-modes button small span { white-space: nowrap; }
 .opening-modes button[aria-pressed="true"] { border-color: #d6b174; background: #33291d; }
 .opening-modes #difficulty-beginner[aria-pressed="true"] { border-color: #a2c5a4; background: #283a30; }
+.opening-modes #difficulty-expert[aria-pressed="true"] { border-color: #d89d83; background: #3d2b29; }
 #beginner-badge { padding: .13rem .34rem; border: 1px solid #789284; border-radius: 4px; color: #bee0c9; background: #28362f; font-size: .71rem; white-space: nowrap; }
+#beginner-badge[data-difficulty=expert] { border-color: #a76d59; color: #ffd4b5; background: #3b2827; }
 
 .opening-hero-banner {
   display: grid;

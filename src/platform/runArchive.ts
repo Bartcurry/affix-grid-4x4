@@ -9,6 +9,7 @@ export function archiveBoard(entry: RunArchive, catalog: Catalog) {
   if (!entry.formation || !Number.isSafeInteger(entry.wave)) return;
   const board = readSharedBoard(entry.formation, catalog);
   if (!board || board.opening !== entry.opening || (board.enableSynergies === false) !== (entry.enableSynergies === false) ||
+    (board.difficulty === 'expert') !== (entry.difficulty === 'expert') ||
     (board.bountyRoute && entry.bountyRule !== 1) || (board.wave === 20 && board.finaleRule !== entry.finaleRule)) return;
   if (board.wave === entry.wave || (entry.status === 'active' && board.wave === entry.wave - 1)) return board;
 }

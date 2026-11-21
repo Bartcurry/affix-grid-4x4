@@ -1,5 +1,5 @@
 import { simulateBattle } from './battleEngine';
-import { battleTarget } from './bounties';
+import { battleTargetFor } from './bounties';
 import { affixAt } from './expedition';
 import { resolveTargets } from './grid';
 import { runeAt } from './shopEngine';
@@ -10,10 +10,10 @@ export function usesTutorial(run: Pick<Run, 'wave' | 'board' | 'opening'>) {
 }
 
 type BattleSetup = Pick<Run, 'wave' | 'board' | 'gold' | 'relics' | 'opening' | 'tileModifiers' | 'shield' | 'rngState'> &
-  Partial<Pick<Run, 'bench' | 'enableSynergies' | 'bountyRoute' | 'finaleRule'>>;
+  Partial<Pick<Run, 'bench' | 'enableSynergies' | 'bountyRoute' | 'finaleRule' | 'difficulty'>>;
 
 function battleInput(run: BattleSetup) {
-  const { hp, encounter } = battleTarget(run.wave, run.bountyRoute, run.finaleRule);
+  const { hp, encounter } = battleTargetFor(run);
   return {
     board: run.board.map(rune => rune ? { ...rune } : null), bench: run.bench,
     hp, gold: run.gold, shield: run.shield ?? 3,

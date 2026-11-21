@@ -1,5 +1,5 @@
 import { boardShareUrl, type SharedBoard } from '../core/boardShare';
-import { battleTarget } from '../core/bounties';
+import { battleTargetFor } from '../core/bounties';
 import { affixAt, encounters, relics } from '../core/expedition';
 import { formationDuelUrl, maxDuelMoves, type FormationDuel } from '../core/formationDuel';
 import { bestFormationMove, type FormationPlan } from '../core/formationMove';
@@ -211,7 +211,7 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
       exchange(move);
       const middle = to.zone === 'board' && [1, 2].includes(toCoords(to.index).col);
       const fromEdge = from.zone === 'board' && [0, 3].includes(toCoords(from.index).col);
-      const positional = plan.moves.length === 1 && battleTarget(active.wave, active.bountyRoute).encounter === 'flanks' && middle && fromEdge
+      const positional = plan.moves.length === 1 && battleTargetFor(active).encounter === 'flanks' && middle && fromEdge
         ? ' 石狮的中间两列更好打。' : '';
       const name = catalog[fromRune.configId].name;
       if (plan.moves.length === 1) return `${place(from)}的${name}${action}。${positional}`;
@@ -313,11 +313,11 @@ export function bindBoardTrial(catalog: Catalog, glyph: (cell: HTMLElement, id: 
       originalPieces = new Map(active.board.flatMap((rune, index) => rune ? [[rune, original.byCell[index].damage] as const] : []));
       moves = [];
       selected = undefined;
-      const { encounter, bounty } = battleTarget(active.wave, active.bountyRoute, active.finaleRule);
+      const { encounter, bounty } = battleTargetFor(active);
       const enemy = encounters[encounter];
       get('title').textContent = duel ? '阵型挑战' : '试打这一波';
       get('wave').textContent = practice ? `${practice.name} · 练习目标 ${format(practice.damage)} 伤害`
-        : applyToRun?.note ?? `第 ${active.wave} 波 · ${bounty?.name ?? enemy.name} · ${format(original.hp)} 生命`;
+        : applyToRun?.note ?? `第 ${active.wave} 波 · ${bounty?.name ?? enemy.name} · ${format(original.hp)} 生命${active.difficulty === 'expert' && active.wave <= 20 ? ' · 进阶' : ''}`;
       get('duel').hidden = !duel;
       get('duel-target').textContent = duel ? `目标 ${format(duel.damage)} 伤害` : '';
       get('original').textContent = format(original.result.damage);

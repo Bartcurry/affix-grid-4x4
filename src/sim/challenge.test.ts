@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { challengeFromRun, challengeProgress, challengeSaveKey, challengeUrl, matchesChallenge, readChallenge } from '../core/challenge';
+import { battleTargetFor } from '../core/bounties';
 import { createMulberry32, decodeSeed } from '../core/rng';
 import { newRun, resolveLoss, settleTurn, startEndless, victoryPayout } from '../core/shopEngine';
 import { planTurn } from '../core/tactics';
@@ -122,5 +123,37 @@ describe('same-seed challenges', () => {
     expect(restored.lastCellDamage).toEqual(run.lastCellDamage);
     expect(victoryPayout(restored, 40, catalog)).toEqual(original);
     expect(migrateSave({ run: { ...run, enableSynergies: false } }, catalog).run.enableSynergies).toBe(false);
+  });
+
+  it('gives expert runs a tougher campaign, separate records and an exact same-seed invite', () => {
+    const standard = newRun(catalog, createMulberry32(667));
+    const expert = newRun(catalog, createMulberry32(667), 'chain', undefined, 'expert');
+    expect(expert.shield).toBe(2);
+    expect(expert.shop).toEqual(standard.shop);
+    expect(expert.freeRefreshes).toBe(1);
+    const first = planTurn(expert, catalog);
+    expect(first.hp).toBe(planTurn(standard, catalog).hp);
+    expect(first.result.win).toBe(true);
+    const rng = createMulberry32(expert.rngState);
+    settleTurn(expert, first.result, catalog, rng);
+    expect(expert.wave).toBe(2);
+    expect(expert.shield).toBe(2);
+    expect(planTurn(expert, catalog).hp).toBe(89);
+    expect(battleTargetFor({ ...expert, wave: 5, bountyRoute: 'alternate' }).hp).toBe(323);
+    expect(battleTargetFor({ ...expert, wave: 20 }).hp).toBe(55037);
+    expect(battleTargetFor({ ...expert, wave: 21 })).toEqual(battleTargetFor({ ...standard, wave: 21 }));
+
+    const score = challengeFromRun(expert);
+    const invite = new URL(challengeUrl('https://example.org/game/', score)).searchParams.get('challenge');
+    expect(invite).toMatch(/^v16\./);
+    expect(readChallenge(invite)).toEqual(score);
+    expect(matchesChallenge(expert, score)).toBe(true);
+    expect(matchesChallenge(standard, score)).toBe(false);
+    expect(challengeSaveKey(score)).not.toBe(challengeSaveKey(challengeFromRun(standard)));
+    const migrated = migrateSave({ run: expert, records: { chain: { cleared: 7, combo: 32 } } }, catalog);
+    expect(migrated.run.difficulty).toBe('expert');
+    expect(migrated.records.chain).toEqual({ cleared: 7, combo: 32 });
+    expect(migrated.beginnerRecords).toBeUndefined();
+    expect(migrated.expertRecords?.chain).toEqual({ cleared: 1, combo: first.result.combo });
   });
 });

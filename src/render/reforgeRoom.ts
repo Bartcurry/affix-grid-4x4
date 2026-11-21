@@ -1,4 +1,4 @@
-import { battleTarget } from '../core/bounties';
+import { battleTargetFor } from '../core/bounties';
 import { findReforgeSuggestion, prepareReforge, previewReforges, type ReforgeSuggestion, type ReforgeSwap } from '../core/reforge';
 import { runeAt } from '../core/shopEngine';
 import { archetypeLabel, synergyTierChanges } from '../core/synergy';
@@ -33,7 +33,7 @@ export function bindReforgeRoom(catalog: Catalog, glyph: (node: HTMLElement, id:
     let source: Slot;
     let previews: ReturnType<typeof previewReforges> = [];
     let suggestion: ReforgeSuggestion | undefined;
-    const { hp } = battleTarget(run.wave, run.bountyRoute);
+    const { hp } = battleTargetFor(run);
     get('hp').textContent = format(hp);
     get('status').hidden = true;
     advice.hidden = true;
