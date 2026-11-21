@@ -38,12 +38,6 @@
             <div class="boss-meta">
               <div class="boss-title-row">
                 <h2 id="enemy-name" class="boss-name">守门核心</h2>
-                <div id="boss-armor-shields" class="boss-armor-shields" role="img" hidden>
-                  <span class="boss-shield-icon" id="boss-shield-1"><svg viewBox="0 0 32 32"><path d="M16 3L27 7V15C27 22 22 27 16 29C10 27 5 22 5 15V7Z" fill="currentColor"/></svg></span>
-                  <span class="boss-shield-icon" id="boss-shield-2"><svg viewBox="0 0 32 32"><path d="M16 3L27 7V15C27 22 22 27 16 29C10 27 5 22 5 15V7Z" fill="currentColor"/></svg></span>
-                  <span class="boss-shield-icon" id="boss-shield-3" hidden><svg viewBox="0 0 32 32"><path d="M16 3L27 7V15C27 22 22 27 16 29C10 27 5 22 5 15V7Z" fill="currentColor"/></svg></span>
-                </div>
-                <span id="boss-gate" class="boss-gate" hidden></span>
                 <span id="wave" class="wave-pill">第 1 / 20 波</span>
               </div>
               <div class="hp-gauge-row">
@@ -52,10 +46,16 @@
                   <span id="hp-fill" class="hp-fill"></span>
                 </div>
                 <div class="hp-numbers">
-                  <span id="hp-poison-badge" class="hp-poison-badge" hidden>
-                    <span>毒</span>
-                    <span id="hp-poison-text">0</span>
-                  </span>
+                  <div class="boss-conditions">
+                    <div id="boss-armor-shields" class="boss-armor-shields" role="img" hidden>
+                      <span id="boss-armor-name" aria-hidden="true">护甲</span>
+                      <span class="boss-shield-icon" id="boss-shield-1" aria-hidden="true"></span>
+                      <span class="boss-shield-icon" id="boss-shield-2" aria-hidden="true"></span>
+                      <span class="boss-shield-icon" id="boss-shield-3" aria-hidden="true" hidden></span>
+                    </div>
+                    <span id="boss-gate" class="boss-gate" hidden></span>
+                    <span id="hp-poison-badge" class="hp-poison-badge" hidden><span>毒</span><span id="hp-poison-text">0</span></span>
+                  </div>
                   <span id="hp-text" class="hp-text"></span>
                 </div>
               </div>

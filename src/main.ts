@@ -363,8 +363,11 @@ function updateBossArmorUi(hits: number, breaking = false, column?: number) {
   const gate = element('boss-gate');
   gate.hidden = encounter !== 'regent_seal' || remaining > 0 || column === undefined;
   gate.textContent = column === undefined ? '' : `封第 ${column + 1} 列`;
+  renderer.setBossGate(phase === 'PLAYBACK' && !gate.hidden ? column : undefined);
   bossArmor.hidden = !layers || !gate.hidden;
   bossArmor.setAttribute('aria-label', `剩余 ${remaining} / ${layers} 层护甲`);
+  bossArmor.dataset.broken = String(remaining === 0);
+  element('boss-armor-name').textContent = remaining ? '护甲' : '破甲';
   armorIcons.forEach((icon, index) => {
     icon.hidden = index >= layers;
     icon.classList.toggle('broken', index < hits);
@@ -390,8 +393,10 @@ function updateHud() {
   }, 280);
 
   element('hp-text').textContent = `${formatNumber(hp)} / ${formatNumber(maxHp)}`;
-  element('hp-meter').setAttribute('aria-valuemax', String(maxHp));
-  element('hp-meter').setAttribute('aria-valuenow', String(hp));
+  const health = element('hp-meter');
+  health.dataset.health = hp === 0 ? 'empty' : pct <= 25 ? 'low' : 'high';
+  health.setAttribute('aria-valuemax', String(maxHp));
+  health.setAttribute('aria-valuenow', String(hp));
   element('shield').textContent = `${run.shield}/3`;
   const poison = phase === 'PLAYBACK' ? displayed.poison : showOutcomeState ? run.lastPoison : 0;
   const gold = phase === 'PLAYBACK' ? displayed.gold : run.gold;

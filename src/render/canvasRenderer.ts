@@ -109,6 +109,7 @@ export class CanvasRenderer {
   private size = { x: 0, y: 0, scale: 1 };
   private comboCount = 0;
   private activeScanSlot: Slot | null = null;
+  private bossGate?: number;
   get currentScanSlot(): Slot | null { return this.activeScanSlot; }
   selection: Slot | null = null;
   cursor: Slot | null = null;
@@ -141,6 +142,12 @@ export class CanvasRenderer {
 
   setCombo(combo: number) {
     this.comboCount = combo;
+    this.invalidate();
+  }
+
+  setBossGate(column?: number) {
+    if (this.bossGate === column) return;
+    this.bossGate = column;
     this.invalidate();
   }
 
@@ -186,6 +193,7 @@ export class CanvasRenderer {
     this.pulseAt = -1000;
     this.comboCount = 0;
     this.activeScanSlot = null;
+    this.bossGate = undefined;
     this.invalidate();
   }
 
@@ -482,6 +490,7 @@ export class CanvasRenderer {
         ctx.restore();
       }
     }
+    if (this.bossGate !== undefined) this.drawBossGate(this.bossGate);
     if (origin?.zone === 'board' && footprint?.links.size) {
       for (const index of footprint.links) this.drawLinkPreview(origin.index, index);
     }
@@ -796,6 +805,22 @@ export class CanvasRenderer {
     ctx.lineTo(x + 3, y);
     ctx.moveTo(x, y - 3);
     ctx.lineTo(x, y + 3);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  private drawBossGate(column: number) {
+    const ctx = this.ctx;
+    const top = cellRect({ zone: 'board', index: column });
+    const bottom = cellRect({ zone: 'board', index: column + 12 });
+    const height = bottom.y + bottom.height - top.y;
+    ctx.save();
+    this.roundRect(top.x, top.y, top.width, height, 6);
+    ctx.fillStyle = '#e98b6e16';
+    ctx.fill();
+    ctx.strokeStyle = '#f3a084';
+    ctx.lineWidth = 1.75;
+    ctx.setLineDash([5, 4]);
     ctx.stroke();
     ctx.restore();
   }

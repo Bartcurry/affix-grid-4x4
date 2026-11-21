@@ -165,8 +165,9 @@ button:focus-visible, canvas:focus-visible {
   flex-direction: column;
   gap: 0.28rem;
   padding: 0.38rem 0.5rem;
-  background: linear-gradient(112deg, var(--enemy-wash), #11151e 57%);
+  background: linear-gradient(112deg, var(--enemy-wash), #131720 58%);
   border: 1px solid #393949;
+  border-color: color-mix(in srgb, var(--enemy-ink) 25%, #2a2a34);
   border-radius: 8px;
   flex-shrink: 0;
 }
@@ -177,6 +178,8 @@ button:focus-visible, canvas:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 0.35rem;
+  padding-bottom: .21rem;
+  border-bottom: 1px solid #ecdbc216;
 }
 
 .boss-identity {
@@ -188,7 +191,20 @@ button:focus-visible, canvas:focus-visible {
 }
 
 .boss-emblem-wrap {
-  width: 2.38rem;
+  width: 2.72rem;
+  border-color: var(--enemy-ink);
+  border-radius: 8px;
+  box-shadow: 0 2px 5px #07080cbb;
+}
+
+.boss-emblem-wrap::before {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  inset: 1px;
+  border-radius: 6px;
+  box-shadow: inset 0 1px 0 #fff5d84d, inset 0 -7px 9px #08090f7d;
+  pointer-events: none;
 }
 
 .boss-emblem-svg {
@@ -209,7 +225,7 @@ button:focus-visible, canvas:focus-visible {
 }
 
 @keyframes boss-flash {
-  0% { filter: brightness(2.8) drop-shadow(0 0 14px #ffffff); }
+  0% { filter: brightness(1.65) drop-shadow(0 0 7px var(--enemy-ink)); }
   100% { filter: brightness(1) drop-shadow(0 0 0 transparent); }
 }
 
@@ -229,12 +245,12 @@ button:focus-visible, canvas:focus-visible {
 
 .boss-gate {
   flex: none;
-  padding: .05rem .24rem;
-  border: 1px solid #9e645d;
+  padding: 0 .23rem;
+  border: 1px solid #b67868;
   border-radius: 3px;
   background: #36232a;
   color: #ffc2a6;
-  font-size: .62rem;
+  font-size: .59rem;
   white-space: nowrap;
 }
 
@@ -242,31 +258,24 @@ button:focus-visible, canvas:focus-visible {
 .boss-armor-shields {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: .12rem;
   flex: none;
-  vertical-align: middle;
+  color: #d2dfe9;
+  font-size: .59rem;
+  white-space: nowrap;
 }
+
+.boss-armor-shields[data-broken=true] { color: #dcc7a7; }
 
 .boss-shield-icon {
-  width: 12px;
-  height: 12px;
-  display: inline-grid;
-  place-items: center;
-  color: #38bdf8;
-  filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.7));
-  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.boss-shield-icon svg {
-  width: 100%;
-  height: 100%;
+  width: .46rem;
+  height: .61rem;
+  background: linear-gradient(140deg, #d0e5ee, #648da7 68%, #45677e);
+  clip-path: polygon(50% 0, 100% 22%, 90% 72%, 50% 100%, 10% 72%, 0 22%);
 }
 
 .boss-shield-icon.broken {
-  color: #475569;
-  filter: none;
-  opacity: 0.35;
-  transform: scale(0.75) rotate(-15deg);
+  opacity: .27;
 }
 
 .boss-shield-icon.breaking {
@@ -274,9 +283,8 @@ button:focus-visible, canvas:focus-visible {
 }
 
 @keyframes shield-shatter {
-  0% { transform: scale(1.4); filter: brightness(3) drop-shadow(0 0 8px #ffffff); color: #ffffff; }
-  50% { transform: scale(0.9) rotate(20deg); opacity: 0.8; }
-  100% { transform: scale(0.75) rotate(-15deg); opacity: 0.35; color: #475569; filter: none; }
+  0% { transform: scale(1.2); filter: brightness(1.7); opacity: 1; }
+  100% { transform: scale(.76) rotate(-14deg); opacity: .27; }
 }
 
 .wave-pill {
@@ -285,6 +293,7 @@ button:focus-visible, canvas:focus-visible {
   font-weight: 700;
   color: #b6aa96;
   margin-left: auto;
+  flex: none;
   white-space: nowrap;
 }
 
@@ -293,7 +302,7 @@ button:focus-visible, canvas:focus-visible {
   font-size: 1rem;
   font-weight: 800;
   color: var(--text-main);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.025em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -307,12 +316,20 @@ button:focus-visible, canvas:focus-visible {
 
 /* 双层延迟残影血条 */
 .hp-track {
-  height: 0.32rem;
-  background: var(--bg-recessed);
-  border: 1px solid #332717;
-  border-radius: 2px;
+  height: .44rem;
+  background: #080b12;
+  border: 1px solid #66513d;
+  border-radius: 3px;
   position: relative;
   overflow: hidden;
+}
+
+.hp-track::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(90deg, transparent 0 calc(25% - 1px), #1b101966 calc(25% - 1px) 25%);
+  pointer-events: none;
 }
 
 .hp-ghost {
@@ -321,8 +338,8 @@ button:focus-visible, canvas:focus-visible {
   bottom: 0;
   left: 0;
   width: 100%;
-  background: #fde047;
-  opacity: 0.72;
+  background: #f3d096;
+  opacity: .82;
   transition: width 0.42s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -332,44 +349,38 @@ button:focus-visible, canvas:focus-visible {
   bottom: 0;
   left: 0;
   width: 100%;
-  background: linear-gradient(90deg, #991b1b, #dc2626 60%, #f59e0b 100%);
+  background: linear-gradient(90deg, #a93e36, #d36143 60%, #eeac63);
   transition: width 0.12s ease-out;
-  box-shadow: 0 0 8px rgba(220, 38, 38, 0.6);
+  box-shadow: inset 0 1px #ffdba970;
 }
+
+.hp-track[data-health=low] .hp-fill { background: linear-gradient(90deg, #cf544c, #f0846e); }
+.hp-track[data-health=low] + .hp-numbers .hp-text { color: #ffc0a8; }
+.hp-track[data-health=empty] + .hp-numbers .hp-text { color: #b5a69e; }
 
 .hp-numbers {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 0.25rem;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .08rem .2rem;
 }
 
-/* 血条右侧动态毒雾脉动徽章 */
+.boss-conditions { display: flex; align-items: center; gap: .2rem; }
+
 .hp-poison-badge {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  background: rgba(16, 185, 129, 0.22);
-  border: 1px solid #10b981;
+  background: #19342c;
+  border: 1px solid #3e8670;
   border-radius: 3px;
-  padding: 0 3px;
+  padding: 0 .2rem;
   font-family: var(--mono-font);
   font-size: 0.6rem;
   font-weight: 750;
-  color: #34d399;
-  animation: poison-mist-pulse 2s infinite ease-in-out;
-}
-
-@keyframes poison-mist-pulse {
-  0%, 100% {
-    box-shadow: 0 0 4px rgba(52, 211, 153, 0.3);
-    border-color: rgba(16, 185, 129, 0.6);
-  }
-  50% {
-    box-shadow: 0 0 10px rgba(52, 211, 153, 0.7);
-    border-color: #34d399;
-    transform: scale(1.05);
-  }
+  color: #a4e3c3;
+  white-space: nowrap;
 }
 
 .hp-text {
@@ -377,6 +388,8 @@ button:focus-visible, canvas:focus-visible {
   font-size: 0.7rem;
   font-weight: 700;
   color: #e2e8f0;
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 /* 玩家资源指示 */
@@ -404,6 +417,7 @@ button:focus-visible, canvas:focus-visible {
   color: #e1e6ef;
 }
 
+.res-shield strong { color: #cae2ee; }
 .res-gold strong { color: #f4cc79; }
 
 /* 功能按钮 */
@@ -2170,7 +2184,7 @@ dialog::backdrop {
     gap: 0.17rem;
   }
   .boss-emblem-wrap {
-    width: 1.98rem;
+    width: 2.15rem;
   }
   .boss-emblem-svg {
     width: 1rem;
@@ -2183,7 +2197,7 @@ dialog::backdrop {
     font-size: 0.6rem;
   }
   .hp-track {
-    height: 0.28rem;
+    height: .34rem;
   }
   .hp-text {
     font-size: 0.65rem;
@@ -2292,7 +2306,7 @@ dialog::backdrop {
 @media (prefers-reduced-motion: reduce) {
   .hp-fill, .hp-ghost, #forecast-fill { transition: none !important; }
   .primary.battle-btn::after, .stamp-slam { animation: none !important; }
-  .boss-emblem-wrap.boss-hit { animation: none; }
+  .boss-emblem-wrap.boss-hit, .boss-shield-icon.breaking { animation: none; }
 }
 
 /* ─── 流派共鸣羁绊徽条 (Synergy Resonance Strip) ─── */
