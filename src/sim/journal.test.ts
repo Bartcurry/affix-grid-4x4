@@ -26,7 +26,17 @@ describe('last battle journal', () => {
     expect(breakdown.get(0)).toBe(bursts.reduce((a, b) => a + b, 0));
     expect(breakdown.get('poison')).toBeGreaterThan(0);
     expect([...breakdown.values()].reduce((a, b) => a + b, 0)).toBe(total);
-    expect(damageLeaders(journal)).toHaveLength(3);
+    const leaders = damageLeaders(journal);
+    expect(leaders).toHaveLength(3);
+    for (const { source, step } of leaders) {
+      const hits = journal.events.flatMap((event, index) => {
+        if (event.type !== 'DAMAGE' || !event.amount) return [];
+        const origin = event.kind === 'tutorial' ? 'tutorial' : event.source ?? 'poison';
+        return origin === source ? [{ amount: event.amount, step: index + 1 }] : [];
+      });
+      const strongest = hits.sort((a, b) => b.amount - a.amount)[0];
+      expect(step).toBe(strongest.step);
+    }
     expect(journalRows(journal, 'damage').every(line => ['DAMAGE', 'POISON'].includes(line.event.type))).toBe(true);
   });
 

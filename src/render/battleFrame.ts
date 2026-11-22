@@ -1,5 +1,14 @@
 import { GRID_SIZE, toCoords } from '../core/grid';
-import type { BattleEvent } from '../core/types';
+import type { DamageSource } from '../core/journal';
+import type { BattleEvent, Catalog, Slots } from '../core/types';
+
+export function damageSourceLabel(source: DamageSource, board: Slots, catalog: Catalog) {
+  if (typeof source === 'number') {
+    const config = catalog[board[source]?.configId ?? ''];
+    return { name: config?.name ?? '符文', color: config?.color ?? '#dbaf72' };
+  }
+  return source === 'poison' ? { name: '回合末剧毒', color: '#80c887' } : { name: '首波共鸣', color: '#dbaf72' };
+}
 
 export function describeBattleEvent(event: BattleEvent, runeName: (index: number) => string,
   format: (value: number) => string, previousPoison: number) {

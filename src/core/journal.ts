@@ -5,22 +5,27 @@ import type { BattleEvent, BattleJournal, Catalog } from './types';
 
 export type JournalFilter = 'all' | 'chain' | 'damage' | 'economy' | 'support';
 
+export type DamageSource = number | 'poison' | 'tutorial';
+
 export function damageBySource(events: readonly BattleEvent[]) {
-  const breakdown = new Map<number | 'poison' | 'tutorial', number>();
+  const breakdown = new Map<DamageSource, number>();
+  const peaks = new Map<DamageSource, { amount: number; step: number }>();
   let total = 0;
-  for (const event of events) {
+  for (const [index, event] of events.entries()) {
     if (event.type !== 'DAMAGE' || !event.amount) continue;
     const source = event.kind === 'tutorial' ? 'tutorial' : event.source ?? (event.kind === 'poison' ? 'poison' : null);
     total += event.amount;
-    if (source !== null) breakdown.set(source, (breakdown.get(source) ?? 0) + event.amount);
+    if (source === null) continue;
+    breakdown.set(source, (breakdown.get(source) ?? 0) + event.amount);
+    if (event.amount > (peaks.get(source)?.amount ?? 0)) peaks.set(source, { amount: event.amount, step: index + 1 });
   }
-  return { breakdown, total };
+  return { breakdown, total, peaks };
 }
 
 export function damageLeaders(journal: BattleJournal) {
-  const { breakdown, total } = damageBySource(journal.events);
+  const { breakdown, total, peaks } = damageBySource(journal.events);
   return [...breakdown.entries()].sort((left, right) => right[1] - left[1]).slice(0, 3)
-    .map(([source, amount]) => ({ source, amount, share: amount / total }));
+    .map(([source, amount]) => ({ source, amount, share: amount / total, step: peaks.get(source)!.step }));
 }
 
 export function journalRows(journal: BattleJournal, filter: JournalFilter) {

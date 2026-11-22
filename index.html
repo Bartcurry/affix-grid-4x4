@@ -114,6 +114,7 @@
           <span id="battle-steps"></span>
           <progress id="battle-progress" aria-label="符文触发进度" max="1" value="0"></progress>
         </section>
+        <section id="battle-recap" class="battle-recap" aria-label="上一场伤害排行" hidden></section>
         <div id="first-clear" class="first-clear" hidden>
           <span id="first-clear-score"></span>
           <button id="first-clear-supply" type="button" aria-haspopup="dialog">试阵备战</button>
@@ -650,6 +651,7 @@
           </dl>
           <p id="panel-text"></p>
           <div id="panel-mvp-card" class="panel-mvp-card" hidden></div>
+          <section id="outcome-recap" class="battle-recap" aria-label="本场伤害排行" hidden></section>
           <section id="retry-scout" class="retry-scout" aria-labelledby="retry-title" hidden>
             <header>
               <h3 id="retry-title">重打推演</h3>
@@ -957,16 +959,18 @@
             <p>在 4×4 棋盘摆符文、合成升星，想办法打过 20 波。</p>
           </header>
           <p id="lobby-message" role="status" hidden></p>
-          <section class="lobby-demo" aria-label="首战换位演示">
-            <div class="lobby-grid-wrap" aria-hidden="true">
-              <div id="lobby-demo-board" class="lobby-grid"></div>
-              <span id="lobby-demo-link" class="battle-frame-link" hidden></span>
+          <section id="lobby-chain-demo" class="lobby-demo" aria-label="首战换位演示">
+            <div class="chain-scene" data-demo-scene>
+              <div class="chain-plane">
+                <div id="lobby-demo-board" class="lobby-grid" data-demo-board role="group" aria-label="换位演示棋盘"></div>
+                <span id="lobby-demo-link" class="battle-frame-link" data-demo-link aria-hidden="true" hidden></span>
+              </div>
             </div>
             <div class="lobby-demo-readout">
               <span>首波保底伤害 / 敌人生命</span>
-              <strong id="lobby-demo-score" aria-live="polite"></strong>
-              <p id="lobby-demo-note"></p>
-              <button id="lobby-demo-swap" type="button">交换这两枚符文</button>
+              <strong id="lobby-demo-score" data-demo-score aria-live="polite"></strong>
+              <p id="lobby-demo-note" data-demo-note></p>
+              <button id="lobby-demo-swap" data-demo-swap type="button">交换这两枚符文</button>
             </div>
           </section>
           <button id="lobby-campaign" class="primary lobby-campaign" type="button">
@@ -1103,23 +1107,33 @@
             <button id="quick-guide-close" type="button" aria-label="关闭入门指引">×</button>
             <button id="quick-guide-skip" type="button" hidden>跳过指引</button>
           </header>
-          <ol class="quick-guide-steps">
-            <li>
-              <h3>用「入门 · 借火」打首波</h3>
-              <p>折射镜会让右边的电火花先打一次。轮到电火花自己，它还会再打一次。</p>
-              <div class="quick-guide-chain" aria-hidden="true">
-                <span id="quick-guide-mirror"></span><span>→</span><span id="quick-guide-spark"></span>
+          <p class="quick-guide-intro">折射镜只照右边。点两枚符文换位，让它照到电火花，试着打够 40 点伤害。</p>
+          <section id="guide-demo" class="lobby-demo" aria-label="入门换位练习">
+            <div class="chain-scene" data-demo-scene>
+              <div class="chain-plane">
+                <div class="lobby-grid" data-demo-board role="group" aria-label="练习棋盘"></div>
+                <span class="battle-frame-link" data-demo-link aria-hidden="true" hidden></span>
               </div>
-            </li>
-            <li><h3>点两下换位</h3><p>先点要移动的符文，再点目标格。法阵从左到右、从上到下触发，连锁会立即插进这个顺序。</p></li>
-            <li><h3>第二波差伤害，就点「试阵备战」</h3><p>试买、换位，确认应用才花金币。备战区的符文放上棋盘才会出手，三枚同名同星符文会自动升星。</p></li>
-            <li><h3>想玩一小局，打开「每日残局」</h3><p>同一题可以比最少步数，也可以冲最高伤害。到「题册」能补做旧题、继续草稿。</p></li>
-          </ol>
+            </div>
+            <div class="lobby-demo-readout">
+              <span>保底伤害 / 敌人生命</span>
+              <strong data-demo-score aria-live="polite"></strong>
+              <p data-demo-note></p>
+              <button data-demo-swap type="button">交换这两枚符文</button>
+            </div>
+          </section>
+          <div class="quick-guide-actions">
+            <button id="quick-guide-battle" class="primary" type="button" hidden>用借火打首波</button>
+            <button id="quick-guide-practice" type="button" aria-haspopup="dialog">继续做三节练习</button>
+          </div>
           <details class="quick-guide-tiles">
-            <summary>棋盘上的阵眼</summary>
-            <p>离火位多触发一次，玄冰位增加 45 个百分点的暴击率。聚灵位会在邻格触发时增加 2 点威力。</p>
+            <summary>布阵和第二波怎么打</summary>
+            <ul>
+              <li>法阵从左到右、从上到下触发。连锁会立即插队，备战区的符文要摆上棋盘才会出手。</li>
+              <li>第二波差伤害，可以点「试阵备战」。确认应用才花金币，三枚同名同星符文会自动升星。</li>
+              <li>离火位多触发一次，玄冰位增加暴击率，聚灵位会从邻格的触发中吸收威力。</li>
+            </ul>
           </details>
-          <button id="quick-guide-practice" class="primary" type="button" aria-haspopup="dialog">先练换位</button>
         </div>
       </dialog>
 

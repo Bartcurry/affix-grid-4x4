@@ -3,7 +3,7 @@ import { battleTargetFor } from '../core/bounties';
 import { encounters } from '../core/expedition';
 import { damageLeaders, journalPlayback, journalRows, type JournalFilter } from '../core/journal';
 import type { BattleJournal, Catalog, Slots } from '../core/types';
-import { describeBattleEvent, placeBattleLink } from './battleFrame';
+import { damageSourceLabel, describeBattleEvent, placeBattleLink } from './battleFrame';
 import { planJournalReplay } from './playbackController';
 
 export function bindBattleJournal(catalog: Catalog, format: (value: number) => string, glyph: (owner: HTMLElement, id: string) => void,
@@ -115,14 +115,9 @@ export function bindBattleJournal(catalog: Catalog, format: (value: number) => s
       const name = document.createElement('span');
       const value = document.createElement('strong');
       const bar = document.createElement('span');
-      if (typeof source === 'number') {
-        const config = catalog[board[source]?.configId ?? ''];
-        name.textContent = `${source + 1} 格 · ${config?.name ?? '符文'}`;
-        item.style.setProperty('--damage-ink', config?.color ?? '#dbaf72');
-      } else {
-        name.textContent = source === 'poison' ? '回合末剧毒' : '首波共鸣';
-        item.style.setProperty('--damage-ink', source === 'poison' ? '#80c887' : '#dbaf72');
-      }
+      const label = damageSourceLabel(source, board, catalog);
+      name.textContent = typeof source === 'number' ? `${source + 1} 格 · ${label.name}` : label.name;
+      item.style.setProperty('--damage-ink', label.color);
       value.textContent = `${format(amount)} · ${share < .01 ? '<1' : (share * 100).toFixed(0)}%`;
       bar.className = 'journal-share';
       bar.setAttribute('aria-hidden', 'true');
@@ -185,7 +180,7 @@ export function bindBattleJournal(catalog: Catalog, format: (value: number) => s
   get('journal-end').onclick = () => seekTo(Number(seek.max));
   get('journal-close').onclick = () => dialog.close();
   dialog.addEventListener('close', () => { if (!dialog.open) pauseReplay(); });
-  return (entry: BattleJournal | undefined) => {
+  return (entry: BattleJournal | undefined, openingStep = 0) => {
     const result = entry?.events.at(-1);
     if (!entry || result?.type !== 'TURN_RESULT' || dialog.open) return;
     const snapshot = readSharedBoard(entry.formation, catalog, true);
@@ -222,7 +217,7 @@ export function bindBattleJournal(catalog: Catalog, format: (value: number) => s
     showDamageLeaders(entry);
     details.open = false;
     draw('all');
-    seekTo(0);
+    seekTo(openingStep);
     dialog.showModal();
     dialog.scrollTop = 0;
   };

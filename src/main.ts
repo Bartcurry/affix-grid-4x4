@@ -36,6 +36,7 @@ import { bindWeeklyRelay } from './render/weeklyRelayRoom';
 import { bindScoreShareRoom } from './render/scoreShareRoom';
 import { bindBoardTrial } from './render/boardTrialRoom';
 import { bindBattleJournal } from './render/battleJournal';
+import { bindBattleRecap } from './render/battleRecap';
 import { bindBattleRibbon } from './render/battleRibbon';
 import { bindEncounterRoom } from './render/encounterRoom';
 import { bindFormationLessons } from './render/formationLessons';
@@ -46,6 +47,7 @@ import { bindBountyRoom } from './render/bountyRoom';
 import { bindEngravingRoom } from './render/engravingRoom';
 import { bindFirstSupplyRoom } from './render/firstSupplyRoom';
 import { bindLobby } from './render/lobby';
+import { bindChainDemo } from './render/chainDemo';
 import { bindEndlessCampRoom } from './render/endlessCampRoom';
 import { bindReforgeRoom } from './render/reforgeRoom';
 import { bindRelicRoom } from './render/relicRoom';
@@ -299,14 +301,18 @@ const quickGuide = element<HTMLDialogElement>('quick-guide-dialog');
 const guideSeenKey = 'affix-grid-4x4.intro-seen.v1';
 let guideSeen = false;
 try { guideSeen = localStorage.getItem(guideSeenKey) === '1'; } catch {}
-runeGlyph(element('quick-guide-mirror'), 'prism_right');
-runeGlyph(element('quick-guide-spark'), 'spark_orb');
+const guideBattle = button('quick-guide-battle');
+const resetGuideDemo = bindChainDemo(element('guide-demo'), catalog, runeGlyph, click, linked => {
+  guideBattle.disabled = !linked;
+});
 function showQuickGuide(automatic = false) {
   if (phase !== 'ARRANGE' || quickGuide.open) return;
   click();
   quickGuide.dataset.automatic = String(automatic);
   button('quick-guide-skip').hidden = !automatic;
   button('quick-guide-close').hidden = automatic;
+  guideBattle.hidden = !automatic;
+  resetGuideDemo(true);
   quickGuide.showModal();
   element('quick-guide-title').focus({ preventScroll: true });
   quickGuide.scrollTop = 0;
@@ -314,6 +320,13 @@ function showQuickGuide(automatic = false) {
 button('lobby-guide').onclick = button('opening-quick-guide').onclick = button('guide-open').onclick = button('help').onclick = () => showQuickGuide();
 button('quick-guide-close').onclick = button('quick-guide-skip').onclick = () => { click(); quickGuide.close(); };
 button('quick-guide-practice').onclick = () => openStarterGuide(false);
+guideBattle.onclick = () => {
+  if (!quickGuide.open || quickGuide.dataset.automatic !== 'true' || campaignStarted || phase !== 'ARRANGE') return;
+  click();
+  quickGuide.close();
+  openingDifficulty = 'beginner';
+  startOpening('chain', generateSeedCode().code, true);
+};
 quickGuide.addEventListener('close', () => {
   if (quickGuide.open || quickGuide.dataset.automatic !== 'true') return;
   guideSeen = true;
@@ -348,7 +361,10 @@ button('boss-intel').onclick = () => {
   showEncounters(run, arranging(), recordsFor(run.difficulty)[run.opening]?.cleared);
 };
 const showJournal = bindBattleJournal(catalog, formatNumber, runeGlyph, board => { click(); boardTrial.open(board, undefined, true); });
-const reviewLast = () => showJournal(run.lastJournal);
+const reviewLast = (step = 0) => showJournal(run.lastJournal, step);
+const reviewHit = (step: number) => { if (phase === 'ARRANGE') { click(); reviewLast(step); } };
+const updateBattleRecap = bindBattleRecap(element('battle-recap'), catalog, formatNumber, reviewHit);
+const updateOutcomeRecap = bindBattleRecap(element('outcome-recap'), catalog, formatNumber, reviewHit);
 button('journal-open').onclick = () => { if (phase === 'ARRANGE') { click(); reviewLast(); } };
 button('opening-daily').onclick = () => { if (phase === 'ARRANGE') { click(); daily.open(); } };
 button('opening-drills').onclick = () => { if (phase === 'ARRANGE') drillsRoom.open(); };
@@ -870,6 +886,7 @@ function redraw(save = true) {
   const enemy = encounters[encounter];
   element('enemy-name').textContent = enemy.name;
 
+  updateBattleRecap(run.lastJournal, phase === 'ARRANGE');
   const recordedHits = run.pendingLoss || run.status !== 'active' ? run.lastJournal?.events.filter(isArmorHit) ?? [] : [];
   const latest = recordedHits.at(-1)?.source;
   const column = phase === 'PLAYBACK' ? bossGateColumn : typeof latest === 'number' ? toCoords(latest).col : undefined;
@@ -1114,6 +1131,7 @@ function showPanel(title: string, text: string, actions: Action[], dismissible =
   element('panel-title').textContent = title;
   element('panel-text').textContent = text;
   element('retry-scout').hidden = true;
+  element('outcome-recap').hidden = true;
   element('panel-score').hidden = !outcome;
   if (outcome) {
     const score = runScore(outcome);
@@ -1398,6 +1416,7 @@ function showOutcome(archive = true) {
       ...(freeRetry ? [{ label: '保留护盾，重新布阵', act: () => retry(true), primary: true }] : []),
       { label: '扣除 1 点护盾', act: () => retry(false) },
     ]);
+    updateOutcomeRecap(run.lastJournal);
     retryScout.open(failed, preserve => { click(); retry(preserve, true); });
   } else if (run.status !== 'active') {
     const won = run.status === 'victory';
