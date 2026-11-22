@@ -23,6 +23,7 @@ export function bindStarterGuide(catalog: Catalog, glyph: (cell: HTMLElement, id
   let baseline = 0;
   let goal = 0;
   let passed = false;
+  let fromOpening = true;
 
   function damage(formation: typeof board) {
     const result = simulateFormation(formation, catalog).events.at(-1);
@@ -97,7 +98,7 @@ export function bindStarterGuide(catalog: Catalog, glyph: (cell: HTMLElement, id
     delete feedback.dataset.win;
     next.hidden = true;
     campaign.hidden = true;
-    next.textContent = index + 1 === lessons.length ? '返回开局' : '下一课';
+    next.textContent = index + 1 === lessons.length ? (fromOpening ? '返回开局' : '返回指引') : '下一课';
     check.hidden = false;
     check.disabled = reset.disabled = true;
     draw();
@@ -115,11 +116,12 @@ export function bindStarterGuide(catalog: Catalog, glyph: (cell: HTMLElement, id
     if (passed) {
       check.hidden = true;
       next.hidden = false;
-      campaign.hidden = false;
+      campaign.hidden = !fromOpening;
       next.focus({ preventScroll: true });
     }
   };
   campaign.onclick = () => {
+    if (!fromOpening) return;
     dialog.close();
     startCampaign();
   };
@@ -130,13 +132,14 @@ export function bindStarterGuide(catalog: Catalog, glyph: (cell: HTMLElement, id
       get('title').focus({ preventScroll: true });
     } else {
       dialog.close();
-      finish();
+      if (fromOpening) finish();
     }
   };
   reset.onclick = () => { click(); start(round); get('title').focus({ preventScroll: true }); };
   get('close').onclick = () => { click(); dialog.close(); };
-  return () => {
+  return (opening: boolean) => {
     if (dialog.open) return;
+    fromOpening = opening;
     click();
     start(0);
     dialog.showModal();

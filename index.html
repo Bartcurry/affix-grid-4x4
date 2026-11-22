@@ -87,6 +87,7 @@
           <nav class="hud-utility" aria-label="游戏菜单">
             <button id="openings" type="button" aria-haspopup="dialog" title="换开局">开局</button>
             <button id="codex" type="button" aria-haspopup="dialog" title="查看符文、阵型练习与战绩">图鉴</button>
+            <button id="guide-open" type="button" aria-haspopup="dialog" aria-label="入门指引">指引</button>
             <button id="settings-open" type="button" aria-haspopup="dialog">设置</button>
           </nav>
         </div>
@@ -237,7 +238,7 @@
             <span>棋盘外观</span><span id="appearance-current" class="settings-value"></span>
           </button>
           <button id="help" class="settings-row" type="button" aria-haspopup="dialog">
-            <span>玩法说明</span><span aria-hidden="true">›</span>
+            <span>入门指引</span><span aria-hidden="true">›</span>
           </button>
           <button id="support" class="settings-row" type="button" title="请作者喝可乐">
             <span>支持作者</span><span aria-hidden="true">›</span>
@@ -958,7 +959,10 @@
               <h2 id="opening-title" class="opening-grand-title">词条法阵</h2>
               <p id="opening-note" class="opening-grand-subtitle"></p>
             </div>
-            <button id="opening-close" type="button" aria-label="回到当前局" title="回到当前局">×</button>
+            <div class="opening-hero-actions">
+              <button id="opening-quick-guide" type="button" aria-haspopup="dialog">入门指引</button>
+              <button id="opening-close" type="button" aria-label="回到当前局" title="回到当前局">×</button>
+            </div>
           </header>
           <div id="opening-actions" class="opening-actions">
             <button id="opening-quick" class="primary" type="button">
@@ -1051,6 +1055,32 @@
             </div>
             <div class="upgrades-stock"><p id="upgrades-stock"></p><button id="upgrades-offer" type="button" hidden>看现货</button></div>
           </section>
+        </div>
+      </dialog>
+
+      <dialog id="quick-guide-dialog" class="quick-guide-dialog" aria-labelledby="quick-guide-title">
+        <div class="dialog-content">
+          <header class="invite-heading">
+            <h2 id="quick-guide-title" tabindex="-1">入门指引</h2>
+            <button id="quick-guide-close" type="button" aria-label="关闭入门指引">×</button>
+          </header>
+          <ol class="quick-guide-steps">
+            <li>
+              <h3>用「入门 · 借火」打首波</h3>
+              <p>折射镜会让右边的电火花先打一次。轮到电火花自己，它还会再打一次。</p>
+              <div class="quick-guide-chain" aria-hidden="true">
+                <span id="quick-guide-mirror"></span><span>→</span><span id="quick-guide-spark"></span>
+              </div>
+            </li>
+            <li><h3>点两下换位</h3><p>先点要移动的符文，再点目标格。法阵从左到右、从上到下触发，连锁会立即插进这个顺序。</p></li>
+            <li><h3>第二波差伤害，就点「试阵备战」</h3><p>试买、换位，确认应用才花金币。备战区的符文放上棋盘才会出手，三枚同名同星符文会自动升星。</p></li>
+            <li><h3>想玩一小局，打开「每日残局」</h3><p>同一题可以比最少步数，也可以冲最高伤害。到「题册」能补做旧题、继续草稿。</p></li>
+          </ol>
+          <details class="quick-guide-tiles">
+            <summary>棋盘上的阵眼</summary>
+            <p>离火位多触发一次，玄冰位增加 45 个百分点的暴击率。聚灵位会在邻格触发时增加 2 点威力。</p>
+          </details>
+          <button id="quick-guide-practice" class="primary" type="button" aria-haspopup="dialog">先练换位</button>
         </div>
       </dialog>
 

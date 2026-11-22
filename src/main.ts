@@ -289,9 +289,22 @@ button('reforge-open').onclick = () => {
 const retryScout = bindRetryScout(catalog, click, openRetryTrial);
 const showFormationLessons = bindFormationLessons(catalog, runeGlyph, click,
   (board, name, damage) => boardTrial.open(board, undefined, true, { name, damage }));
-button('opening-guide').onclick = bindStarterGuide(catalog, runeGlyph, click,
+const openStarterGuide = bindStarterGuide(catalog, runeGlyph, click,
   () => button('opening-quick').focus({ preventScroll: true }),
   () => chooseOpening(true));
+button('opening-guide').onclick = () => openStarterGuide(true);
+const quickGuide = element<HTMLDialogElement>('quick-guide-dialog');
+runeGlyph(element('quick-guide-mirror'), 'prism_right');
+runeGlyph(element('quick-guide-spark'), 'spark_orb');
+button('opening-quick-guide').onclick = button('guide-open').onclick = button('help').onclick = () => {
+  if (phase !== 'ARRANGE' || quickGuide.open) return;
+  click();
+  quickGuide.showModal();
+  element('quick-guide-title').focus({ preventScroll: true });
+  quickGuide.scrollTop = 0;
+};
+button('quick-guide-close').onclick = () => { click(); quickGuide.close(); };
+button('quick-guide-practice').onclick = () => openStarterGuide(false);
 const showEncounters = bindEncounterRoom(catalog, click, wave => {
   if (!arranging()) return;
   if (wave === run.wave) openCampaignTrial();
@@ -637,6 +650,7 @@ function syncControls() {
   button('ambient').setAttribute('aria-pressed', String(!audio.ambientMuted));
   button('settings-open').disabled = phase === 'PLAYBACK';
   button('codex').disabled = phase === 'PLAYBACK';
+  button('guide-open').disabled = phase === 'PLAYBACK';
   for (const chip of element('hud-synergies').querySelectorAll('button')) chip.disabled = phase === 'PLAYBACK';
   button('speed').textContent = player.speed === 0 ? '即结' : `${player.speed}×`;
   button('speed').setAttribute('aria-label', player.speed === 0 ? '立即结算，点击切回一倍速' : `播放速度 ${player.speed} 倍，点击切换`);
@@ -1610,11 +1624,6 @@ button('support').onclick = async () => {
     showPanel('谢谢这瓶可乐', '紫铜棋盘已启用。你可以随时在设置里更换。', [{ label: '回棋盘', primary: true, act: () => dialog.close() }], true);
   }
 };
-button('help').onclick = () => {
-  click(); showPanel('怎么玩', '符文从左上角开始逐行触发。折射镜会额外触发右边的符文，「借火」起手阵就用这一招。\n\n先点一枚符文，再点目标格就能换位。也可以拖动。\n\n离火位让符文多触发一次，玄冰位加 45% 暴击率，聚灵位会在邻格触发时增加 2 点威力。\n\n三枚同名同星的符文会自动升星。',
-    [{ label: '知道了', primary: true, act: () => dialog.close() }], true);
-};
-
 const codexDialog = element<HTMLDialogElement>('codex-dialog');
 let codexRuneFilter = 'all';
 element('codex-star-note').textContent =
