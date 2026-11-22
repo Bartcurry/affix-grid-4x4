@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
     <meta name="theme-color" content="#090B10" />
     <!-- social-preview:start -->
-    <meta name="description" content="在 4×4 法阵里摆放符文、合成升星，靠连锁守住 20 波。也能把阵容发给朋友，让对方接着摆。" />
+    <meta name="description" content="挪一格，连锁就变了。在 4×4 棋盘上摆符文、合成升星，打过 20 波首领，或挑战每天一题的残局。" />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="zh_CN" />
     <meta property="og:title" content="4×4 词条法阵" />
-    <meta property="og:description" content="摆符文，打连锁。合成升星，守住 20 波。也能接手朋友的阵容再试一遍。" />
+    <meta property="og:description" content="挪一格，连锁就变了。摆符文、合成升星，打过 20 波首领，或和朋友比同一题残局。" />
     <meta property="og:url" content="https://bartcurry.github.io/affix-grid-4x4/" />
     <meta property="og:image" content="https://bartcurry.github.io/affix-grid-4x4/share-cover.png" />
     <meta property="og:image:type" content="image/png" />
@@ -85,7 +85,7 @@
           </button>
           <div id="relic-list" class="relic-chip-list" hidden><button id="relic-inventory-open" type="button" aria-haspopup="dialog"></button></div>
           <nav class="hud-utility" aria-label="游戏菜单">
-            <button id="openings" type="button" aria-haspopup="dialog" title="换开局">开局</button>
+            <button id="openings" type="button" aria-haspopup="dialog" title="游戏模式">模式</button>
             <button id="codex" type="button" aria-haspopup="dialog" title="查看符文、阵型练习与战绩">图鉴</button>
             <button id="guide-open" type="button" aria-haspopup="dialog" aria-label="入门指引">指引</button>
             <button id="settings-open" type="button" aria-haspopup="dialog">设置</button>
@@ -102,7 +102,7 @@
           <span id="beginner-badge" hidden>入门</span>
           <span id="arena-hint" class="arena-hint-text">点符文，再点目标格</span>
           <span id="phase" class="phase-pill">布阵</span>
-          <button id="daily-open" type="button" aria-haspopup="dialog">每日</button>
+          <button id="shorts-open" type="button" aria-haspopup="dialog">短局</button>
           <button id="journal-open" type="button" aria-haspopup="dialog" hidden>复盘</button>
           <button id="share-open" type="button" aria-haspopup="dialog">分享</button>
           <button id="inspect-jump" type="button" aria-controls="inspector" aria-expanded="false" hidden>看词条</button>
@@ -338,8 +338,6 @@
             <span id="daily-share-status" role="status">每天北京时间零点换题</span>
             <button id="daily-copy" type="button">复制挑战</button>
             <button id="daily-card" type="button" class="puzzle-card-open" aria-haspopup="dialog" hidden>战绩卡</button>
-            <button id="relay-open" type="button" aria-haspopup="dialog">三阵接力</button>
-            <button id="drill-open" type="button" aria-haspopup="dialog">阵师试炼</button>
           </div>
           <input id="daily-link" type="url" readonly aria-label="每日残局链接" hidden />
           <details id="daily-archive" class="daily-archive">
@@ -951,6 +949,58 @@
         </div>
       </dialog>
 
+      <dialog id="lobby-dialog" class="lobby-dialog" aria-labelledby="lobby-title">
+        <div class="dialog-content lobby-content">
+          <header class="lobby-hero">
+            <button id="lobby-close" type="button" aria-label="返回当前战役" hidden>×</button>
+            <h2 id="lobby-title">词条法阵</h2>
+            <p>挪一格，连锁就变了。</p>
+            <p>在 4×4 棋盘摆符文、合成升星，想办法打过 20 波。</p>
+          </header>
+          <p id="lobby-message" role="status" hidden></p>
+          <section class="lobby-demo" aria-label="首战换位演示">
+            <div class="lobby-grid-wrap" aria-hidden="true">
+              <div id="lobby-demo-board" class="lobby-grid"></div>
+              <span id="lobby-demo-link" class="battle-frame-link" hidden></span>
+            </div>
+            <div class="lobby-demo-readout">
+              <span>首波保底伤害 / 敌人生命</span>
+              <strong id="lobby-demo-score" aria-live="polite"></strong>
+              <p id="lobby-demo-note"></p>
+              <button id="lobby-demo-swap" type="button">交换这两枚符文</button>
+            </div>
+          </section>
+          <button id="lobby-campaign" class="primary lobby-campaign" type="button">
+            <strong id="lobby-campaign-title">开始战役</strong><span id="lobby-campaign-detail">四套起手阵 · 三档难度</span>
+          </button>
+          <nav class="lobby-activities" aria-label="其他玩法">
+            <button id="lobby-shorts" type="button" aria-haspopup="dialog"><strong>短局挑战</strong><small>每日残局 · 三阵接力</small></button>
+            <button id="lobby-practice" type="button" aria-haspopup="dialog"><strong>阵型练习</strong><small>新手教学 · 阵师试炼</small></button>
+          </nav>
+          <footer class="lobby-footer">
+            <button id="lobby-guide" type="button" aria-haspopup="dialog">入门指引</button>
+            <button id="lobby-new" type="button" aria-haspopup="dialog" hidden>新开战役</button>
+          </footer>
+        </div>
+      </dialog>
+
+      <dialog id="activity-dialog" class="activity-dialog" aria-labelledby="activity-title">
+        <div class="dialog-content">
+          <header class="invite-heading">
+            <h2 id="activity-title" tabindex="-1"></h2>
+            <button id="activity-close" type="button" aria-label="返回">×</button>
+          </header>
+          <div id="activity-shorts" class="activity-choices">
+            <button id="opening-daily" type="button" aria-haspopup="dialog"><strong>每日残局</strong><small>同一题比最少步数和最高伤害。题册可补做旧题。</small></button>
+            <button id="opening-relay" type="button" aria-haspopup="dialog"><strong>三阵接力</strong><small>每周换题，三道阵共用换位步数。</small></button>
+          </div>
+          <div id="activity-practice" class="activity-choices" hidden>
+            <button id="practice-starter" type="button" aria-haspopup="dialog"><strong>新手教学</strong><small>三节动手课，练镜子连锁、矿脉重炮和叠毒引爆。</small></button>
+            <button id="opening-drills" type="button" aria-haspopup="dialog"><strong>阵师试炼</strong><small>五道常驻题，练换位、破甲和绕开轮锁。</small></button>
+          </div>
+        </div>
+      </dialog>
+
       <!-- 弹窗：挑选开局法阵 -->
       <dialog id="opening-dialog" class="opening-dialog-grand" aria-labelledby="opening-title">
         <div class="dialog-content">
@@ -987,17 +1037,6 @@
             </div>
             <div id="opening-choices" class="opening-choices-grid" role="group" aria-labelledby="opening-loadout-label"></div>
           </section>
-          <nav id="opening-extra" class="opening-extra" aria-label="短局">
-            <button id="opening-daily" type="button" aria-haspopup="dialog">
-              <strong>每日残局</strong><span>一题两种目标</span>
-            </button>
-            <button id="opening-relay" type="button" aria-haspopup="dialog">
-              <strong>三阵接力</strong><span>三阵共用步数</span>
-            </button>
-            <button id="opening-drills" type="button" aria-haspopup="dialog">
-              <strong>阵师试炼</strong><span>五关练换位</span>
-            </button>
-          </nav>
           <section id="opening-preview" class="opening-preview" aria-label="首波推演">
             <div class="opening-board-wrap">
               <div id="opening-board" class="opening-board" role="group" aria-label="点符文看首波表现"></div>
@@ -1063,6 +1102,7 @@
           <header class="invite-heading">
             <h2 id="quick-guide-title" tabindex="-1">入门指引</h2>
             <button id="quick-guide-close" type="button" aria-label="关闭入门指引">×</button>
+            <button id="quick-guide-skip" type="button" hidden>跳过指引</button>
           </header>
           <ol class="quick-guide-steps">
             <li>

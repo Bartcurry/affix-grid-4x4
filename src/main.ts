@@ -45,6 +45,7 @@ import { bindPurchaseRoom } from './render/purchaseRoom';
 import { bindBountyRoom } from './render/bountyRoom';
 import { bindEngravingRoom } from './render/engravingRoom';
 import { bindFirstSupplyRoom } from './render/firstSupplyRoom';
+import { bindLobby } from './render/lobby';
 import { bindEndlessCampRoom } from './render/endlessCampRoom';
 import { bindReforgeRoom } from './render/reforgeRoom';
 import { bindRelicRoom } from './render/relicRoom';
@@ -103,6 +104,7 @@ const mainSave = challenge ? createPlatform().load(false) : loaded;
 const mainRun = challenge && !saved ? mainSave?.run : undefined;
 const matchingMain = challenge && mainRun && matchesChallenge(mainRun, challenge) ? mainRun : undefined;
 let challengeEntered = !challenge;
+let campaignStarted = !!saved;
 
 const initialSeed = challenge?.seed ?? generateSeedCode().code;
 let run = saved?.run ?? makeOpening(challenge?.opening ?? 'chain', initialSeed);
@@ -294,17 +296,47 @@ const openStarterGuide = bindStarterGuide(catalog, runeGlyph, click,
   () => chooseOpening(true));
 button('opening-guide').onclick = () => openStarterGuide(true);
 const quickGuide = element<HTMLDialogElement>('quick-guide-dialog');
+const guideSeenKey = 'affix-grid-4x4.intro-seen.v1';
+let guideSeen = false;
+try { guideSeen = localStorage.getItem(guideSeenKey) === '1'; } catch {}
 runeGlyph(element('quick-guide-mirror'), 'prism_right');
 runeGlyph(element('quick-guide-spark'), 'spark_orb');
-button('opening-quick-guide').onclick = button('guide-open').onclick = button('help').onclick = () => {
+function showQuickGuide(automatic = false) {
   if (phase !== 'ARRANGE' || quickGuide.open) return;
   click();
+  quickGuide.dataset.automatic = String(automatic);
+  button('quick-guide-skip').hidden = !automatic;
+  button('quick-guide-close').hidden = automatic;
   quickGuide.showModal();
   element('quick-guide-title').focus({ preventScroll: true });
   quickGuide.scrollTop = 0;
-};
-button('quick-guide-close').onclick = () => { click(); quickGuide.close(); };
+}
+button('lobby-guide').onclick = button('opening-quick-guide').onclick = button('guide-open').onclick = button('help').onclick = () => showQuickGuide();
+button('quick-guide-close').onclick = button('quick-guide-skip').onclick = () => { click(); quickGuide.close(); };
 button('quick-guide-practice').onclick = () => openStarterGuide(false);
+quickGuide.addEventListener('close', () => {
+  if (quickGuide.open || quickGuide.dataset.automatic !== 'true') return;
+  guideSeen = true;
+  try { localStorage.setItem(guideSeenKey, '1'); } catch {}
+});
+const lobby = bindLobby(catalog, runeGlyph, click);
+const activities = element<HTMLDialogElement>('activity-dialog');
+function showActivities(kind: 'shorts' | 'practice') {
+  if (phase !== 'ARRANGE' || activities.open) return;
+  click();
+  const shorts = kind === 'shorts';
+  element('activity-shorts').hidden = !shorts;
+  element('activity-practice').hidden = shorts;
+  const title = element('activity-title');
+  title.textContent = shorts ? '短局挑战' : '阵型练习';
+  activities.showModal();
+  title.focus({ preventScroll: true });
+  activities.scrollTop = 0;
+}
+button('activity-close').onclick = () => { click(); activities.close(); };
+button('lobby-shorts').onclick = button('shorts-open').onclick = () => showActivities('shorts');
+button('lobby-practice').onclick = () => showActivities('practice');
+button('practice-starter').onclick = () => openStarterGuide(false, '返回练习');
 const showEncounters = bindEncounterRoom(catalog, click, wave => {
   if (!arranging()) return;
   if (wave === run.wave) openCampaignTrial();
@@ -318,12 +350,11 @@ button('boss-intel').onclick = () => {
 const showJournal = bindBattleJournal(catalog, formatNumber, runeGlyph, board => { click(); boardTrial.open(board, undefined, true); });
 const reviewLast = () => showJournal(run.lastJournal);
 button('journal-open').onclick = () => { if (phase === 'ARRANGE') { click(); reviewLast(); } };
-const openDaily = () => { if (phase === 'ARRANGE') { click(); daily.open(); } };
-button('daily-open').onclick = button('opening-daily').onclick = openDaily;
-button('drill-open').onclick = button('opening-drills').onclick = () => { if (phase === 'ARRANGE') drillsRoom.open(); };
+button('opening-daily').onclick = () => { if (phase === 'ARRANGE') { click(); daily.open(); } };
+button('opening-drills').onclick = () => { if (phase === 'ARRANGE') drillsRoom.open(); };
 button('daily-appearance').onclick = () => openAppearance('frost');
 button('drill-appearance').onclick = () => openAppearance('jade');
-button('relay-open').onclick = button('opening-relay').onclick = () => { click(); relay.open(); };
+button('opening-relay').onclick = () => { if (phase === 'ARRANGE') { click(); relay.open(); } };
 const updateUpgrades = bindUpgradeBook(catalog, runeGlyph, formatNumber,
   id => { trackedUpgrade = id; click(); redraw(); },
   slot => { click(); select(slot); element('arena').focus(); },
@@ -674,7 +705,7 @@ function syncControls() {
   button('reward').disabled = !arranging();
   button('share-open').disabled = phase === 'PLAYBACK';
   button('journal-open').hidden = !run.lastJournal || phase === 'PLAYBACK';
-  button('daily-open').disabled = phase === 'PLAYBACK';
+  button('shorts-open').disabled = phase === 'PLAYBACK';
   button('share-open').hidden = run.enableSynergies === false;
   button('share-open').textContent = challenge ? '发战绩' : '分享';
   button('openings').disabled = challenge ? !challengeEntered || phase === 'PLAYBACK' : !arranging();
@@ -1182,6 +1213,7 @@ function startOpening(id: OpeningId, customSeed?: string, quick = false, archive
     recordRunHistory(run);
   }
   if (openingDialog.open) openingDialog.close();
+  if (lobby.dialog.open) lobby.dialog.close();
   if (dialog.open) dialog.close();
   run = makeOpening(challenge?.opening ?? id, challenge?.seed || customSeed || chosenSeed(), openingDifficulty, archived);
   if (!challenge && archived?.enableSynergies === false) run.enableSynergies = false;
@@ -1194,6 +1226,7 @@ function startOpening(id: OpeningId, customSeed?: string, quick = false, archive
   trackedUpgrade = undefined;
   firstClearPayout = undefined;
   lastBattleAt = -Infinity;
+  campaignStarted = true;
   undoStack.clear();
   renderer.setRun(run);
   renderer.cursor = null;
@@ -1210,7 +1243,7 @@ function startOpening(id: OpeningId, customSeed?: string, quick = false, archive
 
 function openingConfirm(visible: boolean) {
   element('opening-confirm').hidden = !visible;
-  for (const id of ['opening-loadout', 'opening-preview', 'opening-actions', 'opening-settings', 'opening-extra', 'opening-modes']) element(id).hidden = visible;
+  for (const id of ['opening-loadout', 'opening-preview', 'opening-actions', 'opening-settings', 'opening-modes']) element(id).hidden = visible;
 }
 
 const openingChoices = openingIds.map(id => {
@@ -1250,13 +1283,16 @@ function openOpenings(first = false) {
   fallbackOpeningSeed = generateSeedCode().code;
   openingSeed.value = fallbackOpeningSeed;
   element<HTMLDetailsElement>('opening-settings').open = false;
-  element('opening-title').textContent = first ? '词条法阵' : '挑一套新开局';
+  element('opening-title').textContent = first ? '挑一套起手阵' : '挑一套新开局';
   element('opening-note').textContent = openingReplacesRun ? '选好起手阵，再确认开新局。'
     : first && invite !== null ? '这个邀请来自旧版或已失效。你可以选一套阵直接开局。'
     : first && dailyRequest !== null && !sharedDaily ? '这条每日链接已失效。可以直接玩今天的题。'
     : first && boardRequested && !sharedBoard ? '这条阵型链接已失效。可以选一套起手阵开始。'
     : '摆符文，打连锁，守住 20 波。';
-  button('opening-close').hidden = first || run.status !== 'active';
+  const back = button('opening-close');
+  back.hidden = !lobby.dialog.open && (first || run.status !== 'active');
+  back.title = lobby.dialog.open ? '返回模式' : '回到当前局';
+  back.setAttribute('aria-label', back.title);
   openingDialog.dataset.first = String(first);
   showOpeningPreview();
   openingDialog.showModal();
@@ -1276,8 +1312,14 @@ function chooseOpening(quick: boolean) {
 
 button('openings').onclick = () => {
   if (challenge && challengeEntered && phase === 'ARRANGE') { click(); showChallenge(challenge, run, false, false); }
-  else if (arranging()) { click(); openOpenings(); }
+  else if (arranging()) { click(); lobby.open(`第 ${formatNumber(run.wave)} 波 · ${difficultyLabel(run.difficulty)} · ${openings[run.opening].name}`); }
 };
+button('lobby-campaign').onclick = () => {
+  click();
+  if (campaignStarted) lobby.dialog.close();
+  else openOpenings(true);
+};
+button('lobby-new').onclick = () => { click(); openOpenings(); };
 button('opening-quick').onclick = () => chooseOpening(true);
 button('opening-prepare').onclick = () => chooseOpening(false);
 button('difficulty-beginner').onclick = () => { click(); openingDifficulty = 'beginner'; showOpeningPreview(); };
@@ -1292,12 +1334,6 @@ button('random-seed').onclick = () => {
   openingSeed.value = generateSeedCode().code;
   showOpeningPreview();
 };
-openingDialog.addEventListener('cancel', event => {
-  if (openingDialog.dataset.first !== 'true') return;
-  event.preventDefault();
-  startOpening(openingCandidate, chosenSeed());
-});
-
 function showOutcome(archive = true) {
   if (run.pendingRelics.length) {
     const offered = run;
@@ -1913,12 +1949,17 @@ button('ambient').onclick = () => {
 
 function openLanding(archive = true) {
   if (challenge) { showChallenge(challenge, run, true, !saved, matchingMain); return; }
-  if (saved) showOutcome(archive);
-  else openOpenings(true);
-  if (invite !== null) notice('这个邀请来自旧版或已失效。');
-  else if (dailyRequest !== null && !sharedDaily) notice('这条每日链接已失效。可以从「每日」玩今天的题。');
-  else if (relayRequest !== null && !sharedRelay) notice('这条接力链接已失效。可以从「每日」玩本周的接力。');
-  else if (boardRequested && !sharedBoard) notice('这条阵型链接来自旧版或已失效。');
+  const message = invite !== null ? '这个邀请来自旧版或已失效。'
+    : dailyRequest !== null && !sharedDaily ? '这条每日链接已失效。可以从「短局」玩今天的题。'
+    : relayRequest !== null && !sharedRelay ? '这条接力链接已失效。可以从「短局」玩本周的接力。'
+    : boardRequested && !sharedBoard ? '这条阵型链接来自旧版或已失效。' : undefined;
+  if (campaignStarted) {
+    showOutcome(archive);
+    if (message) notice(message);
+  } else {
+    lobby.open(undefined, message);
+    if (!guideSeen) showQuickGuide(true);
+  }
 }
 
 function resumeAfterSideRoom(room: HTMLDialogElement, ...shareParams: string[]) {
