@@ -1,4 +1,5 @@
 import type { SharedBoard } from '../core/boardShare';
+import { canRetryWithoutLosingShield } from '../core/shopEngine';
 import { simulateFormation } from '../core/tactics';
 import type { Catalog, Run, TurnResult } from '../core/types';
 import { formatNumber as format } from './canvasRenderer';
@@ -18,12 +19,13 @@ export function bindRetryScout(catalog: Catalog, click: () => void,
   let exposed: TurnResult | undefined;
 
   function choose(preserve: boolean) {
-    preserving = preserve;
-    keep.setAttribute('aria-pressed', String(preserve));
-    spend.setAttribute('aria-pressed', String(!preserve));
-    const result = preserve ? guarded : exposed;
+    preserving = !keep.disabled && (preserve || spend.disabled);
+    keep.setAttribute('aria-pressed', String(preserving));
+    spend.setAttribute('aria-pressed', String(!preserving && !spend.disabled));
+    const result = preserving ? guarded : exposed;
     nextButton.dataset.ready = String(!!result?.win);
-    nextButton.textContent = result?.win ? preserve ? '保盾并重打' : '扣 1 盾并重打' : '自动找换位';
+    nextButton.textContent = keep.disabled && spend.disabled ? '本局结束'
+      : result?.win ? preserving ? '保盾并重打' : '扣 1 盾并重打' : '自动找换位';
     nextButton.setAttribute('aria-haspopup', result?.win ? 'false' : 'dialog');
   }
 
@@ -41,7 +43,13 @@ export function bindRetryScout(catalog: Catalog, click: () => void,
 
   function draw() {
     get('gold').textContent = `手里有 ${format(run.gold)} 金`;
-    guarded = describe(keep, run.shield, true);
+    guarded = describe(keep, canRetryWithoutLosingShield(run) ? run.shield : 0, true);
+    if (keep.disabled) {
+      const [label, value, note] = keep.children;
+      label.textContent = '保盾重打';
+      value.textContent = '首次战败可用';
+      note.textContent = '当前需扣盾';
+    }
     exposed = describe(spend, Math.max(0, run.shield - 1), false);
     const effect = get('effect');
     effect.hidden = !guarded || !exposed || guarded.damage === exposed.damage;

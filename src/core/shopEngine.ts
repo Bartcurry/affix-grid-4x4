@@ -312,10 +312,15 @@ function advanceWave(run: Run, catalog: Catalog, rng: Random) {
   rollShop(run, catalog, rng, { supply: run.wave === 2 ? openings[run.opening].supply : undefined });
 }
 
-export function resolveLoss(run: Run, protectedRetry: boolean) {
-  if (!run.pendingLoss) return;
+export function canRetryWithoutLosingShield(run: Run): boolean {
+  return run.pendingLoss && run.attempts === 1 && run.shield > 0;
+}
+
+export function resolveLoss(run: Run, protectedRetry: boolean): boolean {
+  if (!run.pendingLoss || (protectedRetry && !canRetryWithoutLosingShield(run))) return false;
   run.pendingLoss = false;
   if (!protectedRetry && --run.shield === 0) run.status = 'defeat';
+  return true;
 }
 
 export function startEndless(run: Run, catalog: Catalog, rng: Random) {

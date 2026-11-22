@@ -19,7 +19,7 @@ import { campaignUrl, isDailyPage } from './core/sitePaths';
 import { readRelayLink, relayParam } from './core/weeklyRelay';
 import { createMulberry32, decodeSeed, generateSeedCode } from './core/rng';
 import { planTurn, previewPlacement, runeFootprint, usesTutorial } from './core/tactics';
-import { canArrange, createSnapshot, newRun, purchaseInfo, refreshShop, resolveLoss, restoreSnapshot, runeAt, selectBounty, sellRune, sellValue, settleTurn, startEndless, swapRunes, toggleLock, UndoStack, victoryPayout } from './core/shopEngine';
+import { canArrange, canRetryWithoutLosingShield, createSnapshot, newRun, purchaseInfo, refreshShop, resolveLoss, restoreSnapshot, runeAt, selectBounty, sellRune, sellValue, settleTurn, startEndless, swapRunes, toggleLock, UndoStack, victoryPayout } from './core/shopEngine';
 import { preparePurchase } from './core/purchasePreview';
 import { STAR_MULT, initialRuneState, type BattleEvent, type BountyRoute, type OpeningId, type RelicId, type Rune, type Run, type RuneState, type Slot } from './core/types';
 import { catalog } from './data/catalog';
@@ -397,10 +397,13 @@ function showForecast() {
   panel.dataset.verdict = exactVerdict ? (result.win ? 'win' : 'gap') : forecast.verdict;
   const verdict = element('forecast-verdict');
   const scout = button('forecast-scout');
-  scout.hidden = !!placement || forecast.result.win || (!run.board.some(Boolean) && !run.bench.some(Boolean));
+  const hasRunes = run.board.some(Boolean) || run.bench.some(Boolean);
+  const scoutLabel = run.wave === 2 ? '试阵备战' : hasRunes ? '找打法' : '试买现货';
+  scout.hidden = !!placement || forecast.result.win || (!hasRunes && !run.shop.some(Boolean));
   verdict.hidden = !scout.hidden;
   verdict.textContent = exactVerdict ? (result.win ? '可击破' : '伤害不足') : forecast.verdictText;
-  scout.setAttribute('aria-label', `还差 ${formatNumber(forecast.result.hp)} 伤害，找打法`);
+  element('forecast-scout-label').textContent = scoutLabel;
+  scout.setAttribute('aria-label', `还差 ${formatNumber(forecast.result.hp)} 伤害，${scoutLabel}`);
   element('forecast-fill').style.width = `${Math.min(100, 100 * result.damage / hp)}%`;
 
   if (exactForecast) {
@@ -411,7 +414,7 @@ function showForecast() {
     element('forecast-readout').textContent = `${placement ? '放置后' : '战果预估'} ${formatNumber(forecast.minDamage)} ~ ${formatNumber(forecast.expectedDamage)} / ${formatNumber(hp)} · ${result.combo} 连击${delta}`;
   }
   button('forecast-detail').disabled = !!placement;
-  button('forecast-trial').disabled = !!placement || (!run.board.some(Boolean) && !run.bench.some(Boolean));
+  button('forecast-trial').disabled = !!placement || !hasRunes;
 }
 
 const bossArmor = element('boss-armor-shields');
@@ -827,14 +830,14 @@ function showFirstClear() {
   action.hidden = result.win;
 }
 
-button('first-clear-supply').onclick = () => {
-  if (!arranging() || run.wave !== 2 || firstClearPayout === undefined || !forecast || forecast.result.win) return;
+function openFirstSupply(): boolean {
+  if (run.wave !== 2 || !forecast) return false;
+  const plan = findFirstSupply(run, catalog, forecast.result);
+  if (!plan) return false;
   click();
   const original = run;
   const visible = JSON.stringify(run);
   const checkpoint = JSON.stringify(platform.load(false)?.run);
-  const plan = findFirstSupply(run, catalog, forecast.result);
-  if (!plan) { openCampaignTrial(true); return; }
   showFirstSupply(run, forecast.result, plan, draft => {
     if (!arranging() || run !== original || JSON.stringify(run) !== visible ||
       JSON.stringify(platform.load(false)?.run) !== checkpoint) return false;
@@ -846,7 +849,10 @@ button('first-clear-supply').onclick = () => {
     redraw();
     return true;
   });
-};
+  return true;
+}
+
+button('first-clear-supply').onclick = recoverFormation;
 
 button('first-clear-close').onclick = () => {
   click();
@@ -1065,18 +1071,25 @@ button('forecast-trial').onclick = () => {
   click();
   openCampaignTrial();
 };
-button('forecast-scout').onclick = () => {
-  if (!arranging()) return;
+function recoverFormation() {
+  if (!arranging() || !forecast || forecast.result.win || openFirstSupply()) return;
+  if (!run.board.some(Boolean) && !run.bench.some(Boolean)) {
+    if (run.shop.some(Boolean)) openPurchase();
+    else button('refresh').focus();
+    return;
+  }
   click();
   openCampaignTrial(true);
-};
+}
+button('forecast-scout').onclick = recoverFormation;
 
 function openRetryTrial(source: SharedBoard, preserving: boolean, quickFind = false) {
-  if (!run.pendingLoss || source.shield <= 0) return;
+  if (!run.pendingLoss || source.shield <= 0 || (preserving && !canRetryWithoutLosingShield(run))) return;
   const failed = run;
   const savedRun = platform.load(false)?.run;
   const checkpoint = JSON.stringify(savedRun);
-  const saveMatches = !savedRun || (savedRun.pendingLoss && sameBattleSetup(savedRun, failed) && sameFormation(savedRun, failed));
+  const saveMatches = !savedRun || (savedRun.pendingLoss && savedRun.attempts === failed.attempts &&
+    sameBattleSetup(savedRun, failed) && sameFormation(savedRun, failed));
   const matches = (board: SharedBoard) => run === failed && run.pendingLoss &&
     sameBattleSetup({ ...run, shield: source.shield }, board) && !sameFormation(run, board);
   boardTrial.open(source, {
@@ -1365,20 +1378,24 @@ function showOutcome(archive = true) {
     const retry = (protectedRetry: boolean, quick = false) => {
       if (run !== failed || !run.pendingLoss || (quick && !protectedRetry && run.shield <= 1)) return;
       const savedRun = platform.load(false)?.run;
-      if (savedRun && (!savedRun.pendingLoss || !sameBattleSetup(savedRun, run) || !sameFormation(savedRun, run))) {
+      if (savedRun && (!savedRun.pendingLoss || savedRun.attempts !== run.attempts ||
+        !sameBattleSetup(savedRun, run) || !sameFormation(savedRun, run))) {
         retryScout.changed();
         return;
       }
-      dialog.close(); resolveLoss(run, protectedRetry); resetTimeline(); redraw();
+      if (!resolveLoss(run, protectedRetry)) return;
+      dialog.close(); resetTimeline(); redraw();
       if (run.status === 'defeat') showOutcome();
       else if (quick) void startBattle(true);
       else notice(protectedRetry ? '护盾保留。现在可以重新布阵。' : '护盾 −1，重新布阵后可再次挑战。');
     };
     const { encounter, hp } = currentTarget();
     const enemy = encounters[encounter];
-    showPanel(`第 ${run.wave} 波没打过`, `对${enemy.name}打了 ${formatNumber(run.lastDamage)} 点，还差 ${formatNumber(Math.max(0, hp - run.lastDamage))} 点。重打时敌人会回满血。`, [
+    const freeRetry = canRetryWithoutLosingShield(run);
+    const retryNote = freeRetry ? '本波首次战败可保盾重打。' : '本波再次重打需扣除 1 点护盾。';
+    showPanel(`第 ${run.wave} 波没打过`, `对${enemy.name}打了 ${formatNumber(run.lastDamage)} 点，还差 ${formatNumber(Math.max(0, hp - run.lastDamage))} 点。${retryNote}`, [
       ...(run.lastJournal ? [{ label: '看看怎么打的', act: reviewLast }] : []),
-      { label: '保留护盾，重新布阵', act: () => retry(true) },
+      ...(freeRetry ? [{ label: '保留护盾，重新布阵', act: () => retry(true), primary: true }] : []),
       { label: '扣除 1 点护盾', act: () => retry(false) },
     ]);
     retryScout.open(failed, preserve => { click(); retry(preserve, true); });

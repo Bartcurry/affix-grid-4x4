@@ -165,7 +165,7 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
       bench,
       shop,
       freeRefreshes: natural(rawRun.freeRefreshes) ? rawRun.freeRefreshes : 1,
-      attempts: natural(rawRun.attempts) ? rawRun.attempts : 0,
+      attempts: Math.max(Number(!!rawRun.pendingLoss), natural(rawRun.attempts) ? rawRun.attempts : 0),
       endless: !!rawRun.endless,
       status: ['active', 'victory', 'defeat'].includes(rawRun.status) ? rawRun.status : 'active',
       lastDamage: damageCount(rawRun.lastDamage) ? rawRun.lastDamage : 0,
