@@ -774,7 +774,7 @@ function showFirstClear() {
   if (banner.hidden || !forecast) return;
   const { result } = forecast;
   banner.dataset.ready = String(result.win);
-  element('first-clear-score').textContent = `首胜 +${firstClearPayout} 金 · ${result.win ? '第 2 波可直接打' : `还差 ${formatNumber(result.hp)} 伤害`}`;
+  element('first-clear-score').textContent = `首胜 +${firstClearPayout} 金 · 第 2 波${result.win ? '可开战' : `差 ${formatNumber(result.hp)} 伤害`}`;
   const action = button('first-clear-supply');
   action.hidden = result.win;
 }
@@ -787,15 +787,14 @@ button('first-clear-supply').onclick = () => {
   const checkpoint = JSON.stringify(platform.load(false)?.run);
   const plan = findFirstSupply(run, catalog, forecast.result);
   if (!plan) { openCampaignTrial(true); return; }
-  showFirstSupply(run, forecast.result, plan, () => {
+  showFirstSupply(run, forecast.result, plan, draft => {
     if (!arranging() || run !== original || JSON.stringify(run) !== visible ||
       JSON.stringify(platform.load(false)?.run) !== checkpoint) return false;
     undoStack.push(run);
-    restoreSnapshot(run, createSnapshot(plan.run));
+    restoreSnapshot(run, createSnapshot(draft));
     click();
     audio.jadeChime();
-    const slot = plan.move?.to ?? plan.purchase?.landing;
-    if (slot) select(slot);
+    select(null);
     redraw();
     return true;
   });

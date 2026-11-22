@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { catalog } from '../data/catalog';
 import { simulateBattle } from '../core/battleEngine';
-import { findFirstSupply } from '../core/firstSupply';
+import { findFirstSupply, firstSupplySteps } from '../core/firstSupply';
 import { openingIds, updateRecords } from '../core/openings';
 import { createMulberry32 } from '../core/rng';
 import { newRun, settleTurn } from '../core/shopEngine';
-import { planTurn } from '../core/tactics';
+import { planTurn, previewPlacement } from '../core/tactics';
 
 const shopRandom = () => .4;
 
@@ -68,6 +68,10 @@ describe('opening routes', () => {
     expect(plan.result.win).toBe(true);
     expect(planTurn(plan.run, catalog).result).toEqual(plan.result);
     expect(plan.run.gold).toBeLessThan(run.gold);
+    const steps = firstSupplySteps(run, plan, catalog);
+    expect(steps.map(step => step.kind)).toEqual(['buy', 'place', 'place']);
+    const replayed = steps.reduce((draft, step) => step.kind === 'buy' ? step.run : previewPlacement(draft, step.from, step.to)!, run);
+    expect(replayed).toEqual(plan.run);
     expect(run).toEqual(before);
     expect(findFirstSupply(plan.run, catalog, plan.result)).toBeUndefined();
   });

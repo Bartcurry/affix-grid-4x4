@@ -108,7 +108,7 @@
         </div>
         <div id="first-clear" class="first-clear" hidden>
           <span id="first-clear-score"></span>
-          <button id="first-clear-supply" type="button" aria-haspopup="dialog">看过关方案</button>
+          <button id="first-clear-supply" type="button" aria-haspopup="dialog">试阵备战</button>
           <button id="first-clear-close" type="button" aria-label="关闭首胜提示">×</button>
         </div>
         <button class="bounty-open" id="bounty-open" type="button" aria-haspopup="dialog" hidden>
@@ -718,20 +718,35 @@
       <dialog id="first-supply-dialog" class="first-supply-dialog" aria-labelledby="first-supply-title">
         <div class="dialog-content">
           <header class="invite-heading">
-            <h2 id="first-supply-title">第 2 波怎么打</h2>
-            <button id="first-supply-close" type="button" aria-label="关闭过关方案">×</button>
+            <h2 id="first-supply-title">第 2 波 · 试阵备战</h2>
+            <button id="first-supply-close" type="button" aria-label="关闭试阵备战">×</button>
           </header>
+          <p id="first-supply-instruction" aria-live="polite"></p>
           <div class="first-supply-stage">
-            <div id="first-supply-board" class="daily-board" role="group" aria-label="应用后的棋盘"></div>
-            <ol id="first-supply-steps"></ol>
+            <div class="first-supply-formation">
+              <div class="first-supply-grid">
+                <div id="first-supply-board" class="daily-board" role="group" aria-label="试摆棋盘"></div>
+                <span id="first-supply-link" class="battle-frame-link" aria-hidden="true" hidden></span>
+              </div>
+              <span class="first-supply-bench-label">备战区</span>
+              <div id="first-supply-bench" class="daily-board" role="group" aria-label="试摆备战区"></div>
+            </div>
+            <div class="first-supply-report">
+              <dl class="first-supply-stats">
+                <div><dt>试摆伤害 / 敌方生命</dt><dd id="first-supply-damage"></dd></div>
+                <div><dt>布阵后剩余金币</dt><dd id="first-supply-gold"></dd></div>
+              </dl>
+              <p id="first-supply-verdict"></p>
+              <p id="first-supply-trace" hidden></p>
+            </div>
           </div>
-          <dl class="first-supply-stats">
-            <div><dt>本波伤害</dt><dd id="first-supply-damage"></dd></div>
-            <div><dt>手里金币</dt><dd id="first-supply-gold"></dd></div>
-          </dl>
-          <p id="first-supply-verdict"></p>
           <p id="first-supply-status" role="status" hidden></p>
-          <button id="first-supply-confirm" class="primary" type="button"></button>
+          <div class="first-supply-actions">
+            <button id="first-supply-buy" class="primary" type="button" hidden></button>
+            <button id="first-supply-retry" type="button" hidden>重试这一步</button>
+            <button id="first-supply-confirm" class="primary" type="button" hidden>应用这套布阵</button>
+            <button id="first-supply-quick" type="button">直接应用推荐</button>
+          </div>
         </div>
       </dialog>
 

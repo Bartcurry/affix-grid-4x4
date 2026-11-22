@@ -10,6 +10,24 @@ export interface FirstSupplyPlan {
   move?: FormationMove;
 }
 
+export type FirstSupplyStep =
+  | { kind: 'buy'; index: number; run: Run; merged: boolean }
+  | { kind: 'place'; from: Slot; to: Slot };
+
+export function firstSupplySteps(run: Run, plan: FirstSupplyPlan, catalog: Catalog): FirstSupplyStep[] {
+  const steps: FirstSupplyStep[] = [];
+  if (plan.purchase) {
+    const { index, landing } = plan.purchase;
+    const prepared = preparePurchase(run, index, catalog);
+    if (!prepared) return [];
+    const { candidate, slot, merge } = prepared;
+    steps.push({ kind: 'buy', index, run: candidate, merged: !!merge });
+    if (slot.zone !== landing.zone || slot.index !== landing.index) steps.push({ kind: 'place', from: slot, to: landing });
+  }
+  if (plan.move) steps.push({ kind: 'place', from: plan.move.from, to: plan.move.to });
+  return steps;
+}
+
 export function findFirstSupply(run: Run, catalog: Catalog, current: TurnResult): FirstSupplyPlan | undefined {
   if (run.wave !== 2 || current.win) return;
   const free = improve({ run, result: current }, catalog);
