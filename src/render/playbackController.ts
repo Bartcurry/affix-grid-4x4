@@ -1,11 +1,54 @@
 import type { BattleEvent, PlaybackSpeed, TurnResult } from '../core/types';
 
 type Damage = Extract<BattleEvent, { type: 'DAMAGE' }>;
+type ChainLink = Extract<BattleEvent, { type: 'CHAIN_LINK' }>;
+type CueEvent = Extract<BattleEvent, { type: 'CELL_ACTIVATE' | 'DAMAGE' | 'GOLD' | 'POISON' }>;
+
+export interface BattleCue {
+  event: CueEvent;
+  link?: ChainLink;
+}
+
 export interface PlaybackBeat {
   events: readonly BattleEvent[];
   featured?: Damage;
+  cue?: BattleCue;
   finishing: boolean;
   hold: number;
+}
+
+function followBattleCues() {
+  let pendingLink: ChainLink | undefined;
+  let activeLink: ChainLink | undefined;
+  let tutorialLink: ChainLink | undefined;
+
+  return (events: readonly BattleEvent[]) => {
+    let cue: BattleCue | undefined;
+    let priority = 0;
+    let strongest = 0;
+    for (const event of events) {
+      if (event.type === 'CHAIN_LINK') {
+        if (event.tutorial) tutorialLink = event;
+        else pendingLink = event;
+        continue;
+      }
+      if (event.type === 'CELL_ACTIVATE') {
+        activeLink = pendingLink?.to === event.index ? pendingLink : undefined;
+        pendingLink = undefined;
+        tutorialLink = undefined;
+      }
+      if (event.type !== 'CELL_ACTIVATE' && event.type !== 'DAMAGE' && event.type !== 'GOLD' && event.type !== 'POISON') continue;
+      const rank = event.type === 'DAMAGE' ? (event.gateBlocked ? 5 : event.crit ? 4 : 3) : event.type === 'CELL_ACTIVATE' ? 1 : 2;
+      const amount = event.type === 'DAMAGE' ? event.amount : 0;
+      if (rank < priority || (rank === priority && amount < strongest)) continue;
+      const source = event.type === 'CELL_ACTIVATE' ? event.index : event.source;
+      const link = event.type === 'DAMAGE' && event.kind === 'tutorial' ? tutorialLink : activeLink?.to === source ? activeLink : undefined;
+      cue = { event, link };
+      priority = rank;
+      strongest = amount;
+    }
+    return cue;
+  };
 }
 
 export function planPlayback(events: readonly BattleEvent[]) {
@@ -31,18 +74,23 @@ export function planPlayback(events: readonly BattleEvent[]) {
     if (event.type === 'DAMAGE' && event.amount > 0) {
       if (event.amount > biggestAmount) { biggest = i; biggestAmount = event.amount; }
       if (event.hp === 0 && killingHit < 0) killingHit = i;
+      // Keep the final poison tick readable after a high-priority rune hit.
+      if (event.kind === 'poison' && event.source === null) cuts.add(i);
     }
   }
   const featured = new Set([biggest, killingHit].filter(index => index >= 0));
   featured.forEach(index => { cuts.add(index); cuts.add(index + 1); });
   const sorted = [...cuts].sort((a, b) => a - b);
+  const focus = followBattleCues();
   for (let i = 0; i < sorted.length - 1; i++) {
     const start = sorted[i];
+    const eventsInBeat = events.slice(start, sorted[i + 1]);
     beats.push({
-      events: events.slice(start, sorted[i + 1]),
+      events: eventsInBeat,
+      cue: focus(eventsInBeat),
       featured: featured.has(start) ? events[start] as Damage : undefined,
       finishing: start === killingHit,
-      hold: featured.has(start) ? 240 : Math.max(68, 175 - i * 7),
+      hold: start === killingHit ? 340 : featured.has(start) ? 240 : Math.max(68, 175 - i * 7),
     });
   }
   return { beats, result };

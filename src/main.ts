@@ -36,6 +36,7 @@ import { bindWeeklyRelay } from './render/weeklyRelayRoom';
 import { bindScoreShareRoom } from './render/scoreShareRoom';
 import { bindBoardTrial } from './render/boardTrialRoom';
 import { bindBattleJournal } from './render/battleJournal';
+import { bindBattleRibbon } from './render/battleRibbon';
 import { bindEncounterRoom } from './render/encounterRoom';
 import { bindFormationLessons } from './render/formationLessons';
 import { bindStarterGuide } from './render/starterGuide';
@@ -642,7 +643,9 @@ function syncControls() {
   button('undo').hidden = phase === 'PLAYBACK';
   button('skip').disabled = phase !== 'PLAYBACK';
   button('skip').hidden = phase !== 'PLAYBACK';
-  element('battle-timeline').hidden = phase !== 'PLAYBACK' || player.speed === 0 || reducedMotion.matches;
+  const showPlayback = phase === 'PLAYBACK' && player.speed !== 0 && !reducedMotion.matches;
+  element('battle-timeline').hidden = !showPlayback;
+  element('arena-controls').hidden = showPlayback;
   button('market-jump').hidden = phase === 'PLAYBACK';
   button('undo').disabled = !arranging() || undoStack.length === 0;
   button('battle').disabled = !arranging();
@@ -1398,6 +1401,8 @@ function showOutcome(archive = true) {
   }
 }
 
+const battleRibbon = bindBattleRibbon(formatNumber, index => catalog[run.board[index]?.configId ?? '']?.name ?? `第 ${index + 1} 格`);
+
 function consume(beat: PlaybackBeat, total: number) {
   let activation: Extract<BattleEvent, { type: 'CELL_ACTIVATE' }> | undefined;
   let link: Extract<BattleEvent, { type: 'CHAIN_LINK' }> | undefined;
@@ -1442,7 +1447,6 @@ function consume(beat: PlaybackBeat, total: number) {
   if (activation) {
     renderer.play(activation);
     if (!beat.featured) audio.combo(activation.combo);
-    element('board-count').textContent = `扫到第 ${activation.index + 1} 格`;
   }
   const visibleLink = tutorialLink ?? link;
   if (visibleLink) renderer.play(visibleLink);
@@ -1455,25 +1459,19 @@ function consume(beat: PlaybackBeat, total: number) {
   const brokeArmor = bossArmorHits !== oldArmorHits;
   if (brokeArmor || bossGateColumn !== oldGateColumn) updateBossArmorUi(bossArmorHits, brokeArmor, bossGateColumn);
   if (brokeArmor) renderer.spawnBronzeShatter({ x: 190, y: 55 });
-  const moment = element('battle-moment');
-  moment.dataset.featured = String(!!beat.featured);
+  const marker = battleRibbon.show(beat);
+  if (marker) renderer.markCombat(marker);
   if (beat.featured) {
-    moment.textContent = `${beat.finishing ? '击破' : '重击'} · ${formatNumber(beat.featured.amount)}`;
     const emblem = element('boss-emblem-wrap');
     emblem.classList.remove('boss-hit');
     void emblem.offsetWidth;
+    emblem.dataset.impact = beat.finishing ? 'finish' : 'hit';
     emblem.classList.add('boss-hit');
     renderer.pulseBorder();
     audio.hitStopChord();
-  } else if (hit?.gateBlocked) {
-    moment.textContent = '同列轮锁 · 伤害减弱';
-  } else if (activation) {
-    moment.textContent = activation.isChain ? '连锁触发' : '扫描法阵';
   }
-  element<HTMLProgressElement>('battle-progress').value = displayed.combo;
-  element('battle-steps').textContent = `${displayed.combo} / ${total} 次触发`;
+  battleRibbon.update(displayed.combo, total);
   if (refreshInspect) inspect();
-  else if (activation) showArenaHint();
   updateHud();
 }
 
@@ -1513,15 +1511,12 @@ async function startBattle(quick = false) {
   }
   const final = events.at(-1);
   const total = final?.type === 'TURN_RESULT' ? final.combo : 0;
-  const progress = element<HTMLProgressElement>('battle-progress');
-  progress.max = Math.max(1, total);
-  progress.value = 0;
-  element('battle-moment').textContent = '开始扫描';
-  element('battle-moment').dataset.featured = 'false';
-  element('battle-steps').textContent = `0 / ${total} 次触发`;
+  battleRibbon.start(total);
   const result = await player.play(events, beat => consume(beat, total), reducedMotion.matches);
   phase = 'ARRANGE'; states.clear(); renderer.clearEffects(); audio.finish(result.win);
-  element('boss-emblem-wrap').classList.remove('boss-hit');
+  const emblem = element('boss-emblem-wrap');
+  emblem.classList.remove('boss-hit');
+  delete emblem.dataset.impact;
   run.board = simulatedBoard;
   run.rngState = battlePrng.getState();
   run.lastCellDamage = cellDamage;

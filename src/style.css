@@ -210,6 +210,19 @@ button:focus-visible, canvas:focus-visible {
   animation: boss-shake 0.35s cubic-bezier(0.36, 0.07, 0.19, 0.97) both, boss-flash 0.35s ease-out;
 }
 
+.boss-emblem-wrap[data-impact=finish] { border-color: #ffe1a0; }
+.boss-emblem-wrap[data-impact=finish]::before {
+  background: linear-gradient(135deg, transparent 38%, #ffedbe 49%, #e5a768 51%, transparent 60%);
+  box-shadow: inset 0 0 10px #ffca7790;
+  animation: boss-seal-break .34s ease-out both;
+}
+
+@keyframes boss-seal-break {
+  0% { opacity: .86; transform: scale(.65); }
+  45% { opacity: .66; transform: scale(1.14); }
+  100% { opacity: .16; transform: scale(1.3); }
+}
+
 @keyframes boss-shake {
   10%, 90% { transform: translate3d(-1px, 0, 0) scale(1.08); }
   20%, 80% { transform: translate3d(2px, 0, 0) scale(1.08); }
@@ -728,36 +741,63 @@ button:focus-visible, canvas:focus-visible {
 }
 
 .battle-timeline {
+  --cue-color: #e8c78e;
   display: grid;
-  grid-template-columns: minmax(5.4rem, 1fr) minmax(1.5rem, .7fr) auto;
-  gap: .4rem;
-  color: #e7d1ab;
-  background: #211e22;
-  border-color: #99774e;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: .16rem .42rem;
+  width: min(100%, max(17.5rem, var(--canvas-width, 100%)));
+  min-height: 2.12rem;
+  padding: .18rem .42rem .22rem;
+  flex-shrink: 0;
+  border: 1px solid #8d775d;
+  border-color: color-mix(in srgb, var(--cue-color), #171821 56%);
+  border-radius: 4px;
+  background: #151920;
+  background: linear-gradient(110deg, color-mix(in srgb, var(--cue-color) 15%, #121821), #141820 74%);
+  box-shadow: inset 0 1px #ffffff12;
+  color: #ebdec9;
+  font-size: .76rem;
 }
 #battle-moment {
+  color: var(--cue-color);
+  font-size: .68rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+#battle-source {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: .72rem;
+  font-weight: 650;
 }
-#battle-moment[data-featured=true] { color: #ffd78d; }
-#battle-steps { color: #d8c3a2; white-space: nowrap; font-variant-numeric: tabular-nums; }
+#battle-hit {
+  color: var(--cue-color);
+  font: 800 clamp(.77rem, 3.3vw, 1rem) var(--mono-font);
+  white-space: nowrap;
+}
+#battle-steps { grid-column: 4; color: #b9b3aa; white-space: nowrap; font: .63rem var(--mono-font); }
+.battle-timeline[data-finishing=true] {
+  border-color: var(--cue-color);
+  background: linear-gradient(108deg, #4a3121, #1c1b22 80%);
+  box-shadow: inset 0 1px #ffe5ad49, 0 0 12px #d4a35a24;
+}
 #battle-progress {
+  grid-column: 1 / -1;
   display: block;
   width: 100%;
   min-width: 0;
-  height: .28rem;
+  height: .15rem;
   overflow: hidden;
   appearance: none;
   border: 0;
   border-radius: 1rem;
   background: #353031;
-  accent-color: #dfab6b;
+  accent-color: var(--cue-color);
 }
 #battle-progress::-webkit-progress-bar { background: #353031; }
-#battle-progress::-webkit-progress-value { background: #dfab6b; }
-#battle-progress::-moz-progress-bar { background: #dfab6b; }
+#battle-progress::-webkit-progress-value { background: var(--cue-color); }
+#battle-progress::-moz-progress-bar { background: var(--cue-color); }
 
 .forecast-main {
   display: flex;
@@ -2379,7 +2419,7 @@ dialog::backdrop {
 @media (prefers-reduced-motion: reduce) {
   .hp-fill, .hp-ghost, #forecast-fill { transition: none !important; }
   .primary.battle-btn::after, .stamp-slam { animation: none !important; }
-  .boss-emblem-wrap.boss-hit, .boss-shield-icon.breaking { animation: none; }
+  .boss-emblem-wrap.boss-hit, .boss-emblem-wrap[data-impact=finish]::before, .boss-shield-icon.breaking { animation: none; }
 }
 
 /* ─── 流派共鸣羁绊徽条 (Synergy Resonance Strip) ─── */

@@ -8,6 +8,7 @@ import { drawRuneGlyph, RUNE_GLYPHS } from './glyphs';
 export { RUNE_GLYPHS as runeVectors };
 
 export interface Point { x: number; y: number }
+export interface CombatMarker { index: number | null; from?: number; tone: string; finishing: boolean }
 interface Rect extends Point { width: number; height: number }
 type Target = Slot | 'sell' | null;
 
@@ -89,7 +90,7 @@ export interface JuiceParticle {
 type Animation = { at: number; life: number; tone: string } & (
   | { kind: 'flash'; slot: Slot; merge?: boolean }
   | { kind: 'link'; from: Point; to: Point; sparks: Spark[] }
-  | { kind: 'float'; anchor: Point; text: string; large: boolean; vx: number; vy: number; prefix?: string }
+  | { kind: 'float'; anchor: Point; text: string; large: boolean; vx: number; vy: number; prefix?: string; damageSource?: number | null }
   | { kind: 'scan'; slot: Slot }
   | { kind: 'merge_burst'; anchor: Point }
 );
@@ -111,6 +112,7 @@ export class CanvasRenderer {
   private comboCount = 0;
   private theme: (typeof boardThemes)[BoardThemeId] = boardThemes.obsidian;
   private activeScanSlot: Slot | null = null;
+  private combatMarker?: CombatMarker;
   private bossGate?: number;
   get currentScanSlot(): Slot | null { return this.activeScanSlot; }
   selection: Slot | null = null;
@@ -160,6 +162,11 @@ export class CanvasRenderer {
     this.invalidate();
   }
 
+  markCombat(marker: CombatMarker) {
+    this.combatMarker = marker;
+    this.invalidate();
+  }
+
   point(clientX: number, clientY: number): Point {
     const rect = this.canvas.getBoundingClientRect();
     const { x, y, scale } = this.fit(rect);
@@ -202,6 +209,7 @@ export class CanvasRenderer {
     this.pulseAt = -1000;
     this.comboCount = 0;
     this.activeScanSlot = null;
+    this.combatMarker = undefined;
     this.bossGate = undefined;
     this.invalidate();
   }
@@ -297,18 +305,19 @@ export class CanvasRenderer {
         const isLarge = isCrit || isPoison || dmgRatio >= 0.08;
         const isHuge = isCrit || dmgRatio >= 0.18;
         const tone = isCrit ? '#fde047' : isPoison ? '#8ae0a2' : event.kind === 'tutorial' ? '#ffdc9b' : '#f1ece1';
-        const prefix = isCrit ? '暴击！−' : isPoison ? '剧毒爆！−' : event.kind === 'tutorial' ? '共鸣 ' : '−';
         const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.8;
         const speed = 24 + Math.random() * 12;
+        this.animations = this.animations.filter(item => item.kind !== 'float' || item.damageSource !== event.source);
         this.animations.push({
           kind: 'float',
           at,
           life: isHuge ? 860 : isLarge ? 760 : 640,
           anchor: caption(event.source, 67),
-          text: `${prefix}${formatNumber(event.amount)}`,
+          text: `−${formatNumber(event.amount)}`,
           tone,
           large: isLarge,
           prefix: isCrit ? 'crit' : isPoison ? 'poison' : undefined,
+          damageSource: event.source,
           vx: Math.cos(angle) * speed * .3,
           vy: Math.abs(Math.sin(angle) * speed) * .66,
         });
@@ -399,7 +408,7 @@ export class CanvasRenderer {
       true
     );
 
-    const origin = this.drag
+    const origin = this.combatMarker ? null : this.drag
       ? this.drag.target !== 'sell' && this.drag.target?.zone === 'board'
         ? this.drag.target
         : null
@@ -415,7 +424,7 @@ export class CanvasRenderer {
     for (const slot of slotList) {
       const bounds = cellRect(slot);
       const rune = runeAt(this.run, slot);
-      const selected = sameSlot(this.selection, slot);
+      const selected = !this.combatMarker && sameSlot(this.selection, slot);
       const linked = slot.zone === 'board' && !!footprint?.links.has(slot.index);
       const hinted = slot.zone === 'board' && !!footprint?.effects.has(slot.index);
       const dropTarget = this.drag ? this.drag.target : this.placementTarget;
@@ -507,9 +516,10 @@ export class CanvasRenderer {
       const bounds = cellRect(this.cursor);
       this.drawCornerBrackets({ x: bounds.x + 4, y: bounds.y + 4, width: bounds.width - 8, height: bounds.height - 8 }, 10, '#fff5dc', 2.2);
     }
+    if (this.combatMarker) this.drawCombatMarker(this.combatMarker);
 
     // 4. 底部回收槽（暗金内凹托槽）
-    if (!this.preview) this.drawSellSlot(now);
+    if (!this.preview && !this.combatMarker) this.drawSellSlot(now);
 
     // 5. 动画层（光幕、贝塞尔连锁光弧、伤害飘字、升星星芒）
     this.animations = this.animations.filter(
@@ -613,16 +623,17 @@ export class CanvasRenderer {
     }
     ctx.restore();
 
-    // Hit-stop 边缘受击高亮闪白
     const pulseProgress = Math.max(0, 1 - (now - this.pulseAt) / 320);
     if (pulseProgress > 0) {
       ctx.save();
-      ctx.strokeStyle = `rgba(253, 224, 71, ${pulseProgress * 0.9})`;
-      ctx.lineWidth = 3 + pulseProgress * 4;
-      ctx.shadowColor = '#fde047';
-      ctx.shadowBlur = 18 * pulseProgress;
-      this.roundRect(BOARD.x - 2, BOARD.y - 2, BOARD.width + 4, BOARD.height + 4, 9);
+      ctx.globalAlpha = pulseProgress * .73;
+      ctx.strokeStyle = '#ffe5b0';
+      ctx.lineWidth = 1.5 + pulseProgress * 1.35;
+      ctx.shadowColor = '#d99750';
+      ctx.shadowBlur = 10 * pulseProgress;
+      this.roundRect(BOARD.x + 2, BOARD.y + 2, BOARD.width - 4, BOARD.height - 4, 6);
       ctx.stroke();
+      if (this.combatMarker?.finishing) this.drawCornerBrackets(BOARD, 22, '#ffe5b0', 2.2);
       ctx.restore();
     }
 
@@ -858,6 +869,28 @@ export class CanvasRenderer {
     ctx.strokeStyle = this.run.board[to] ? '#9ce3f3' : '#80a8b5';
     ctx.lineWidth = 2;
     ctx.stroke();
+    ctx.restore();
+  }
+
+  private drawCombatMarker({ index, from, tone, finishing }: CombatMarker) {
+    if (index === null) return;
+    const bounds = cellRect({ zone: 'board', index });
+    const inset = { x: bounds.x + 3, y: bounds.y + 3, width: bounds.width - 6, height: bounds.height - 6 };
+    const ctx = this.ctx;
+    if (from !== undefined && from !== index) {
+      const source = cellRect({ zone: 'board', index: from });
+      this.drawCornerBrackets(source, 8, '#83bedb', 1.45);
+    }
+    ctx.save();
+    if (finishing) {
+      ctx.strokeStyle = '#aa7445';
+      ctx.lineWidth = 1.35;
+      ctx.shadowColor = '#f1a94a';
+      ctx.shadowBlur = 11;
+      this.chamferedRect(inset.x, inset.y, inset.width, inset.height, 6);
+      ctx.stroke();
+    }
+    this.drawCornerBrackets(inset, finishing ? 14 : 10, tone, finishing ? 2.8 : 2.15);
     ctx.restore();
   }
 

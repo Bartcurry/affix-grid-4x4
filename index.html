@@ -96,7 +96,7 @@
 
       <!-- 核心黄金区域：4×4 动态法阵棋盘与悬浮词条详情卡片 -->
       <section class="arena-wrap panel" aria-label="布阵区域">
-        <div class="arena-bar">
+        <div class="arena-bar" id="arena-controls">
           <span id="board-count" class="board-counter">已布阵 0/16</span>
           <span id="beginner-badge" hidden>入门</span>
           <span id="arena-hint" class="arena-hint-text">点符文，再点目标格</span>
@@ -106,6 +106,13 @@
           <button id="share-open" type="button" aria-haspopup="dialog">分享</button>
           <button id="inspect-jump" type="button" aria-controls="inspector" aria-expanded="false" hidden>看词条</button>
         </div>
+        <section id="battle-timeline" class="battle-timeline" aria-label="战斗进度" hidden>
+          <strong id="battle-moment">扫描</strong>
+          <span id="battle-source"></span>
+          <strong id="battle-hit" hidden></strong>
+          <span id="battle-steps"></span>
+          <progress id="battle-progress" aria-label="符文触发进度" max="1" value="0"></progress>
+        </section>
         <div id="first-clear" class="first-clear" hidden>
           <span id="first-clear-score"></span>
           <button id="first-clear-supply" type="button" aria-haspopup="dialog">试阵备战</button>
@@ -155,12 +162,6 @@
             <button id="forecast-detail" type="button" class="btn-subtle">明细</button>
             <button id="forecast-trial" type="button" aria-haspopup="dialog">试阵</button>
           </div>
-        </section>
-
-        <section id="battle-timeline" class="forecast-strip battle-timeline" aria-label="战斗进度" hidden>
-          <strong id="battle-moment">开始扫描</strong>
-          <progress id="battle-progress" aria-label="符文触发进度" max="1" value="0"></progress>
-          <span id="battle-steps"></span>
         </section>
 
         <!-- 符文铺（3张实体小牌横排展示） -->

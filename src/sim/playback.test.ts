@@ -45,6 +45,24 @@ describe('battle playback pacing', () => {
     expect(planJournalReplay([finish(0)])).toEqual({ cues: [{ step: 1, hold: 0 }], gateStep: 0 });
   });
 
+  it('keeps the real source across a split heavy hit and clears it before an independent finisher', () => {
+    const link: BattleEvent = { type: 'CHAIN_LINK', from: 0, to: 1 };
+    const chained: BattleEvent = { type: 'CELL_ACTIVATE', index: 1, isChain: true, depth: 1, combo: 2 };
+    const next: BattleEvent = { type: 'CELL_ACTIVATE', index: 1, isChain: false, depth: 0, combo: 3 };
+    const peak = hit(24, 10);
+    const killing = hit(12, 0);
+    const { beats } = planPlayback([{ ...next, index: 0, combo: 1 }, { ...hit(6, 34), source: 0 }, link, chained, peak, next, killing, finish(3)]);
+    expect(beats.find(beat => beat.featured === peak)?.cue).toEqual({ event: peak, link });
+    expect(beats.find(beat => beat.finishing)?.cue).toEqual({ event: killing, link: undefined });
+  });
+
+  it('gives the end-of-round poison tick its own cue after a column seal hit', () => {
+    const seal = { ...hit(10, 28), gateBlocked: true as const };
+    const poison: BattleEvent = { ...hit(4, 24), source: null, kind: 'poison' };
+    const { beats } = planPlayback([activation(1), hit(30, 38), activation(2), seal, poison, { ...finish(2), hp: 24, win: false }]);
+    expect(beats.slice(-2).map(beat => beat.cue?.event)).toEqual([seal, poison]);
+  });
+
   it('settles immediately when interrupted and ignores repeated skips', async () => {
     vi.useFakeTimers();
     try {
