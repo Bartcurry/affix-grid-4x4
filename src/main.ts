@@ -7,6 +7,7 @@ import { claimEngraving } from './core/engraving';
 import { findFirstSupply } from './core/firstSupply';
 import { claimCamp } from './core/endlessCamp';
 import { canReforge, prepareReforge } from './core/reforge';
+import { previewRelicPick, type RelicPlacement } from './core/relicPreview';
 import { toCoords } from './core/grid';
 import { affixAt, armorHitsFor, encounters, endlessSegment, relics } from './core/expedition';
 import { difficultyLabel, isOpening, openingIds, openings, runScore, updateRecords } from './core/openings';
@@ -18,9 +19,9 @@ import { campaignUrl, isDailyPage } from './core/sitePaths';
 import { readRelayLink, relayParam } from './core/weeklyRelay';
 import { createMulberry32, decodeSeed, generateSeedCode } from './core/rng';
 import { planTurn, previewPlacement, runeFootprint, usesTutorial } from './core/tactics';
-import { canArrange, chooseRelic, createSnapshot, newRun, purchaseInfo, refreshShop, resolveLoss, restoreSnapshot, runeAt, selectBounty, sellRune, sellValue, settleTurn, startEndless, swapRunes, toggleLock, UndoStack, victoryPayout } from './core/shopEngine';
+import { canArrange, createSnapshot, newRun, purchaseInfo, refreshShop, resolveLoss, restoreSnapshot, runeAt, selectBounty, sellRune, sellValue, settleTurn, startEndless, swapRunes, toggleLock, UndoStack, victoryPayout } from './core/shopEngine';
 import { preparePurchase } from './core/purchasePreview';
-import { STAR_MULT, initialRuneState, type BattleEvent, type BountyRoute, type OpeningId, type Rune, type Run, type RuneState, type Slot } from './core/types';
+import { STAR_MULT, initialRuneState, type BattleEvent, type BountyRoute, type OpeningId, type RelicId, type Rune, type Run, type RuneState, type Slot } from './core/types';
 import { catalog } from './data/catalog';
 import { CanvasRenderer, formatNumber, runeVectors, tileStamp } from './render/canvasRenderer';
 import { getArchetypeEmblemPath, getBossSvgPath, getRelicSvgPath } from './render/glyphs';
@@ -927,16 +928,29 @@ const forecastDialog = element<HTMLDialogElement>('forecast-dialog');
 const relicBag = element<HTMLDialogElement>('relic-bag');
 button('relic-inventory-open').onclick = openRelicBag;
 button('relic-bag-close').onclick = () => relicBag.close();
-const showRelicChoices = bindRelicRoom(catalog, (node, id) => iconPath(node, getRelicSvgPath(id)), formatNumber, click, (id, close) => {
-  if (!chooseRelic(run, id)) return;
+const showRelicChoices = bindRelicRoom(catalog, (node, id) => iconPath(node, getRelicSvgPath(id)), runeGlyph, formatNumber, click);
+
+function claimRelic(id: RelicId, placement: RelicPlacement | undefined, close: () => void) {
+  const picked = previewRelicPick(run, id);
+  if (!picked) return false;
+  const moved = placement && canArrange(picked) ? previewPlacement(picked, placement.from, placement.to) : null;
+  if (placement && !moved) return false;
+  Object.assign(run, picked);
+  if (moved && placement) {
+    undoStack.push(run);
+    run.board = moved.board;
+    run.bench = moved.bench;
+    select(placement.to);
+  }
   audio.unlock();
   audio.jadeChime();
   audio.synergyChime();
   close();
   redraw();
-  notice(`拿到了 ${relics[id].name}`);
+  notice(placement ? `拿到了 ${relics[id].name}，已换位。可撤销换位。` : `拿到了 ${relics[id].name}`);
   if (run.pendingCamp || run.pendingEngraving) showOutcome();
-});
+  return true;
+}
 
 function openRelicBag() {
   click();
@@ -1269,7 +1283,12 @@ openingDialog.addEventListener('cancel', event => {
 
 function showOutcome(archive = true) {
   if (run.pendingRelics.length) {
-    if (showRelicChoices(run)) { audio.unlock(); audio.singingBowl(); }
+    const offered = run;
+    const checkpoint = JSON.stringify(platform.load(false)?.run);
+    if (showRelicChoices(offered, (id, placement, close) => run === offered &&
+      JSON.stringify(platform.load(false)?.run) === checkpoint && claimRelic(id, placement, close))) {
+      audio.unlock(); audio.singingBowl();
+    }
     return;
   }
   if (run.pendingEngraving) {

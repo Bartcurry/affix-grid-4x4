@@ -800,8 +800,27 @@
             <p id="relic-target"></p>
             <strong id="relic-before"></strong>
           </section>
-          <div class="celestial-choices" id="relic-choices"></div>
-          <button id="relic-pick" class="primary" type="button" disabled>领取所选遗物</button>
+          <div class="celestial-choices" id="relic-choices" role="group" aria-label="可选遗物"></div>
+          <section id="relic-plan" class="altar-plan" aria-label="换位建议" hidden>
+            <div class="altar-formation">
+              <div class="altar-board-wrap">
+                <div id="relic-board" class="daily-board" role="group" aria-label="当前棋盘"></div>
+                <span id="relic-link" class="battle-frame-link" aria-hidden="true" hidden></span>
+              </div>
+              <div id="relic-bench" class="daily-board" role="group" aria-label="当前备战区" hidden></div>
+            </div>
+            <div class="altar-plan-copy" aria-live="polite">
+              <p id="relic-move"></p>
+              <strong id="relic-after"></strong>
+              <p id="relic-gain"></p>
+            </div>
+          </section>
+          <p id="relic-status" role="status" hidden></p>
+          <div class="altar-actions">
+            <button id="relic-pick" class="primary" type="button" disabled>领取所选遗物</button>
+            <button id="relic-swap" class="primary" type="button" hidden>领取并换位</button>
+            <button id="relic-reload" type="button" hidden>载入最新进度</button>
+          </div>
         </div>
       </dialog>
 

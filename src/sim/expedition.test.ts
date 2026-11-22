@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { simulateBattle } from '../core/battleEngine';
 import { affixAt, armorHitsFor, damageModifiers, encounterAt, endlessRoute, relicChoices, relics } from '../core/expedition';
 import { canArrange, chooseRelic, newRun, settleTurn, victoryPayout } from '../core/shopEngine';
-import { previewRelics } from '../core/relicPreview';
-import { planTurn, runeFootprint } from '../core/tactics';
+import { previewRelicPick, previewRelics, suggestRelicPlacement } from '../core/relicPreview';
+import { planTurn, previewPlacement, runeFootprint } from '../core/tactics';
 import type { BattleEvent, RelicId, Rune, TurnResult } from '../core/types';
 import { catalog } from '../data/catalog';
 import { migrateSave } from '../platform/webMockAdapter';
@@ -116,6 +116,33 @@ describe('expedition', () => {
     const { result } = planTurn(run, catalog);
     expect(result).toEqual(offer.result);
     expect(offer.gold).toBe(result.gold + (result.win ? victoryPayout(run, result.gold, catalog).total : 0));
+  });
+
+  it('offers a move only when it increases the selected relic’s contribution on that same board', () => {
+    const run = newRun(catalog, noCrit);
+    run.wave = 5;
+    run.tileModifiers = {};
+    run.board.fill(null);
+    run.board[4] = { configId: 'spark_orb', star: 3, bonusPower: 95 };
+    run.pendingRelics = ['whetstone', 'moss_bowl'];
+    const [stone, bowl] = run.pendingRelics;
+    const before = structuredClone(run);
+    const { original, choices } = previewRelics(run, catalog);
+    const [stoneOffer, bowlOffer] = choices;
+    expect(original.result.damage).toBe(stoneOffer.result.damage);
+    const suggestion = suggestRelicPlacement(run, catalog, original, stoneOffer)!;
+    expect(suggestion.from).toEqual({ zone: 'board', index: 4 });
+    expect(suggestion.to.index).toBeLessThan(4);
+    const moved = previewPlacement(run, suggestion.from, suggestion.to)!;
+    const withoutRelic = planTurn(moved, catalog).result;
+    const withRelic = planTurn(previewRelicPick(moved, stone)!, catalog).result;
+    expect(suggestion.result).toEqual(withRelic);
+    expect(suggestion.relicDamage).toBe(withRelic.damage - withoutRelic.damage);
+    expect(suggestion.relicDamage).toBeGreaterThan(0);
+    expect(bowlOffer.id).toBe(bowl);
+    expect(suggestRelicPlacement(run, catalog, original, bowlOffer)).toBeUndefined();
+    expect(run).toEqual(before);
+    expect(suggestRelicPlacement({ ...run, pendingCamp: true }, catalog, original, stoneOffer)).toBeUndefined();
   });
 
   it('combines relics with a vertical chain and a gold payout', () => {

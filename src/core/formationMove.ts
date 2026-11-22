@@ -8,7 +8,7 @@ export type FormationPlan = { moves: FormationMove[]; result: TurnResult };
 const sameRune = (a: Rune | null, b: Rune | null) =>
   a?.configId === b?.configId && a?.star === b?.star && (a?.bonusPower ?? 0) === (b?.bonusPower ?? 0);
 
-function* formationMoves(run: SharedBoard, catalog: Catalog) {
+export function* formationMoves<T extends SharedBoard>(run: T, catalog: Catalog) {
   const slots = (['board', 'bench'] as const).flatMap(zone => run[zone].map((rune, index) => ({ zone, index, rune })));
   for (let i = 0; i < run.board.length; i++) {
     const left = slots[i];

@@ -2516,8 +2516,23 @@ dialog::backdrop {
 .altar-effect { color: #cad3de; font-size: .71rem; line-height: 1.38; }
 .altar-impact { grid-column: 2; color: #e7c698; font: 700 .68rem/1.42 var(--mono-font); }
 .altar-impact[data-win=true] { color: #c7e6ae; }
-#relic-pick { min-height: 2.65rem; font-size: .82rem; }
-#relic-pick:enabled { color: #281a10; background: #efbd73; border-color: #f7d69e; }
+.altar-plan { display: grid; grid-template-columns: minmax(0, 7.25rem) minmax(0, 1fr); gap: .6rem; align-items: center; padding: .43rem; border: 1px solid #6b786f; background: linear-gradient(135deg, #23332e, #172428); }
+.altar-formation { width: 100%; }
+.altar-board-wrap { position: relative; }
+.altar-formation .daily-board { width: 100%; }
+.altar-formation [data-occupied] { background: linear-gradient(145deg, #33423e, #1a2428); color: var(--rune-ink); }
+.altar-formation [data-move=from] { border-color: #f0c179; background: #4a3d2f; }
+.altar-formation [data-move=to] { border: 1px dashed #94c8b3; background: #2b4c45; }
+#relic-bench { margin-top: .2rem; padding-top: .2rem; border-top: 1px solid #63766e; }
+#relic-bench > * { aspect-ratio: 1.4; }
+.altar-plan-copy { display: grid; gap: .29rem; color: #e6dfce; font-size: .78rem; line-height: 1.42; }
+#relic-after { color: #f1cc96; }
+#relic-after[data-win=true] { color: #c7e6ae; }
+#relic-gain { color: #bfd4c9; font-size: .72rem; }
+#relic-status { color: #f1bd95; font-size: .77rem; }
+.altar-actions { display: flex; flex-wrap: wrap; gap: .35rem; }
+.altar-actions button { flex: 1 1 auto; min-height: 2.65rem; padding: .25rem .43rem; font-size: .82rem; }
+.altar-actions .primary:enabled { color: #281a10; background: #efbd73; border-color: #f7d69e; }
 @media (min-width: 680px) {
   .celestial-choices { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .altar-option { grid-template-rows: auto 1fr auto; padding: .64rem; }
