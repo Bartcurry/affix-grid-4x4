@@ -232,12 +232,30 @@
           <button id="sound" class="settings-row" type="button" aria-pressed="true">
             <span>游戏音效</span><span class="settings-value" aria-hidden="true"></span>
           </button>
+          <button id="appearance-open" class="settings-row" type="button" aria-haspopup="dialog">
+            <span>棋盘外观</span><span id="appearance-current" class="settings-value"></span>
+          </button>
           <button id="help" class="settings-row" type="button" aria-haspopup="dialog">
             <span>玩法说明</span><span aria-hidden="true">›</span>
           </button>
           <button id="support" class="settings-row" type="button" title="请作者喝可乐">
             <span>支持作者</span><span aria-hidden="true">›</span>
           </button>
+        </div>
+      </dialog>
+
+      <dialog id="appearance-dialog" class="appearance-dialog" aria-labelledby="appearance-title">
+        <div class="dialog-content">
+          <header class="hud-dialog-heading">
+            <h2 id="appearance-title">棋盘外观</h2>
+            <form method="dialog"><button id="appearance-close" type="submit" aria-label="关闭棋盘外观">×</button></form>
+          </header>
+          <div id="appearance-choices" class="appearance-choices" role="group" aria-label="预览棋盘外观"></div>
+          <div class="appearance-stage">
+            <canvas id="appearance-preview" aria-label="棋盘预览"></canvas>
+            <div><h3 id="appearance-name"></h3><p id="appearance-hint"></p></div>
+          </div>
+          <button id="appearance-equip" class="primary" type="button"></button>
         </div>
       </dialog>
 
@@ -310,6 +328,7 @@
             <span id="daily-next-copy"></span>
             <button id="daily-next-action" type="button"></button>
           </div>
+          <button id="daily-appearance" class="puzzle-appearance" type="button" aria-haspopup="dialog" hidden>预览寒玉棋盘</button>
           <div class="daily-footer">
             <span id="daily-share-status" role="status">每天北京时间零点换题</span>
             <button id="daily-copy" type="button">复制挑战</button>
@@ -391,6 +410,7 @@
             <button id="drill-check" class="primary" type="button">试打</button>
           </div>
           <button id="drill-next" type="button" hidden>下一关</button>
+          <button id="drill-appearance" class="puzzle-appearance" type="button" aria-haspopup="dialog" hidden>预览青玉棋盘</button>
         </div>
       </dialog>
 

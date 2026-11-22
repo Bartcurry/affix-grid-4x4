@@ -1,4 +1,5 @@
 import { battleTargetFor } from '../core/bounties';
+import { boardThemes, type BoardThemeId } from '../core/boardThemes';
 import { runeAt } from '../core/shopEngine';
 import { runeFootprint } from '../core/tactics';
 import type { BattleEvent, Catalog, Rune, Run, RuneState, Slot, TileModifier } from '../core/types';
@@ -108,6 +109,7 @@ export class CanvasRenderer {
   private pulseAt = -1000;
   private size = { x: 0, y: 0, scale: 1 };
   private comboCount = 0;
+  private theme: (typeof boardThemes)[BoardThemeId] = boardThemes.obsidian;
   private activeScanSlot: Slot | null = null;
   private bossGate?: number;
   get currentScanSlot(): Slot | null { return this.activeScanSlot; }
@@ -121,7 +123,8 @@ export class CanvasRenderer {
   constructor(
     readonly canvas: HTMLCanvasElement,
     private run: Run,
-    private readonly catalog: Catalog
+    private readonly catalog: Catalog,
+    private readonly preview = false,
   ) {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas 2D unavailable');
@@ -137,6 +140,12 @@ export class CanvasRenderer {
   setRun(run: Run) {
     this.landings.clear();
     this.run = run;
+    this.invalidate();
+  }
+
+  setTheme(id: BoardThemeId) {
+    if (this.theme === boardThemes[id]) return;
+    this.theme = boardThemes[id];
     this.invalidate();
   }
 
@@ -500,7 +509,7 @@ export class CanvasRenderer {
     }
 
     // 4. 底部回收槽（暗金内凹托槽）
-    this.drawSellSlot(now);
+    if (!this.preview) this.drawSellSlot(now);
 
     // 5. 动画层（光幕、贝塞尔连锁光弧、伤害飘字、升星星芒）
     this.animations = this.animations.filter(
@@ -562,19 +571,19 @@ export class CanvasRenderer {
 
     // 4x4 外框漆石基座
     const boardGrad = ctx.createLinearGradient(BOARD.x, BOARD.y, BOARD.x, BOARD.y + BOARD.height);
-    boardGrad.addColorStop(0, '#131722');
-    boardGrad.addColorStop(1, '#0b0e14');
+    boardGrad.addColorStop(0, this.theme.frame[0]);
+    boardGrad.addColorStop(1, this.theme.frame[1]);
 
     ctx.save();
     ctx.fillStyle = boardGrad;
-    ctx.strokeStyle = this.waveComplete ? '#fde047' : '#785a28';
+    ctx.strokeStyle = this.waveComplete ? '#fde047' : this.theme.trim;
     ctx.lineWidth = 1.5;
     this.roundRect(BOARD.x, BOARD.y, BOARD.width, BOARD.height, 8);
     ctx.fill();
     ctx.stroke();
 
     // 内嵌微弱金边框
-    ctx.strokeStyle = '#d4af3726';
+    ctx.strokeStyle = this.theme.accent[0] + '26';
     ctx.lineWidth = 1;
     this.roundRect(BOARD.x + 4, BOARD.y + 4, BOARD.width - 8, BOARD.height - 8, 6);
     ctx.stroke();
@@ -589,7 +598,7 @@ export class CanvasRenderer {
       { x: BOARD.x + 8, y: BOARD.y + BOARD.height - 8 },
       { x: BOARD.x + BOARD.width - 8, y: BOARD.y + BOARD.height - 8 },
     ];
-    ctx.strokeStyle = this.waveComplete ? '#fde047' : '#d4af37';
+    ctx.strokeStyle = this.waveComplete ? '#fde047' : this.theme.accent[0];
     ctx.lineWidth = 1.2;
     for (const { x, y } of corners) {
       ctx.beginPath();
@@ -598,7 +607,7 @@ export class CanvasRenderer {
       ctx.lineTo(x + 3, y);
       ctx.lineTo(x, y + 3);
       ctx.closePath();
-      ctx.fillStyle = '#1e160a';
+      ctx.fillStyle = this.theme.frame[1];
       ctx.fill();
       ctx.stroke();
     }
@@ -669,7 +678,8 @@ export class CanvasRenderer {
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(angle);
-    ctx.strokeStyle = `rgba(212, 175, 55, ${alpha})`;
+    ctx.strokeStyle = this.theme.accent[0];
+    ctx.globalAlpha = alpha;
     ctx.lineWidth = 1;
 
     // 同心星轨圆环
@@ -722,15 +732,15 @@ export class CanvasRenderer {
       bounds.y + bounds.height / 2,
       bounds.width * 0.7
     );
-    slotGrad.addColorStop(0, '#1a2025');
-    slotGrad.addColorStop(1, '#0e1218');
+    slotGrad.addColorStop(0, this.theme.well[0]);
+    slotGrad.addColorStop(1, this.theme.well[1]);
 
     ctx.fillStyle = slotGrad;
     this.roundRect(bounds.x, bounds.y, bounds.width, bounds.height, 5);
     ctx.fill();
 
     // 细微凹槽内阴影边
-    ctx.strokeStyle = '#3c3934';
+    ctx.strokeStyle = this.theme.groove;
     ctx.lineWidth = 1;
     this.roundRect(bounds.x, bounds.y, bounds.width, bounds.height, 5);
     ctx.stroke();
@@ -777,7 +787,7 @@ export class CanvasRenderer {
       this.drawCornerBrackets(bounds, 7, '#f59e0b');
     } else if (isBoard) {
       // 普通空格：极淡准星刻线
-      this.drawCornerBrackets(bounds, 5, '#334155');
+      this.drawCornerBrackets(bounds, 5, this.theme.mark);
     }
 
     ctx.restore();

@@ -2,6 +2,7 @@
 import './style.css';
 import { simulateBattle } from './core/battleEngine';
 import { battleTargetFor, bountyCount, bountyPerkLabel, engravingPower, offersBounties } from './core/bounties';
+import { boardThemes, type BoardThemeId } from './core/boardThemes';
 import { claimEngraving } from './core/engraving';
 import { findFirstSupply } from './core/firstSupply';
 import { claimCamp } from './core/endlessCamp';
@@ -28,6 +29,7 @@ import { bindDragDrop } from './render/dragDrop';
 import { bindUpgradeBook } from './render/upgradeBook';
 import { bindChallengeRoom, bindShareRoom } from './render/challengeRoom';
 import { bindDailyRoom } from './render/dailyRoom';
+import { bindAppearanceRoom } from './render/appearanceRoom';
 import { bindDrillRoom } from './render/drillRoom';
 import { bindWeeklyRelay } from './render/weeklyRelayRoom';
 import { bindScoreShareRoom } from './render/scoreShareRoom';
@@ -49,6 +51,7 @@ import { PlaybackController, type PlaybackBeat } from './render/playbackControll
 import { SynthAudio } from './audio/synthAudio';
 import { migrateSave, WebMockAdapter } from './platform/webMockAdapter';
 import { archiveBoard, updateArchive } from './platform/runArchive';
+import { appearanceKey, createAppearance } from './platform/appearance';
 import { runePlacement } from './data/tacticalTips';
 import { formationLessons } from './data/formationLessons';
 import type { RunArchive } from './platform/adapter';
@@ -94,7 +97,8 @@ const createPlatform = (key?: string) => new WebMockAdapter(catalog, element('ad
 const platform = createPlatform(challenge ? challengeSaveKey(challenge) : undefined);
 const loaded = platform.load(!sideLanding);
 const saved = challenge && loaded && !matchesChallenge(loaded.run, challenge) ? null : loaded;
-const mainRun = challenge && !saved ? createPlatform().load(false)?.run : undefined;
+const mainSave = challenge ? createPlatform().load(false) : loaded;
+const mainRun = challenge && !saved ? mainSave?.run : undefined;
 const matchingMain = challenge && mainRun && matchesChallenge(mainRun, challenge) ? mainRun : undefined;
 let challengeEntered = !challenge;
 
@@ -107,7 +111,8 @@ const recordsFor = (difficulty: Run['difficulty']) => difficulty === 'expert' ? 
 let history: RunArchive[] = saved?.history ?? [];
 let forecast: ReturnType<typeof planTurn> | null = null;
 let placement: ReturnType<typeof planTurn> | null = null;
-let skin = saved?.skin ?? false;
+const appearance = createAppearance(!!(saved?.skin || mainSave?.skin));
+let appliedTheme: BoardThemeId | undefined;
 let exactForecast = saved?.exactForecast ?? false;
 let trackedUpgrade = saved?.trackedUpgrade;
 audio.muted = saved?.muted ?? false;
@@ -142,7 +147,7 @@ const persist = () => {
   platform.save({
     schemaVersion: 2,
     run,
-    skin,
+    skin: appearance.read().unlocked.has('violet'),
     muted: audio.muted,
     speed: player.speed,
     exactForecast,
@@ -197,8 +202,9 @@ function iconPath(owner: HTMLElement, pathData: string) {
 const emptyIcon = 'M16 3l13 13-13 13L3 16 16 3Zm0 6v14m-7-7h14';
 const runeGlyph = (node: HTMLElement, id: string) => iconPath(node, runeVectors[id] ?? emptyIcon);
 const scoreShare = bindScoreShareRoom(catalog, click);
-const daily = bindDailyRoom(catalog, runeGlyph, click, scoreShare.puzzle);
-const openDrills = bindDrillRoom(catalog, runeGlyph, click);
+const daily = bindDailyRoom(catalog, runeGlyph, click, scoreShare.puzzle, () => appearance.unlock('frost'));
+const drillsRoom = bindDrillRoom(catalog, runeGlyph, click, () => appearance.unlock('jade'));
+const showAppearance = bindAppearanceRoom(catalog, appearance, click, syncAppearance);
 const relay = bindWeeklyRelay(catalog, runeGlyph, click, scoreShare.puzzle);
 const boardTrial = bindBoardTrial(catalog, runeGlyph, formatNumber, click);
 const showPurchase = bindPurchaseRoom(catalog, runeGlyph, click);
@@ -299,7 +305,9 @@ const reviewLast = () => showJournal(run.lastJournal);
 button('journal-open').onclick = () => { if (phase === 'ARRANGE') { click(); reviewLast(); } };
 const openDaily = () => { if (phase === 'ARRANGE') { click(); daily.open(); } };
 button('daily-open').onclick = button('opening-daily').onclick = openDaily;
-button('drill-open').onclick = button('opening-drills').onclick = () => { if (phase === 'ARRANGE') openDrills(); };
+button('drill-open').onclick = button('opening-drills').onclick = () => { if (phase === 'ARRANGE') drillsRoom.open(); };
+button('daily-appearance').onclick = () => openAppearance('frost');
+button('drill-appearance').onclick = () => openAppearance('jade');
 button('relay-open').onclick = button('opening-relay').onclick = () => { click(); relay.open(); };
 const updateUpgrades = bindUpgradeBook(catalog, runeGlyph, formatNumber,
   id => { trackedUpgrade = id; click(); redraw(); },
@@ -605,8 +613,23 @@ function inspect() {
 
 function select(slot: Slot | null) { shopInspect = null; inspectorOpen = false; renderer.selection = slot; inspect(); }
 
+function syncAppearance() {
+  const { selected } = appearance.read();
+  if (appliedTheme === selected) return;
+  appliedTheme = selected;
+  renderer.setTheme(selected);
+  game.dataset.boardTheme = selected;
+  const [primary, bright, dark] = boardThemes[selected].accent;
+  const properties = { '--gold-primary': primary, '--gold-bright': bright, '--gold-dark': dark, '--gold-glow': primary + '4d' };
+  for (const [key, color] of Object.entries(properties)) {
+    if (selected === 'obsidian') game.style.removeProperty(key);
+    else game.style.setProperty(key, color);
+  }
+  element('appearance-current').textContent = boardThemes[selected].name;
+}
+
 function syncControls() {
-  game.classList.toggle('skin', skin);
+  syncAppearance();
   game.dataset.phase = phase.toLowerCase();
   button('sound').setAttribute('aria-pressed', String(!audio.muted));
   button('ambient').setAttribute('aria-pressed', String(!audio.ambientMuted));
@@ -1298,6 +1321,7 @@ function showOutcome(archive = true) {
     retryScout.open(failed, preserve => { click(); void retry(preserve, true); });
   } else if (run.status !== 'active') {
     const won = run.status === 'victory';
+    const earnedCopper = won && runScore(run).cleared >= 20 && appearance.unlock('copper');
     if (archive) recordRunHistory(run);
     if (won) {
       renderer.spawnVictoryCelebration();
@@ -1339,6 +1363,7 @@ function showOutcome(archive = true) {
         : { label: '新开一局', act: () => openOpenings(), primary: !won },
     ];
     if (challenge) actions.push({ label: '回主线', act: leaveChallenge });
+    if (won && runScore(run).cleared >= 20) actions.push({ label: '预览赤铜棋盘', act: () => openAppearance('copper') });
     if (won) actions.unshift({ label: '继续无尽模式', primary: true, act: () => {
       dialog.close();
       const prng = createMulberry32(run.rngState);
@@ -1347,6 +1372,7 @@ function showOutcome(archive = true) {
       resetTimeline(); redraw(); showOutcome();
     } });
     const details = [difficultyLabel(run.difficulty), won ? '战役通关' : `止步第 ${formatNumber(run.wave)} 波`];
+    if (earnedCopper) details.push('解锁赤铜棋盘');
     if (run.bountyRule) details.push(`悬赏 ${run.bountiesCleared ?? 0} / ${bountyCount}`);
     details.push(`种子 ${run.seed}`);
     showPanel(finale ? '闭门王已击破' : won ? '廿重劫尽 · 大获全胜' : '灵气耗竭 · 护盾归零',
@@ -1543,6 +1569,19 @@ button('inspect-jump').onclick = () => {
 };
 button('board-jump').onclick = () => { click(); element('arena').focus(); };
 button('settings-open').onclick = () => { click(); settingsDialog.showModal(); };
+button('appearance-open').onclick = () => openAppearance();
+window.addEventListener('storage', event => { if (event.key === appearanceKey) syncAppearance(); });
+
+function openAppearance(preferred?: BoardThemeId) {
+  click();
+  const { unlocked } = appearance.read();
+  if (!unlocked.has('jade') && drillsRoom.hasCleared()) appearance.unlock('jade');
+  if (!unlocked.has('frost') && daily.hasMastery()) appearance.unlock('frost');
+  if (!unlocked.has('copper') && [records, beginnerRecords, expertRecords, mainSave?.records, mainSave?.beginnerRecords, mainSave?.expertRecords]
+    .some(entry => entry && Object.values(entry).some(score => score.cleared >= 20))) appearance.unlock('copper');
+  showAppearance(run, preferred);
+}
+
 button('sound').onclick = () => { audio.muted = !audio.muted; click(); syncControls(); persist(); };
 button('reward').onclick = async () => {
   click();
@@ -1552,7 +1591,10 @@ button('support').onclick = async () => {
   click();
   settingsDialog.close();
   if (await platform.showRewardedVideo('support')) {
-    skin = true; redraw(); showPanel('谢谢这瓶可乐', '送你一套紫铜配色。下次打开游戏还在。', [{ label: '回棋盘', primary: true, act: () => dialog.close() }], true);
+    appearance.unlock('violet');
+    appearance.equip('violet');
+    redraw();
+    showPanel('谢谢这瓶可乐', '紫铜棋盘已启用。你可以随时在设置里更换。', [{ label: '回棋盘', primary: true, act: () => dialog.close() }], true);
   }
 };
 button('help').onclick = () => {

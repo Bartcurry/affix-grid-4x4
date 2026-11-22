@@ -9,7 +9,7 @@ import { bindPuzzleReplay } from './puzzleReplay';
 
 const storageKey = 'affix-grid-4x4.drills.v1';
 
-export function bindDrillRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: string) => void, click: () => void) {
+export function bindDrillRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: string) => void, click: () => void, unlockAppearance: () => boolean) {
   const dialog = document.querySelector<HTMLDialogElement>('#drill-dialog')!;
   const get = <T extends HTMLElement = HTMLElement>(name: string) => dialog.querySelector<T>(`#drill-${name}`)!;
   const board = get('board');
@@ -68,6 +68,7 @@ export function bindDrillRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     const best = records.get(active);
     const mastered = drills.filter((drill, index) => records.get(index)?.moves === drill.par).length;
     get('progress').textContent = `已过 ${records.size}/${drills.length} · 最少步 ${mastered}/${drills.length}`;
+    get('appearance').hidden = records.size !== drills.length;
     get('best').textContent = best ? `个人最佳 ${best.moves} 步 · ${format(best.damage)} 伤害` : '';
     tabs.forEach(({ button, badge }, index) => {
       const record = records.get(index);
@@ -194,10 +195,11 @@ export function bindDrillRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     keep(active, { moves: moves.length, damage: result.damage });
     try { localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries([...records].map(([index, score]) => [drills[index].id, score])))); } catch {}
     progress();
-    message(`${moves.length === puzzle.par ? '最少步过关' : `${moves.length} 步过关`} · ${format(result.damage)} 伤害。`, true);
+    const earned = records.size === drills.length && unlockAppearance();
+    message(`${moves.length === puzzle.par ? '最少步过关' : `${moves.length} 步过关`} · ${format(result.damage)} 伤害。${earned ? ' 解锁青玉棋盘。' : ''}`, true);
   };
 
-  return () => {
+  function open() {
     if (dialog.open) return;
     click();
     load();
@@ -211,5 +213,6 @@ export function bindDrillRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     dialog.showModal();
     get('title').focus({ preventScroll: true });
     dialog.scrollTop = 0;
-  };
+  }
+  return { open, hasCleared() { load(); return records.size === drills.length; } };
 }

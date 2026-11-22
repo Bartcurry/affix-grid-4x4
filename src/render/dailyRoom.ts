@@ -12,7 +12,7 @@ import type { PuzzleShareCard } from './puzzleShareCard';
 const storageKey = 'affix-grid-4x4.daily.v2';
 
 export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: string) => void, click: () => void,
-  shareCard: (card: PuzzleShareCard) => void) {
+  shareCard: (card: PuzzleShareCard) => void, unlockAppearance: () => boolean) {
   const dialog = document.querySelector<HTMLDialogElement>('#daily-dialog')!;
   const get = <T extends HTMLElement = HTMLElement>(id: string) => dialog.querySelector<T>(`#daily-${id}`)!;
   const board = get('board');
@@ -67,6 +67,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     get('draft').textContent = savedDraft ? '草稿已保存' : '草稿留在当前页面';
     const best = dailyInviteScore(puzzle, records.get(puzzle.day));
     get('goals').hidden = !best;
+    get('appearance').hidden = true;
     get('card').hidden = !best;
     goalButtons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.goal === goal)));
     get('hint').textContent = goal === 'peak' ? '伤害提示' : '提示';
@@ -78,6 +79,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     duel.hidden = !friend || !best;
     if (!best) return;
     const mastery = dailyMastery(puzzle, best);
+    get('appearance').hidden = !mastery.complete;
     const peak = best.peakDamage ?? best.damage;
     get('fast-seal').hidden = !mastery.fast;
     get('peak-seal').hidden = !mastery.peak;
@@ -336,6 +338,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     if (attempt.damage === puzzle.peakDamage) text += ' 已达到伤害上限。';
     else if (goal === 'peak') text += ` 距伤害上限还差 ${puzzle.peakDamage - attempt.damage} 点。`;
     else if (!perfect) text += ` 步数满分是 ${puzzle.par} 步、${puzzle.targetDamage} 伤害。`;
+    if (dailyMastery(puzzle, records.get(puzzle.day)).complete && unlockAppearance()) text += ' 解锁寒玉棋盘。';
     message(text, true);
   };
   get('copy').onclick = async () => {
@@ -377,5 +380,14 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     stats();
     renderArchive();
   });
-  return { open, dialog };
+  return {
+    open, dialog,
+    hasMastery() {
+      loadRecords();
+      return [...records.entries()].reverse().some(([day, score]) => {
+        const candidate = dailyPuzzle(day, catalog);
+        return candidate && dailyMastery(candidate, score).complete;
+      });
+    },
+  };
 }
