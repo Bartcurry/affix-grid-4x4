@@ -23,8 +23,8 @@ export function bindRetryScout(catalog: Catalog, click: () => void,
     spend.setAttribute('aria-pressed', String(!preserve));
     const result = preserve ? guarded : exposed;
     nextButton.dataset.ready = String(!!result?.win);
-    nextButton.textContent = result?.win ? preserve ? '看广告保盾并重打' : '扣 1 盾并重打' : '自动找换位';
-    nextButton.setAttribute('aria-haspopup', !result?.win || preserve ? 'dialog' : 'false');
+    nextButton.textContent = result?.win ? preserve ? '保盾并重打' : '扣 1 盾并重打' : '自动找换位';
+    nextButton.setAttribute('aria-haspopup', result?.win ? 'false' : 'dialog');
   }
 
   function describe(button: HTMLButtonElement, shield: number, preserve: boolean) {

@@ -184,7 +184,6 @@
             </div>
             <div class="market-actions">
               <button type="button" id="refresh" class="btn-refresh">刷新 · 2 金</button>
-              <button type="button" id="reward" class="btn-reward" title="看广告换两次刷新">看广告+2</button>
             </div>
           </div>
           <div class="shop-tools">
@@ -240,8 +239,8 @@
           <button id="help" class="settings-row" type="button" aria-haspopup="dialog">
             <span>入门指引</span><span aria-hidden="true">›</span>
           </button>
-          <button id="support" class="settings-row" type="button" title="请作者喝可乐">
-            <span>支持作者</span><span aria-hidden="true">›</span>
+          <button id="violet-theme" class="settings-row" type="button" aria-haspopup="dialog">
+            <span>启用紫铜外观</span><span aria-hidden="true">›</span>
           </button>
         </div>
       </dialog>
@@ -1219,16 +1218,6 @@
         </div>
       </dialog>
 
-      <!-- 弹窗：模拟激励广告 -->
-      <dialog id="ad">
-        <div class="dialog-content">
-          <h2>神识参悟</h2>
-          <p id="ad-text" role="status"></p>
-          <div class="dialog-actions">
-            <button id="cancel-ad" type="button">取消</button>
-          </div>
-        </div>
-      </dialog>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

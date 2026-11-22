@@ -8,12 +8,11 @@ import { isOpening, openingIds, type RunRecords } from '../core/openings';
 import { createMulberry32, decodeSeed, generateSeedCode } from '../core/rng';
 import type { Catalog, OpeningId, Run, Slots, TileModifierMap } from '../core/types';
 import { catalog as defaultCatalog } from '../data/catalog';
-import type { PlatformAdapter, Reward, RunArchive, SaveData } from './adapter';
+import type { PlatformAdapter, RunArchive, SaveData } from './adapter';
 import { archiveBoard, archiveLimit } from './runArchive';
 
 const SAVE_KEY_V2 = 'affix-grid-4x4.v2';
 const SAVE_KEY_V1 = 'affix-grid-4x4.v1';
-const rewardLabels: Record<Reward, string> = { refresh: '获得 2 次免费刷新', retry: '保留护盾并重新布阵', support: '解锁霓虹边框彩蛋' };
 const natural = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 const damageCount = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value >= 0;
 
@@ -214,10 +213,8 @@ export function migrateSave(raw: unknown, catalog: Catalog = defaultCatalog): Sa
   }
 }
 
-export class WebMockAdapter implements PlatformAdapter {
-  constructor(private readonly catalog: Catalog, private readonly ad: HTMLDialogElement, private readonly adText: HTMLElement,
-    private readonly cancelButton: HTMLButtonElement,
-    private readonly saveKey = SAVE_KEY_V2) {}
+export class WebSaveAdapter implements PlatformAdapter {
+  constructor(private readonly catalog: Catalog, private readonly saveKey = SAVE_KEY_V2) {}
 
   load(saveMigration = true): SaveData | null {
     try {
@@ -244,25 +241,5 @@ export class WebMockAdapter implements PlatformAdapter {
     } catch {
       return;
     }
-  }
-
-  showRewardedVideo(reward: Reward): Promise<boolean> {
-    if (this.ad.open) return Promise.resolve(false);
-    return new Promise(resolve => {
-      const finish = (completed: boolean) => {
-        clearTimeout(timer);
-        this.cancelButton.removeEventListener('click', cancel);
-        this.ad.removeEventListener('cancel', escape);
-        this.ad.close();
-        resolve(completed);
-      };
-      const cancel = () => finish(false);
-      const escape = (event: Event) => { event.preventDefault(); cancel(); };
-      this.adText.textContent = `1 秒后${rewardLabels[reward]}。模拟广告，无外部请求。`;
-      this.cancelButton.addEventListener('click', cancel);
-      this.ad.addEventListener('cancel', escape);
-      this.ad.showModal();
-      const timer = setTimeout(() => finish(true), 1000);
-    });
   }
 }

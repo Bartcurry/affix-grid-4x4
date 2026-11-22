@@ -961,14 +961,6 @@ button:focus-visible, canvas:focus-visible {
   background: #241c10;
 }
 
-.btn-reward {
-  font-size: 0.62rem;
-  padding: 0.12rem 0.28rem;
-  min-height: 1.55rem;
-  color: #94a3b8;
-  border-color: #475569;
-}
-
 .offers {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2379,7 +2371,7 @@ dialog::backdrop {
   .market-title {
     font-size: 0.74rem;
   }
-  .btn-refresh, .btn-reward {
+  .btn-refresh {
     min-height: 1.4rem;
     font-size: 0.6rem;
     padding: 0.08rem 0.25rem;

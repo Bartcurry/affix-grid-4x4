@@ -41,10 +41,7 @@ export interface SaveData {
   ambientMuted?: boolean;
 }
 
-export type Reward = 'refresh' | 'retry' | 'support';
-
 export interface PlatformAdapter {
   load(): SaveData | null;
   save(data: SaveData): void;
-  showRewardedVideo(reward: Reward): Promise<boolean>;
 }

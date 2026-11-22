@@ -52,7 +52,7 @@ import { bindRelicRoom } from './render/relicRoom';
 import { renderOpeningPreview } from './render/openingPreview';
 import { PlaybackController, type PlaybackBeat } from './render/playbackController';
 import { SynthAudio } from './audio/synthAudio';
-import { migrateSave, WebMockAdapter } from './platform/webMockAdapter';
+import { migrateSave, WebSaveAdapter } from './platform/webMockAdapter';
 import { archiveBoard, updateArchive } from './platform/runArchive';
 import { appearanceKey, createAppearance } from './platform/appearance';
 import { runePlacement } from './data/tacticalTips';
@@ -96,7 +96,7 @@ const fromDailyPage = isDailyPage(location.pathname);
 const dailyPageLanding = fromDailyPage && !challenge && !sharedBoard && !sharedRelay;
 let sideLanding = !!(sharedDaily || dailyPageLanding || sharedBoard || sharedRelay);
 let appliedSharedBoard = false;
-const createPlatform = (key?: string) => new WebMockAdapter(catalog, element('ad'), element('ad-text'), button('cancel-ad'), key);
+const createPlatform = (key?: string) => new WebSaveAdapter(catalog, key);
 const platform = createPlatform(challenge ? challengeSaveKey(challenge) : undefined);
 const loaded = platform.load(!sideLanding);
 const saved = challenge && loaded && !matchesChallenge(loaded.run, challenge) ? null : loaded;
@@ -702,7 +702,6 @@ function syncControls() {
   const focus = element<HTMLSelectElement>('shop-focus');
   focus.value = run.shopFocus;
   focus.disabled = !arranging();
-  button('reward').disabled = !arranging();
   button('share-open').disabled = phase === 'PLAYBACK';
   button('journal-open').hidden = !run.lastJournal || phase === 'PLAYBACK';
   button('shorts-open').disabled = phase === 'PLAYBACK';
@@ -1140,7 +1139,6 @@ function showPanel(title: string, text: string, actions: Action[], dismissible =
 
 dialog.addEventListener('cancel', event => { if (!dialogDismissible) event.preventDefault(); });
 dialog.setAttribute('aria-labelledby', 'panel-title');
-element('ad').setAttribute('aria-label', '模拟激励视频');
 
 function resetTimeline() {
   clearTimeout(victoryTimer);
@@ -1364,16 +1362,10 @@ function showOutcome(archive = true) {
   if (run.pendingCamp) { showEndlessCamp(run); return; }
   if (run.pendingLoss) {
     const failed = run;
-    const retry = async (protectedRetry: boolean, quick = false) => {
+    const retry = (protectedRetry: boolean, quick = false) => {
       if (run !== failed || !run.pendingLoss || (quick && !protectedRetry && run.shield <= 1)) return;
       const savedRun = platform.load(false)?.run;
       if (savedRun && (!savedRun.pendingLoss || !sameBattleSetup(savedRun, run) || !sameFormation(savedRun, run))) {
-        retryScout.changed();
-        return;
-      }
-      const checkpoint = JSON.stringify(savedRun);
-      if (protectedRetry && !await platform.showRewardedVideo('retry')) return;
-      if (run !== failed || !run.pendingLoss || JSON.stringify(platform.load(false)?.run) !== checkpoint) {
         retryScout.changed();
         return;
       }
@@ -1386,10 +1378,10 @@ function showOutcome(archive = true) {
     const enemy = encounters[encounter];
     showPanel(`第 ${run.wave} 波没打过`, `对${enemy.name}打了 ${formatNumber(run.lastDamage)} 点，还差 ${formatNumber(Math.max(0, hp - run.lastDamage))} 点。重打时敌人会回满血。`, [
       ...(run.lastJournal ? [{ label: '看看怎么打的', act: reviewLast }] : []),
-      { label: '看广告 · 无损改阵重打', act: () => retry(true) },
+      { label: '保留护盾，重新布阵', act: () => retry(true) },
       { label: '扣除 1 点护盾', act: () => retry(false) },
     ]);
-    retryScout.open(failed, preserve => { click(); void retry(preserve, true); });
+    retryScout.open(failed, preserve => { click(); retry(preserve, true); });
   } else if (run.status !== 'active') {
     const won = run.status === 'victory';
     const earnedCopper = won && runScore(run).cleared >= 20 && appearance.unlock('copper');
@@ -1646,19 +1638,13 @@ function openAppearance(preferred?: BoardThemeId) {
 }
 
 button('sound').onclick = () => { audio.muted = !audio.muted; click(); syncControls(); persist(); };
-button('reward').onclick = async () => {
-  click();
-  if (arranging() && await platform.showRewardedVideo('refresh')) { run.freeRefreshes += 2; redraw(); notice('获得 2 次免费刷新'); }
-};
-button('support').onclick = async () => {
+button('violet-theme').onclick = () => {
   click();
   settingsDialog.close();
-  if (await platform.showRewardedVideo('support')) {
-    appearance.unlock('violet');
-    appearance.equip('violet');
-    redraw();
-    showPanel('谢谢这瓶可乐', '紫铜棋盘已启用。你可以随时在设置里更换。', [{ label: '回棋盘', primary: true, act: () => dialog.close() }], true);
-  }
+  appearance.unlock('violet');
+  appearance.equip('violet');
+  redraw();
+  showPanel('紫铜棋盘已启用', '可以在设置里的棋盘外观随时更换。', [{ label: '回棋盘', primary: true, act: () => dialog.close() }], true);
 };
 const codexDialog = element<HTMLDialogElement>('codex-dialog');
 let codexRuneFilter = 'all';
