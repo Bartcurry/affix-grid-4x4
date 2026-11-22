@@ -1,7 +1,7 @@
 # 《词条法阵》TapTap 上架文件
 
-- [H5 游戏包](./affix-grid-4x4-taptap-h5.zip)上传到「游戏包体」。解压后的入口是 `game/index.html`，构建自 `9afbdc1`。
-- [商店素材包](./taptap-store-materials.zip)解压后按下表上传。截图和视频使用同一 H5 构建采集。
+- [H5 游戏包](./affix-grid-4x4-taptap-h5.zip)上传到「游戏包体」。解压后的入口是 `game/index.html`，构建自 `50283dd`。
+- [商店素材包](./taptap-store-materials.zip)解压后按下表上传。截图和视频采自上一版 H5 构建 `9afbdc1`。
 
 | 栏目 | 文件 |
 | --- | --- |
