@@ -31,6 +31,8 @@ export function createPuzzleDraftStore(mode: 'daily' | 'drill') {
   }
 
   return {
+    isStorageKey(key: string | null) { return key?.startsWith(prefix) ?? false; },
+
     load(id: string, puzzle: RunePuzzle) {
       const stored = read(id);
       if (!stored || stored.signature !== signature(puzzle)) return;

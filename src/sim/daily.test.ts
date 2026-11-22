@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { betterDailyRecord, dailyHint, dailyInviteScore, dailyLink, dailyMastery, dailyPuzzle, dailyRouteParam, dailyStreak,
+import { betterDailyRecord, dailyFormation, dailyHint, dailyInviteScore, dailyLink, dailyMastery, dailyPuzzle, dailyRouteParam, dailyStreak,
   encodeDailyRoute, fixedPuzzle, readDailyLink, readDailyRecord, recentDailyDates, replayDailyRoute, runDaily, shanghaiDay, simulateDaily } from '../core/daily';
 import { catalog } from '../data/catalog';
 import { drills } from '../data/drills';
 import { createPuzzleDraftStore } from '../platform/puzzleDrafts';
+import { dailyCalendar } from '../core/dailyCalendar';
 
 function layer(positions: string[][]) {
   const results = new Map<string, string[]>();
@@ -15,6 +16,31 @@ function layer(positions: string[][]) {
   }
   return [...results.values()];
 }
+
+describe('daily calendar', () => {
+  it('keeps launch and future dates unavailable and pages across years and leap months', () => {
+    const today = shanghaiDay(new Date('2026-11-30T16:00:00Z'));
+    const first = dailyCalendar('2026-11', today)!;
+    expect(first.leading).toBe(6);
+    expect(first.previous).toBeUndefined();
+    expect(first.next).toBe('2026-12');
+    expect(first.days.find(day => day.playable)?.day).toBe('2026-11-14');
+    const latest = dailyCalendar('2026-12', today)!;
+    expect(latest.days.filter(day => day.playable).map(day => day.day)).toEqual(['2026-12-01']);
+    expect(latest.next).toBeUndefined();
+    expect(dailyCalendar('2026-10', today)).toBeUndefined();
+    expect(dailyCalendar('2027-01', today)).toBeUndefined();
+    expect(dailyCalendar('2027-01', '2028-02-29')?.previous).toBe('2026-12');
+    expect(dailyCalendar('2028-02', '2028-02-29')?.days).toHaveLength(29);
+  });
+
+  it('previews the actual subject without generating a new variant of an older puzzle', () => {
+    for (const day of ['2026-11-14', '2026-11-21', '2026-11-22', '2026-12-15']) {
+      expect(dailyFormation(day)).toBe(dailyPuzzle(day, catalog)?.formation);
+    }
+    expect(dailyFormation('2026-11-13')).toBeUndefined();
+  });
+});
 
 describe('permanent drills', () => {
   it.each(drills)('has the stated minimum number of swaps in $id and a working opening hint', ({ formation, par, id }) => {

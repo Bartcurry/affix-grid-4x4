@@ -4,6 +4,7 @@ import { betterDailyRecord, dailyHint, dailyInviteScore, dailyLink, dailyMastery
 import { encounters, relics } from '../core/expedition';
 import type { Catalog } from '../core/types';
 import { createPuzzleDraftStore } from '../platform/puzzleDrafts';
+import { bindDailyBook, type DailyBookProgress } from './dailyBook';
 import { bindDailyFriendRoute } from './dailyFriendRoute';
 import { bindPuzzleReplay } from './puzzleReplay';
 import { drawPuzzleBoard } from './puzzleBoard';
@@ -31,6 +32,11 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
   const goalButtons = [...get('goals').querySelectorAll<HTMLButtonElement>('button[data-goal]')];
   const records = new Map<string, DailyRecord>();
   const drafts = createPuzzleDraftStore('daily');
+  const book = bindDailyBook(day => records.has(day) || drafts.changedAt(day) !== undefined, progressFor, day => {
+    if (!open(day)) return;
+    get('title').focus({ preventScroll: true });
+    dialog.scrollTop = 0;
+  }, click);
   let puzzle: DailyPuzzle;
   let invite: DailyInvite | undefined;
   let friendRoute: ReturnType<typeof replayDailyRoute>;
@@ -95,18 +101,24 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     }
   }
 
+  function progressFor(day: string): DailyBookProgress {
+    const score = records.get(day);
+    const changedAt = drafts.changedAt(day);
+    const current = day === puzzle.day;
+    const target = current ? puzzle : (score || changedAt !== undefined) && dailyPuzzle(day, catalog);
+    const mark = target ? dailyMastery(target, score) : undefined;
+    const draftMoves = !mark?.complete && changedAt !== undefined && target
+      ? (current ? moves.length : drafts.load(day, target)?.moves.length) : undefined;
+    return { score, mark, draftMoves };
+  }
+
   function renderArchive() {
     const today = shanghaiDay();
     const streak = dailyStreak(records, today);
     get('streak').textContent = streak ? `连续解开 ${streak} 期` : '';
     const recent = recentDailyDates(today).map(day => {
-      const best = records.get(day);
-      const changedAt = drafts.changedAt(day);
-      const past = day === puzzle.day ? puzzle : (best || changedAt !== undefined) && dailyPuzzle(day, catalog);
-      const mark = past ? dailyMastery(past, best) : undefined;
-      const draft = !mark?.cleared && changedAt !== undefined && (day === puzzle.day
-        ? moves.length > 0 : past && !!drafts.load(day, past)?.moves.length);
-      return { day, best, mark, draft };
+      const { score: best, mark, draftMoves } = progressFor(day);
+      return { day, best, mark, draft: !mark?.cleared && !!draftMoves };
     });
     const cleared = recent.filter(({ mark }) => mark?.cleared).length;
     const complete = recent.filter(({ mark }) => mark?.complete).length;
@@ -261,6 +273,7 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
   }
 
   get('close').onclick = () => dialog.close();
+  get('book').onclick = () => { click(); loadRecords(); book.open(puzzle.day); };
   friendButton.onclick = () => {
     if (friendButton.hidden || !friendRoute) return;
     click();
@@ -375,10 +388,16 @@ export function bindDailyRoom(catalog: Catalog, glyph: (cell: HTMLElement, id: s
     friendRoute = undefined;
   });
   window.addEventListener('storage', event => {
-    if (!dialog.open || event.key !== storageKey || !event.newValue) return;
-    loadRecords();
-    stats();
-    renderArchive();
+    if (!dialog.open) return;
+    if (event.key === storageKey && event.newValue) {
+      loadRecords();
+      stats();
+      renderArchive();
+      book.refresh();
+    } else if (drafts.isStorageKey(event.key)) {
+      renderArchive();
+      book.refresh();
+    }
   });
   return {
     open, dialog,

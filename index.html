@@ -278,7 +278,10 @@
         <div class="dialog-content">
           <header class="daily-heading">
             <div><p id="daily-date"></p><h2 id="daily-title" tabindex="-1"></h2></div>
-            <button id="daily-close" type="button" aria-label="关闭每日残局">×</button>
+            <div class="daily-heading-actions">
+              <button id="daily-book" type="button" aria-haspopup="dialog">题册</button>
+              <button id="daily-close" type="button" aria-label="关闭每日残局">×</button>
+            </div>
           </header>
           <p id="daily-friend" class="daily-friend" hidden></p>
           <div class="daily-stage">
@@ -342,6 +345,36 @@
             <summary><span id="daily-recent"></span><strong id="daily-streak"></strong></summary>
             <div id="daily-dates" class="daily-dates" role="group" aria-label="选择谜题日期"></div>
           </details>
+        </div>
+      </dialog>
+
+      <dialog id="daily-book-dialog" class="daily-dialog daily-book-dialog" aria-labelledby="daily-book-title">
+        <div class="dialog-content">
+          <header class="daily-heading">
+            <h2 id="daily-book-title">残局题册</h2>
+            <button id="daily-book-close" type="button" aria-label="关闭残局题册">×</button>
+          </header>
+          <div class="daily-book-navigation">
+            <button id="daily-book-previous" type="button" aria-label="上一个月">‹</button>
+            <strong id="daily-book-month" aria-live="polite"></strong>
+            <button id="daily-book-next" type="button" aria-label="下一个月">›</button>
+            <button id="daily-book-today" type="button">今天</button>
+          </div>
+          <div id="daily-book-summary" class="daily-book-summary"></div>
+          <div id="daily-book-filters" class="daily-book-filters" role="group" aria-label="筛选残局">
+            <button type="button" data-filter="all" aria-pressed="true">全部</button>
+            <button type="button" data-filter="open" aria-pressed="false">待解</button>
+            <button type="button" data-filter="mastery" aria-pressed="false">待双满</button>
+            <button type="button" data-filter="draft" aria-pressed="false">有草稿</button>
+          </div>
+          <div class="daily-book-week" aria-hidden="true"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+          <div id="daily-book-days" class="daily-book-days" role="group" aria-label="题目日期，可用方向键选择"></div>
+          <section id="daily-book-detail" class="daily-book-detail" aria-live="polite">
+            <div><p id="daily-book-date"></p><h3 id="daily-book-name"></h3></div>
+            <p id="daily-book-record"></p>
+          </section>
+          <p id="daily-book-empty" role="status" hidden>本月没有符合条件的残局。</p>
+          <button id="daily-book-play" class="primary" type="button">打开这题</button>
         </div>
       </dialog>
 

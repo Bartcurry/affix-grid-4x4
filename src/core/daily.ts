@@ -261,12 +261,21 @@ function choosePuzzle(day: string, formation: Formation, offset: number, separat
   return { day, formation, hp, peakDamage, ...setup, pieces: [...setup.pieces] };
 }
 
-export function dailyPuzzle(day: string, catalog: Catalog): DailyPuzzle | undefined {
+function dailySchedule(day: string) {
   if (!validDailyDate(day)) return;
   const { from, version, formations } = editionFor(day);
   const index = (Date.parse(day) - Date.parse(from)) / dayMs;
   const formationIndex = index % formations.length;
-  return choosePuzzle(day, formations[formationIndex], Math.floor(index / formations.length) + formationIndex * 17, version !== 'v2', catalog);
+  return { formation: formations[formationIndex], offset: Math.floor(index / formations.length) + formationIndex * 17, separateGoals: version !== 'v2' };
+}
+
+export function dailyFormation(day: string) {
+  return dailySchedule(day)?.formation;
+}
+
+export function dailyPuzzle(day: string, catalog: Catalog): DailyPuzzle | undefined {
+  const schedule = dailySchedule(day);
+  if (schedule) return choosePuzzle(day, schedule.formation, schedule.offset, schedule.separateGoals, catalog);
 }
 
 export function fixedPuzzle(formation: Formation, catalog: Catalog): RunePuzzle | undefined {
